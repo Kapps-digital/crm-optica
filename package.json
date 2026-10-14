@@ -7,10 +7,10 @@
     "dev": "npm --prefix cliente run dev",
     "build": "npm --prefix cliente run build",
     "start": "npm --prefix cliente run start",
-    "probar:conexion": "node scripts/probar_conexion_zernio.mjs",
-    "webhook:listar": "node scripts/gestor_webhook.mjs",
-    "webhook:registrar": "node scripts/gestor_webhook.mjs --url",
-    "webhook:probar": "node scripts/gestor_webhook.mjs --probar"
+    "probar:conexion": "node --env-file=.env scripts/probar_conexion_zernio.mjs",
+    "webhook:listar": "node --env-file=.env scripts/gestor_webhook.mjs",
+    "webhook:registrar": "node --env-file=.env scripts/gestor_webhook.mjs --url",
+    "webhook:probar": "node --env-file=.env scripts/gestor_webhook.mjs --probar"
   },
   "keywords": [
     "crm",
