@@ -1,4 +1,4 @@
-import { ClienteZernio } from '../servicios/cliente_zernio.mjs';
+import { ClienteZernio } from '../cliente/src/backend/servicios/cliente_zernio.mjs';
 
 async function probar_conexion() {
   console.log('==============================================');

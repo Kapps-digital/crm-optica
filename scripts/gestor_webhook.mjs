@@ -9,7 +9,7 @@
  *   node scripts/gestor_webhook.mjs --url <URL> --probar -> Dispara evento de prueba (webhook.test)
  */
 import 'dotenv/config';
-import { ClienteZernio } from '../servicios/cliente_zernio.mjs';
+import { ClienteZernio } from '../cliente/src/backend/servicios/cliente_zernio.mjs';
 
 const NOMBRE_SUSCRIPCION = 'CRM_Optica_Principal';
 

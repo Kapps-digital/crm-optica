@@ -1,19 +1,13 @@
 {
   "name": "crm-optica",
   "version": "1.0.0",
-  "description": "Sistema CRM para Óptica con integración omnicanal Zernio",
+  "description": "Sistema CRM para Óptica con integración omnicanal Zernio en Next.js y Vercel",
   "type": "module",
-  "main": "servidor.mjs",
   "scripts": {
-    "iniciar": "node servidor.mjs",
-    "dev:backend": "node --watch servidor.mjs",
-    "dev:cliente": "npm --prefix cliente run dev",
-    "tunel": "node scripts/mantener_tunel.mjs",
-    "dev": "concurrently -n \"API,NEXT\" -c \"blue,cyan\" \"npm run dev:backend\" \"npm run dev:cliente\"",
-    "dev:tunel": "concurrently -n \"API,NEXT,TUNEL\" -c \"blue,cyan,magenta\" \"npm run dev:backend\" \"npm run dev:cliente\" \"npm run tunel\"",
-    "build:cliente": "npm --prefix cliente run build",
+    "dev": "npm --prefix cliente run dev",
+    "build": "npm --prefix cliente run build",
+    "start": "npm --prefix cliente run start",
     "probar:conexion": "node scripts/probar_conexion_zernio.mjs",
-    "probar:flujo": "node scripts/probar_flujo_completo.mjs",
     "webhook:listar": "node scripts/gestor_webhook.mjs",
     "webhook:registrar": "node scripts/gestor_webhook.mjs --url",
     "webhook:probar": "node scripts/gestor_webhook.mjs --probar"
@@ -22,19 +16,8 @@
     "crm",
     "optica",
     "zernio",
-    "whatsapp",
-    "instagram"
+    "whatsapp"
   ],
   "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "bcryptjs": "^3.0.3",
-    "dotenv": "^16.4.7",
-    "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3",
-    "pg": "^8.23.1"
-  },
-  "devDependencies": {
-    "concurrently": "^10.0.5"
-  }
+  "license": "ISC"
 }

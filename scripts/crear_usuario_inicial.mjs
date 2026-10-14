@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
-import { pool } from '../base_datos/conexion.mjs';
+import { pool } from '../cliente/src/backend/base_datos/conexion.mjs';
 
 async function crearUsuarios() {
   try {
