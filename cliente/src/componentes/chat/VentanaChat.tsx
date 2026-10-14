@@ -23,12 +23,13 @@ import {
   FileText,
   X,
   Download,
+  Bot,
 } from 'lucide-react';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import type { Conversacion, Mensaje, Contacto, PlantillaWhatsApp, BotonPlantilla } from '@/tipos/crm';
 import { formatearTelefono } from '@/utilidades/formato';
 import { formatearTextoWhatsApp } from '@/utilidades/formato_whatsapp';
-import { obtenerPlantillasYCuota } from '@/servicios/api_crm';
+import { obtenerPlantillasYCuota, alternarIAChatApi } from '@/servicios/api_crm';
 import { ModalAlertaVentana24h } from '../comunes/ModalAlertaVentana24h';
 
 interface PropiedadesVentanaChat {
@@ -460,6 +461,8 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
   const [imagenAmpliadaUrl, setImagenAmpliadaUrl] = useState<string | null>(null);
   const [animandoTransicion, setAnimandoTransicion] = useState(false);
   const [preparandoChat, setPreparandoChat] = useState(false);
+  const [iaChatActiva, setIaChatActiva] = useState(true);
+  const [cambiandoEstadoIA, setCambiandoEstadoIA] = useState(false);
   const contenedorMensajesRef = useRef<HTMLDivElement>(null);
   const idConversacionPrevia = useRef<number | null>(null);
   const longitudMensajesPrevia = useRef<number>(0);
@@ -537,6 +540,30 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
       activo = false;
     };
   }, []);
+
+  // Sincronizar estado de IA del chat actual
+  useEffect(() => {
+    if (conversacion) {
+      const activa = conversacion.ia_activa !== false && !conversacion.ia_pausada_por_humano;
+      setIaChatActiva(activa);
+    }
+  }, [conversacion?.id, conversacion?.ia_activa, conversacion?.ia_pausada_por_humano]);
+
+  const manejarToggleIA = async () => {
+    if (!conversacion?.id || cambiandoEstadoIA) return;
+    const nuevoEstado = !iaChatActiva;
+    setCambiandoEstadoIA(true);
+    try {
+      const res = await alternarIAChatApi(conversacion.id, nuevoEstado);
+      if (res.exito) {
+        setIaChatActiva(nuevoEstado);
+      }
+    } catch (e) {
+      console.error('Error al alternar IA en chat:', e);
+    } finally {
+      setCambiandoEstadoIA(false);
+    }
+  };
 
   const obtenerPlantillaPorTexto = (texto?: string | null): PlantillaWhatsApp | null => {
     if (!texto) return null;
@@ -686,6 +713,43 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
               <AlertTriangle style={{ width: '12px', height: '12px' }} />
               <span>Ventana 24h Expirada</span>
             </div>
+          )}
+
+          {/* Botón de Control Toggle del Agente IA en este chat */}
+          {conversacion && (
+            <EtiquetaTooltip
+              texto={
+                iaChatActiva
+                  ? 'Agente IA respondiendo este chat automáticamente. Haz clic para pausar y tomar control humano.'
+                  : 'Control humano activo (IA pausada en este chat). Haz clic para reactivar las respuestas del Agente IA.'
+              }
+              posicion="abajo"
+            >
+              <button
+                id="btn-chat-toggle-ia"
+                type="button"
+                onClick={manejarToggleIA}
+                disabled={cambiandoEstadoIA}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.35rem 0.68rem',
+                  borderRadius: '16px',
+                  border: iaChatActiva ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid var(--borde-tarjeta)',
+                  background: iaChatActiva ? 'rgba(16, 185, 129, 0.12)' : 'var(--fondo-tarjeta)',
+                  color: iaChatActiva ? '#10b981' : 'var(--texto-atenuado)',
+                  fontSize: '0.73rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  boxShadow: 'var(--sombra-sm)',
+                }}
+              >
+                <Bot style={{ width: '13px', height: '13px', color: iaChatActiva ? '#10b981' : 'var(--texto-atenuado)' }} />
+                <span>{iaChatActiva ? 'IA Activa' : 'Control Humano'}</span>
+              </button>
+            </EtiquetaTooltip>
           )}
 
           {/* Botón para Registrar como Paciente al lado izquierdo de Ver Ficha Clínica */}

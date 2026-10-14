@@ -23,6 +23,14 @@ import {
   UserCheck,
   Award,
   Clock,
+  Bot,
+  Key,
+  Eye,
+  EyeOff,
+  Send,
+  HelpCircle,
+  ShieldAlert,
+  Wand2,
 } from 'lucide-react';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
 import { SelectorColorPopover } from '../comunes/SelectorColorPopover';
@@ -35,8 +43,11 @@ import {
   reconectarCanalWhatsAppApi,
   actualizarDatosOpticaApi,
   subirLogoOpticaApi,
+  obtenerConfiguracionIAApi,
+  guardarConfiguracionIAApi,
+  probarAgenteIAApi,
 } from '@/servicios/api_crm';
-import type { Optica, CuentaCanalWhatsApp } from '@/tipos/crm';
+import type { Optica, CuentaCanalWhatsApp, ConfiguracionIA } from '@/tipos/crm';
 import { formatearTelefono } from '@/utilidades/formato';
 
 interface PropiedadesModuloConfiguracion {
@@ -77,8 +88,26 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
   opticaActual,
   alActualizarOptica,
 }) => {
-  // Pestañas del módulo: 'canales' | 'perfil' | 'citas'
-  const [pestanaActiva, setPestanaActiva] = useState<'canales' | 'perfil' | 'citas'>('canales');
+  // Pestañas del módulo: 'canales' | 'perfil' | 'citas' | 'ia'
+  const [pestanaActiva, setPestanaActiva] = useState<'canales' | 'perfil' | 'citas' | 'ia'>('canales');
+
+  // Estados de Agente IA
+  const [cargandoIA, setCargandoIA] = useState(false);
+  const [guardandoIA, setGuardandoIA] = useState(false);
+  const [iaActiva, setIaActiva] = useState(false);
+  const [iaNombre, setIaNombre] = useState('Sofía - Asistente Óptico');
+  const [iaTono, setIaTono] = useState('cercano');
+  const [iaApiKey, setIaApiKey] = useState('');
+  const [iaModelo, setIaModelo] = useState('gemini-2.0-flash');
+  const [iaInstrucciones, setIaInstrucciones] = useState('');
+  const [iaPreguntasFrecuentes, setIaPreguntasFrecuentes] = useState('');
+  const [mostrarApiKey, setMostrarApiKey] = useState(false);
+
+  // Probador de IA en vivo
+  const [mensajePrueba, setMensajePrueba] = useState('Hola, ¿qué horario de atención tienen y cómo puedo agendar una cita?');
+  const [respuestaPrueba, setRespuestaPrueba] = useState<string | null>(null);
+  const [probandoIA, setProbandoIA] = useState(false);
+  const [errorPrueba, setErrorPrueba] = useState<string | null>(null);
 
   // Estados de Canales
   const [cargandoCanales, setCargandoCanales] = useState(true);
@@ -183,6 +212,31 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
   useEffect(() => {
     cargarEstadoCanales();
   }, [cargarEstadoCanales]);
+
+  // Cargar configuración de IA
+  const cargarConfiguracionIA = useCallback(async () => {
+    setCargandoIA(true);
+    try {
+      const res = await obtenerConfiguracionIAApi();
+      if (res.exito && res.configuracion) {
+        setIaActiva(Boolean(res.configuracion.ia_activa));
+        setIaNombre(res.configuracion.ia_nombre || 'Sofía - Asistente Óptico');
+        setIaTono(res.configuracion.ia_tono || 'cercano');
+        setIaApiKey(res.configuracion.ia_api_key || '');
+        setIaModelo(res.configuracion.ia_modelo || 'gemini-2.0-flash');
+        setIaInstrucciones(res.configuracion.ia_instrucciones || '');
+        setIaPreguntasFrecuentes(res.configuracion.ia_preguntas_frecuentes || '');
+      }
+    } catch (e) {
+      console.error('Error al cargar configuración de IA:', e);
+    } finally {
+      setCargandoIA(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    cargarConfiguracionIA();
+  }, [cargarConfiguracionIA]);
 
   // Escuchar mensaje emitido por el callback de popup
   useEffect(() => {
@@ -675,6 +729,65 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
     }
   };
 
+  const manejarGuardarIA = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setGuardandoIA(true);
+    setMensajeError(null);
+    setMensajeExito(null);
+
+    try {
+      const res = await guardarConfiguracionIAApi({
+        ia_activa: iaActiva,
+        ia_nombre: iaNombre,
+        ia_tono: iaTono,
+        ia_api_key: iaApiKey,
+        ia_modelo: iaModelo,
+        ia_instrucciones: iaInstrucciones,
+        ia_preguntas_frecuentes: iaPreguntasFrecuentes,
+      });
+
+      if (res.exito) {
+        setMensajeExito('¡Configuración del Agente de IA guardada exitosamente!');
+        setTimeout(() => setMensajeExito(null), 4000);
+      } else {
+        setMensajeError(res.error || 'Error al guardar la configuración de IA');
+      }
+    } catch (err: any) {
+      setMensajeError(err.message || 'Error de red al guardar la configuración de IA');
+    } finally {
+      setGuardandoIA(false);
+    }
+  };
+
+  const manejarProbarIA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mensajePrueba.trim()) return;
+    setProbandoIA(true);
+    setRespuestaPrueba(null);
+    setErrorPrueba(null);
+
+    try {
+      const res = await probarAgenteIAApi({
+        mensaje_prueba: mensajePrueba,
+        prompt_personalizado: iaInstrucciones,
+        faq_personalizado: iaPreguntasFrecuentes,
+        tono: iaTono,
+        api_key_prueba: iaApiKey,
+        modelo: iaModelo,
+      });
+
+      if (res.exito && res.respuesta) {
+        setRespuestaPrueba(res.respuesta);
+      } else {
+        setErrorPrueba(res.error || 'No se pudo obtener respuesta del modelo.');
+      }
+    } catch (err: any) {
+      setErrorPrueba(err.message || 'Error al conectar con la API de IA.');
+    } finally {
+      setProbandoIA(false);
+    }
+  };
+
   return (
     <div
       style={{
@@ -774,6 +887,42 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
           >
             <Calendar style={{ width: '16px', height: '16px' }} />
             <span>Parámetros Clínicos & Citas</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPestanaActiva('ia')}
+            style={{
+              padding: '0.45rem 0.25rem 0.7rem',
+              border: 'none',
+              background: 'transparent',
+              fontSize: '0.85rem',
+              fontWeight: pestanaActiva === 'ia' ? 700 : 500,
+              color: pestanaActiva === 'ia' ? 'var(--color-primario)' : 'var(--texto-atenuado)',
+              borderBottom: pestanaActiva === 'ia' ? '2.5px solid var(--color-primario)' : '2.5px solid transparent',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Bot style={{ width: '16px', height: '16px' }} />
+            <span>Agente de IA</span>
+            {iaActiva && (
+              <span
+                style={{
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  color: '#10b981',
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  padding: '0.1rem 0.4rem',
+                  borderRadius: '10px',
+                }}
+              >
+                Activo
+              </span>
+            )}
           </button>
         </div>
 
@@ -1572,6 +1721,455 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
               </div>
             </div>
           </form>
+        )}
+
+        {/* PESTAÑA 4: AGENTE DE INTELIGENCIA ARTIFICIAL */}
+        {pestanaActiva === 'ia' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* 1. Tarjeta Cabecera con Interruptor Maestro */}
+            <div
+              style={{
+                background: 'var(--fondo-tarjeta)',
+                border: '1px solid var(--borde-tarjeta)',
+                borderRadius: 'var(--radio-lg)',
+                padding: '1.25rem 1.5rem',
+                boxShadow: 'var(--sombra-sm)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '1rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                <div
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '10px',
+                    background: iaActiva ? 'rgba(16, 185, 129, 0.15)' : 'rgba(2, 132, 199, 0.1)',
+                    color: iaActiva ? '#10b981' : 'var(--color-primario)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Bot style={{ width: '24px', height: '24px' }} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
+                      Agente de Inteligencia Artificial (WhatsApp)
+                    </h3>
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        padding: '0.15rem 0.55rem',
+                        borderRadius: '12px',
+                        background: iaActiva ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 116, 139, 0.15)',
+                        color: iaActiva ? '#10b981' : 'var(--texto-atenuado)',
+                      }}
+                    >
+                      {iaActiva ? 'En línea y respondiendo' : 'Pausado globalmente'}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--texto-atenuado)', margin: '0.15rem 0 0 0' }}>
+                    Atiende automáticamente a tus clientes en WhatsApp, resuelve preguntas frecuentes y agenda citas en el CRM.
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                {/* Switch de Activación */}
+                <button
+                  type="button"
+                  onClick={() => setIaActiva(!iaActiva)}
+                  style={{
+                    padding: '0.45rem 0.95rem',
+                    borderRadius: '20px',
+                    border: iaActiva ? '1px solid #10b981' : '1px solid var(--borde-tarjeta)',
+                    background: iaActiva ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0, 0, 0, 0.05)',
+                    color: iaActiva ? '#10b981' : 'var(--texto-atenuado)',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <Power style={{ width: '14px', height: '14px' }} />
+                  <span>{iaActiva ? 'Agente Activo' : 'Agente Inactivo'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={manejarGuardarIA}
+                  disabled={guardandoIA}
+                  className="btn-pildora-primario"
+                  style={{
+                    padding: '0.45rem 1.15rem',
+                    fontSize: '0.8rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                  }}
+                >
+                  <Save style={{ width: '14px', height: '14px' }} />
+                  <span>{guardandoIA ? 'Guardando...' : 'Guardar Ajustes'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 2. Rejilla de Parámetros y Personalidad */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                gap: '1.25rem',
+              }}
+            >
+              {/* Bloque Izquierdo: Identidad, Tono y Credenciales */}
+              <div
+                style={{
+                  background: 'var(--fondo-tarjeta)',
+                  border: '1px solid var(--borde-tarjeta)',
+                  borderRadius: 'var(--radio-lg)',
+                  padding: '1.25rem 1.5rem',
+                  boxShadow: 'var(--sombra-sm)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1rem',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--borde-tarjeta)', paddingBottom: '0.65rem' }}>
+                  <Wand2 style={{ width: '16px', height: '16px', color: 'var(--color-primario)' }} />
+                  <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
+                    Identidad y Tono de Comunicación
+                  </h4>
+                </div>
+
+                {/* Nombre del Asistente */}
+                <div className="modal-campo-grupo">
+                  <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
+                    Nombre del Asistente Virtual
+                  </label>
+                  <input
+                    type="text"
+                    value={iaNombre}
+                    onChange={(e) => setIaNombre(e.target.value)}
+                    placeholder="Ej: Sofía - Asistente Óptico"
+                    className="modal-input"
+                    style={{ fontSize: '0.8rem' }}
+                  />
+                  <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem' }}>
+                    Nombre con el que se identificará ante los pacientes al saludar.
+                  </span>
+                </div>
+
+                {/* Tono de Comunicación */}
+                <div className="modal-campo-grupo">
+                  <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
+                    Estilo y Tono de Atención
+                  </label>
+                  <SelectorDesplegable
+                    valor={iaTono}
+                    alCambiar={setIaTono}
+                    opciones={[
+                      { valor: 'cercano', etiqueta: 'Cercano, cálido y empático (Recomendado)' },
+                      { valor: 'formal', etiqueta: 'Formal, clínico y profesional' },
+                      { valor: 'comercial', etiqueta: 'Comercial, persuasivo y dinámico' },
+                    ]}
+                    tamano="compacto"
+                    anchoMinimo="100%"
+                  />
+                  <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem' }}>
+                    Define la manera en que el modelo redacta sus oraciones y trata al paciente.
+                  </span>
+                </div>
+
+                {/* Modelo de IA */}
+                <div className="modal-campo-grupo">
+                  <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
+                    Motor de Inteligencia Artificial (Google Gemini)
+                  </label>
+                  <SelectorDesplegable
+                    valor={iaModelo}
+                    alCambiar={setIaModelo}
+                    opciones={[
+                      { valor: 'gemini-2.0-flash', etiqueta: 'Gemini 2.0 Flash (Más rápido, última generación)' },
+                      { valor: 'gemini-1.5-flash', etiqueta: 'Gemini 1.5 Flash (Equilibrado y estable)' },
+                    ]}
+                    tamano="compacto"
+                    anchoMinimo="100%"
+                  />
+                  <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem' }}>
+                    Procesamiento de alta velocidad con temperatura 0.0 determinista.
+                  </span>
+                </div>
+
+                {/* Clave de API Gemini */}
+                <div className="modal-campo-grupo">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
+                      Clave de API Gemini (Opcional)
+                    </label>
+                    <a
+                      href="https://aistudio.google.com/app/apikey"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: '0.68rem', color: 'var(--color-primario)', textDecoration: 'none', fontWeight: 600 }}
+                    >
+                      Obtener clave gratis ↗
+                    </a>
+                  </div>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <Key
+                      style={{
+                        position: 'absolute',
+                        left: '0.75rem',
+                        width: '14px',
+                        height: '14px',
+                        color: 'var(--texto-atenuado)',
+                        pointerEvents: 'none',
+                      }}
+                    />
+                    <input
+                      type={mostrarApiKey ? 'text' : 'password'}
+                      value={iaApiKey}
+                      onChange={(e) => setIaApiKey(e.target.value)}
+                      placeholder="AIzaSy... (Dejar en blanco para usar la del servidor)"
+                      className="modal-input"
+                      style={{ paddingLeft: '2.1rem', paddingRight: '2.2rem', fontSize: '0.78rem' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setMostrarApiKey(!mostrarApiKey)}
+                      style={{
+                        position: 'absolute',
+                        right: '0.6rem',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--texto-atenuado)',
+                        cursor: 'pointer',
+                        padding: '2px',
+                        display: 'flex',
+                      }}
+                      title={mostrarApiKey ? 'Ocultar clave' : 'Mostrar clave'}
+                    >
+                      {mostrarApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem' }}>
+                    Puedes especificar una clave única para esta óptica o usar la predeterminada del sistema.
+                  </span>
+                </div>
+              </div>
+
+              {/* Bloque Derecho: Instrucciones y Preguntas Frecuentes (FAQ) */}
+              <div
+                style={{
+                  background: 'var(--fondo-tarjeta)',
+                  border: '1px solid var(--borde-tarjeta)',
+                  borderRadius: 'var(--radio-lg)',
+                  padding: '1.25rem 1.5rem',
+                  boxShadow: 'var(--sombra-sm)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1rem',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--borde-tarjeta)', paddingBottom: '0.65rem' }}>
+                  <HelpCircle style={{ width: '16px', height: '16px', color: 'var(--color-primario)' }} />
+                  <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
+                    Directrices del Negocio y Preguntas Frecuentes (FAQ)
+                  </h4>
+                </div>
+
+                {/* Instrucciones del Negocio */}
+                <div className="modal-campo-grupo">
+                  <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
+                    Instrucciones y Personalidad del Negocio
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={iaInstrucciones}
+                    onChange={(e) => setIaInstrucciones(e.target.value)}
+                    placeholder="Ejemplo: Somos una óptica con más de 10 años de experiencia especializada en salud visual. Destaca siempre que nuestros exámenes incluyen optometría computarizada y que contamos con laboratorio propio para entrega rápida de gafas..."
+                    className="modal-input"
+                    style={{ fontSize: '0.78rem', resize: 'vertical', lineHeight: '1.4' }}
+                  />
+                  <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem' }}>
+                    Directrices de comportamiento, valores de la marca y cómo orientar al paciente.
+                  </span>
+                </div>
+
+                {/* Base de Conocimiento y FAQ */}
+                <div className="modal-campo-grupo">
+                  <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
+                    Base de Conocimiento y Preguntas Frecuentes (FAQ)
+                  </label>
+                  <textarea
+                    rows={6}
+                    value={iaPreguntasFrecuentes}
+                    onChange={(e) => setIaPreguntasFrecuentes(e.target.value)}
+                    placeholder={`Escribe aquí información clave que el bot debe saber:
+- ¿Cuánto cuesta el examen visual?: Es gratis por la compra de la montura y lentes, o $35.000 para llevar la fórmula.
+- ¿Dónde están ubicados?: Calle 45 # 12-34, cerca a la estación principal.
+- ¿Hacen envíos?: Sí, envíos a domicilio sin costo adicional en el área metropolitana.
+- ¿Qué garantía ofrecen?: 1 año de garantía en monturas y tratamiento antirreflejo.`}
+                    className="modal-input"
+                    style={{ fontSize: '0.78rem', resize: 'vertical', lineHeight: '1.4' }}
+                  />
+                  <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem' }}>
+                    Datos precisos, precios y políticas. La IA solo responderá lo que esté escrito aquí.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Tarjeta de Blindaje de Seguridad Infranqueable */}
+            <div
+              style={{
+                background: 'rgba(2, 132, 199, 0.04)',
+                border: '1px solid rgba(2, 132, 199, 0.25)',
+                borderRadius: 'var(--radio-lg)',
+                padding: '1.1rem 1.4rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.65rem' }}>
+                <ShieldAlert style={{ width: '18px', height: '18px', color: 'var(--color-primario)' }} />
+                <h4 style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
+                  Reglas de Seguridad y Blindaje Infranqueables (Activas por defecto)
+                </h4>
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
+                  gap: '0.85rem',
+                  fontSize: '0.73rem',
+                  color: 'var(--texto-atenuado)',
+                  lineHeight: '1.35',
+                }}
+              >
+                <div>
+                  <strong style={{ color: 'var(--texto-principal)', display: 'block', marginBottom: '0.15rem' }}>
+                    🔒 Temperatura 0.0 Determinista
+                  </strong>
+                  Cero creatividad o alucinación. El agente se limita estrictamente a los hechos registrados en la ficha y en las preguntas frecuentes.
+                </div>
+                <div>
+                  <strong style={{ color: 'var(--texto-principal)', display: 'block', marginBottom: '0.15rem' }}>
+                    🔒 Aislamiento de Base de Datos
+                  </strong>
+                  El agente no tiene acceso SQL ni ve credenciales. El backend sanitiza e inyecta únicamente el texto necesario para responder.
+                </div>
+                <div>
+                  <strong style={{ color: 'var(--texto-principal)', display: 'block', marginBottom: '0.15rem' }}>
+                    🔒 Agendamiento con Validación
+                  </strong>
+                  Solo reserva cupos reales libres dentro del horario laboral ({horaInicioAtencion} a {horaFinAtencion}) evitando duplicados.
+                </div>
+                <div>
+                  <strong style={{ color: 'var(--texto-principal)', display: 'block', marginBottom: '0.15rem' }}>
+                    🔒 Transferencia Humana Inmediata
+                  </strong>
+                  Si el paciente pide un humano o pregunta algo fuera de su conocimiento, pausa la IA en ese chat y transfiere al equipo asesor.
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Probador en Vivo de la IA */}
+            <div
+              style={{
+                background: 'var(--fondo-tarjeta)',
+                border: '1px solid var(--borde-tarjeta)',
+                borderRadius: 'var(--radio-lg)',
+                padding: '1.25rem 1.5rem',
+                boxShadow: 'var(--sombra-sm)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <Sparkles style={{ width: '17px', height: '17px', color: 'var(--color-primario)' }} />
+                <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
+                  Simulador de Pruebas en Vivo
+                </h4>
+                <span style={{ fontSize: '0.7rem', color: 'var(--texto-atenuado)' }}>
+                  (Prueba cómo responderá tu agente antes de que atienda pacientes reales)
+                </span>
+              </div>
+
+              <form onSubmit={manejarProbarIA} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', gap: '0.65rem' }}>
+                  <input
+                    type="text"
+                    value={mensajePrueba}
+                    onChange={(e) => setMensajePrueba(e.target.value)}
+                    placeholder="Escribe una pregunta de prueba..."
+                    className="modal-input"
+                    style={{ flex: 1, fontSize: '0.8rem' }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={probandoIA || !mensajePrueba.trim()}
+                    className="btn-pildora-primario"
+                    style={{
+                      padding: '0.45rem 1.15rem',
+                      fontSize: '0.78rem',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <Send style={{ width: '13px', height: '13px' }} />
+                    <span>{probandoIA ? 'Generando...' : 'Probar Respuesta'}</span>
+                  </button>
+                </div>
+
+                {errorPrueba && (
+                  <div
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      borderRadius: 'var(--radio-md)',
+                      padding: '0.6rem 0.85rem',
+                      color: '#ef4444',
+                      fontSize: '0.75rem',
+                      fontWeight: 500,
+                    }}
+                  >
+                    {errorPrueba}
+                  </div>
+                )}
+
+                {respuestaPrueba && (
+                  <div
+                    style={{
+                      background: 'rgba(16, 185, 129, 0.05)',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      borderRadius: 'var(--radio-md)',
+                      padding: '0.85rem 1rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.35rem',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#10b981', fontSize: '0.72rem', fontWeight: 700 }}>
+                      <Bot size={14} />
+                      <span>Respuesta generada por {iaNombre}:</span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--texto-principal)', lineHeight: '1.45', whiteSpace: 'pre-wrap' }}>
+                      {respuestaPrueba}
+                    </p>
+                  </div>
+                )}
+              </form>
+            </div>
+          </div>
         )}
       </div>
 

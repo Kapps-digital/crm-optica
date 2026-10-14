@@ -17,6 +17,7 @@ import type {
   CampanaEnvioHistorial,
   CuentaCanalWhatsApp,
   EstadoCanalesRespuesta,
+  ConfiguracionIA,
 } from '@/tipos/crm';
 
 const CLAVE_TOKEN = 'crm_token';
@@ -1052,5 +1053,107 @@ export async function subirLogoOpticaApi(datos: {
     return { exito: false, error: 'Error de conexión al subir el logotipo' };
   }
 }
+
+// ==================== FUNCIONES API: AGENTE DE INTELIGENCIA ARTIFICIAL ====================
+
+export async function obtenerConfiguracionIAApi(): Promise<{
+  exito: boolean;
+  configuracion?: ConfiguracionIA;
+  error?: string;
+}> {
+  try {
+    const res = await fetch('/api/configuracion/ia', {
+      headers: crearEncabezados(),
+    });
+    const texto = await res.text();
+    try {
+      return JSON.parse(texto);
+    } catch {
+      return { exito: false, error: `Error del servidor (${res.status})` };
+    }
+  } catch (error) {
+    registrarErrorApi('obtenerConfiguracionIAApi', error);
+    return { exito: false, error: 'Error de red al consultar configuración de IA' };
+  }
+}
+
+export async function guardarConfiguracionIAApi(datos: ConfiguracionIA): Promise<{
+  exito: boolean;
+  error?: string;
+}> {
+  try {
+    const res = await fetch('/api/configuracion/ia', {
+      method: 'PUT',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(datos),
+    });
+    const texto = await res.text();
+    try {
+      return JSON.parse(texto);
+    } catch {
+      return { exito: false, error: `Error del servidor (${res.status})` };
+    }
+  } catch (error) {
+    registrarErrorApi('guardarConfiguracionIAApi', error);
+    return { exito: false, error: 'Error de red al guardar configuración de IA' };
+  }
+}
+
+export async function alternarIAChatApi(
+  conversacion_id: number,
+  activo: boolean
+): Promise<{
+  exito: boolean;
+  ia_activa?: boolean;
+  error?: string;
+}> {
+  try {
+    const res = await fetch(`/api/conversaciones/${conversacion_id}/ia-toggle`, {
+      method: 'POST',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ activo }),
+    });
+    const texto = await res.text();
+    try {
+      return JSON.parse(texto);
+    } catch {
+      return { exito: false, error: `Error del servidor (${res.status})` };
+    }
+  } catch (error) {
+    registrarErrorApi('alternarIAChatApi', error);
+    return { exito: false, error: 'Error de red al cambiar estado de IA en chat' };
+  }
+}
+
+export async function probarAgenteIAApi(datos: {
+  mensaje_prueba: string;
+  prompt_personalizado?: string;
+  faq_personalizado?: string;
+  tono?: string;
+  api_key_prueba?: string;
+  modelo?: string;
+}): Promise<{
+  exito: boolean;
+  respuesta?: string;
+  error?: string;
+}> {
+  try {
+    const res = await fetch('/api/configuracion/ia/probar', {
+      method: 'POST',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(datos),
+    });
+    const texto = await res.text();
+    try {
+      return JSON.parse(texto);
+    } catch {
+      return { exito: false, error: `Error del servidor (${res.status})` };
+    }
+  } catch (error) {
+    registrarErrorApi('probarAgenteIAApi', error);
+    return { exito: false, error: 'Error de red al probar agente IA' };
+  }
+}
+
 
 

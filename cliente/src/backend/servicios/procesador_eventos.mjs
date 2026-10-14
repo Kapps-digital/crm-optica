@@ -169,6 +169,26 @@ export async function procesar_evento_webhook(payload) {
         }
         throw error;
       }
+
+      // Disparar procesamiento del Agente de IA en segundo plano si es texto y no reacción
+      if (texto && !texto.startsWith('[reaction') && tipo_contenido !== 'reaction') {
+        const convInfo = await base_datos.prepare('SELECT optica_id, contacto_id FROM conversaciones WHERE id = ?').get(conversacion_id);
+        const opticaId = convInfo?.optica_id || 1;
+        import('./motor_ia.mjs')
+          .then(({ procesarMensajeConIA }) => {
+            procesarMensajeConIA({
+              conversacion_id,
+              contacto_id: convInfo?.contacto_id || contacto_id,
+              optica_id: opticaId,
+              texto_mensaje: texto,
+            }).catch((err) => {
+              console.error('[Webhook] Error en procesamiento del Agente IA:', err);
+            });
+          })
+          .catch((err) => {
+            console.error('[Webhook] No se pudo cargar motor_ia.mjs:', err);
+          });
+      }
       break;
     }
 

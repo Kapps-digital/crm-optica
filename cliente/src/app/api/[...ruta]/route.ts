@@ -34,6 +34,11 @@ import {
   actualizar_datos_optica,
   subir_logo_storage_optica,
 } from '@/backend/servicios/gestor_canales.mjs';
+import {
+  obtenerConfiguracionIA,
+  guardarConfiguracionIA,
+  alternarEstadoIAChat,
+} from '@/backend/servicios/motor_ia.mjs';
 
 const base_datos = bdModulo as any;
 const subirLogoStorage: any = subir_logo_storage_optica;
@@ -209,6 +214,7 @@ async function procesarPeticion(
           notificacion_auto_citas_whatsapp: opticaDb.notificacion_auto_citas_whatsapp !== false,
           hora_inicio_atencion: opticaDb.hora_inicio_atencion || '08:00',
           hora_fin_atencion: opticaDb.hora_fin_atencion || '18:00',
+          ia_activa: Boolean(opticaDb.ia_activa),
         } : null,
       });
     }
@@ -227,6 +233,8 @@ async function procesarPeticion(
         SELECT 
           c.id, c.contacto_id, c.canal, c.id_cuenta_zernio, c.id_conversacion_zernio,
           c.ultimo_mensaje_entrante_en, c.ultimo_leido_en, c.estado,
+          COALESCE(c.ia_activa, true) AS ia_activa,
+          COALESCE(c.ia_pausada_por_humano, false) AS ia_pausada_por_humano,
           COALESCE(c.mensajes_no_leidos, 0) AS mensajes_no_leidos,
           co.nombre_completo AS contacto_nombre, co.telefono AS contacto_telefono,
           co.business_scoped_user_id AS contacto_bsuid,
@@ -404,6 +412,14 @@ async function procesarPeticion(
       if (!resultado.exito) {
         return NextResponse.json(resultado, { status: 400 });
       }
+
+      // Si el asesor humano envió un mensaje manual, pausar la IA en este chat para evitar colisión
+      if (body.conversacion_id) {
+        try {
+          await base_datos.prepare('UPDATE conversaciones SET ia_pausada_por_humano = TRUE WHERE id = ?').run(body.conversacion_id);
+        } catch {}
+      }
+
       return NextResponse.json(resultado);
     }
 
@@ -755,6 +771,68 @@ async function procesarPeticion(
         nombre_original: nombre_archivo || 'logo.png',
       });
       return NextResponse.json(resultado);
+    }
+
+    // 9. CONFIGURACIÓN DEL AGENTE DE INTELIGENCIA ARTIFICIAL
+    if (metodo === 'GET' && rutaStr === 'configuracion/ia') {
+      const config = await obtenerConfiguracionIA(optica_id);
+      return NextResponse.json({ exito: true, configuracion: config });
+    }
+
+    if (metodo === 'PUT' && rutaStr === 'configuracion/ia') {
+      const resultado = await guardarConfiguracionIA(optica_id, body);
+      return NextResponse.json(resultado);
+    }
+
+    if (metodo === 'POST' && segmentosRuta[0] === 'conversaciones' && segmentosRuta[2] === 'ia-toggle') {
+      const conversacion_id = segmentosRuta[1];
+      const resultado = await alternarEstadoIAChat(conversacion_id, body.activo !== false);
+      return NextResponse.json(resultado);
+    }
+
+    if (metodo === 'POST' && rutaStr === 'configuracion/ia/probar') {
+      const { mensaje_prueba, prompt_personalizado, faq_personalizado, tono, api_key_prueba, modelo } = body;
+      const config = await obtenerConfiguracionIA(optica_id);
+      const claveApi = api_key_prueba || config.ia_api_key || process.env.GEMINI_API_KEY;
+
+      if (!claveApi) {
+        return NextResponse.json({
+          exito: false,
+          error: 'No hay ninguna clave de API Gemini configurada. Ingresa tu clave para realizar pruebas.',
+        }, { status: 400 });
+      }
+
+      try {
+        const mod = modelo || config.ia_modelo || 'gemini-2.0-flash';
+        const urlApi = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(mod)}:generateContent?key=${encodeURIComponent(claveApi)}`;
+        const promptSistema = `Eres ${config.ia_nombre || 'Asistente Óptico'}, asistente virtual oficial de "${config.nombre || 'Óptica'}".
+Tono: ${tono || config.ia_tono || 'cercano'}.
+Reglas: Temperatura 0. No inventes precios ni diagnósticos. Si no sabes, ofrece contactar con un asesor humano.
+Instrucciones del negocio: ${prompt_personalizado || config.ia_instrucciones || 'Atender amablemente.'}
+Preguntas Frecuentes y Políticas: ${faq_personalizado || config.ia_preguntas_frecuentes || 'Horario regular de atención.'}
+Paciente de prueba: Juan Pérez (Sin citas previas)`;
+
+        const resp = await fetch(urlApi, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: promptSistema }] },
+            contents: [{ role: 'user', parts: [{ text: mensaje_prueba || 'Hola, ¿qué horario de atención tienen?' }] }],
+            generationConfig: { temperature: 0.0, maxOutputTokens: 400 },
+          }),
+        });
+
+        if (!resp.ok) {
+          const errTxt = await resp.text();
+          return NextResponse.json({ exito: false, error: `Error de Gemini (${resp.status}): ${errTxt}` }, { status: 400 });
+        }
+
+        const data = await resp.json();
+        const textoRespuesta = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sin respuesta generada.';
+        return NextResponse.json({ exito: true, respuesta: textoRespuesta });
+      } catch (err: any) {
+        return NextResponse.json({ exito: false, error: err.message }, { status: 500 });
+      }
     }
 
     // 10. PROXY MULTIMEDIA WHATSAPP / ZERNIO (IMÁGENES, AUDIOS, VIDEOS, DOCUMENTOS)

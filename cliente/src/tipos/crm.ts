@@ -47,6 +47,18 @@ export interface Conversacion {
   no_leido?: boolean;
   ventana_24h_activa?: boolean;
   mensajes_no_leidos?: number;
+  ia_activa?: boolean;
+  ia_pausada_por_humano?: boolean;
+}
+
+export interface ConfiguracionIA {
+  ia_activa: boolean;
+  ia_nombre: string;
+  ia_tono: 'cercano' | 'formal' | 'comercial' | string;
+  ia_instrucciones: string;
+  ia_preguntas_frecuentes: string;
+  ia_api_key?: string;
+  ia_modelo?: string;
 }
 
 export interface Mensaje {
@@ -109,6 +121,13 @@ export interface Optica {
   notificacion_auto_citas_whatsapp?: boolean;
   hora_inicio_atencion?: string;
   hora_fin_atencion?: string;
+  ia_activa?: boolean;
+  ia_nombre?: string;
+  ia_tono?: string;
+  ia_instrucciones?: string;
+  ia_preguntas_frecuentes?: string;
+  ia_api_key?: string;
+  ia_modelo?: string;
 }
 
 export type RolUsuario = 'admin' | 'admin_optica';
