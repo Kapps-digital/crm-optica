@@ -21,6 +21,7 @@ cliente/out/
 cliente/build/
 *.tsbuildinfo
 cliente/next-env.d.ts
+cliente/AGENTS.md
 
 # Logs y depuración
 npm-debug.log*
