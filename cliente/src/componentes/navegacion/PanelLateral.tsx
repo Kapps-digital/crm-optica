@@ -146,7 +146,14 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
                 src={optica.logo_url}
                 alt={optica.nombre || 'Logo Óptica'}
                 className="panel-logo-imagen"
-                onError={() => setErrorCargaLogo(true)}
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (!target.src.endsWith('/logo.jpeg')) {
+                    target.src = '/logo.jpeg';
+                  } else {
+                    setErrorCargaLogo(true);
+                  }
+                }}
               />
             ) : (
               <div className="panel-logo-avatar-iniciales">
