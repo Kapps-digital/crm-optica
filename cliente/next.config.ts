@@ -1,16 +1,19 @@
 import type { NextConfig } from "next";
 
-const urlBackend = process.env.URL_BACKEND_PRODUCCION || "http://localhost:3000";
+const urlBackendExterno = process.env.URL_BACKEND_EXTERNO;
 
 const nextConfig: NextConfig = {
   devIndicators: false,
   async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${urlBackend}/api/:path*`,
-      },
-    ];
+    if (urlBackendExterno) {
+      return [
+        {
+          source: "/api/:path*",
+          destination: `${urlBackendExterno}/api/:path*`,
+        },
+      ];
+    }
+    return [];
   },
 };
 
