@@ -46,6 +46,7 @@ import { formatearTelefono, obtenerNombrePaciente } from '@/utilidades/formato';
 interface PropiedadesCalendarioCitas {
   contactos: Contacto[];
   conversaciones: Conversacion[];
+  nombreOptica?: string;
   alSeleccionarContactoChat?: (contactoId: number) => void;
   alEnviarMensajeWhatsApp?: (texto: string, conversacionDestino?: Conversacion | null) => Promise<void>;
 }
@@ -88,6 +89,7 @@ const CITAS_SIMULADAS_25: Cita[] = [
 export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
   contactos,
   conversaciones,
+  nombreOptica,
   alSeleccionarContactoChat,
   alEnviarMensajeWhatsApp,
 }) => {
@@ -422,8 +424,9 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
           }
         }
 
+        const encabezado = (nombreOptica || 'Óptica').toUpperCase();
         const texto = [
-          `🗓️ *TU VISIÓN ÓPTICA - Confirmación de Cita*`,
+          `🗓️ *${encabezado} - Confirmación de Cita*`,
           `Hola *${contactoPaciente?.nombre || 'Paciente'}*, tu cita de optometría ha sido programada con éxito:`,
           ``,
           `📅 *Fecha:* ${fechaFormateada}`,
@@ -482,8 +485,9 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
           }
         }
 
+        const encabezado = (nombreOptica || 'Óptica').toUpperCase();
         const texto = [
-          `🗓️ *TU VISIÓN ÓPTICA - Cita Reprogramada*`,
+          `🗓️ *${encabezado} - Cita Reprogramada*`,
           `Hola *${citaParaReprogramar.contacto_nombre || 'Paciente'}*, te confirmamos que tu cita ha sido reprogramada:`,
           ``,
           `📅 *Nueva Fecha:* ${fechaFormateada}`,

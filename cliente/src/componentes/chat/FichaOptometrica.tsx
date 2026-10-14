@@ -23,6 +23,7 @@ interface PropiedadesFichaOptometrica {
   formula: FormulaOptica | null;
   formulas?: FormulaOptica[];
   enVentana24h?: boolean;
+  nombreOptica?: string;
   alAlternarFicha: () => void;
   alAbrirNuevaFormula: () => void;
   alAbrirAgendarCita?: () => void;
@@ -35,6 +36,7 @@ export const FichaOptometrica: React.FC<PropiedadesFichaOptometrica> = ({
   formula,
   formulas = [],
   enVentana24h = true,
+  nombreOptica,
   alAlternarFicha,
   alAbrirNuevaFormula,
   alAbrirAgendarCita,
@@ -81,8 +83,9 @@ export const FichaOptometrica: React.FC<PropiedadesFichaOptometrica> = ({
 
   const generarTextoPrescripcion = (): string => {
     if (!formulaActiva || !contacto) return '';
+    const encabezadoOptica = (nombreOptica || 'Óptica').toUpperCase();
     return [
-      `👓 *TU VISIÓN ÓPTICA - Prescripción Clínica ${esVigente ? 'Vigente' : 'Histórica'}*`,
+      `👓 *${encabezadoOptica} - Prescripción Clínica ${esVigente ? 'Vigente' : 'Histórica'}*`,
       `👤 *Paciente:* ${obtenerNombrePaciente(contacto)}`,
       `📅 *Fecha Examen:* ${formulaActiva.fecha_examen ? new Date(formulaActiva.fecha_examen).toLocaleDateString() : new Date().toLocaleDateString()}`,
       ``,

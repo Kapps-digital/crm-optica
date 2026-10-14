@@ -659,8 +659,9 @@ export default function PaginaPrincipal() {
             }
           }
 
+          const encabezadoOptica = (opticaActual?.nombre || 'Óptica').toUpperCase();
           const lineasNotificacion = [
-            `🗓️ *${opticaActual?.nombre || 'TU VISIÓN ÓPTICA'} - Confirmación de Cita*`,
+            `🗓️ *${encabezadoOptica} - Confirmación de Cita*`,
             `Hola *${contactoParaCita?.nombre || 'Paciente'}*, tu cita de optometría ha sido programada con éxito:`,
             ``,
             `📅 *Fecha:* ${fechaFormateada}`,
@@ -842,6 +843,7 @@ export default function PaginaPrincipal() {
               contacto={pacienteActivo}
               formula={formulaVigente}
               formulas={formulasPaciente}
+              nombreOptica={opticaActual?.nombre}
               enVentana24h={
                 conversacionActiva
                   ? estaEnVentana24Horas(conversacionActiva.ultimo_mensaje_entrante_en)
@@ -895,6 +897,7 @@ export default function PaginaPrincipal() {
           <CalendarioCitas
             contactos={pacientes}
             conversaciones={conversaciones}
+            nombreOptica={opticaActual?.nombre}
             alSeleccionarContactoChat={navegarAlChatContacto}
             alEnviarMensajeWhatsApp={async (texto, convDestino) => {
               await manejarEnviarMensaje(texto, convDestino || undefined);
