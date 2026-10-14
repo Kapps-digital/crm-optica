@@ -1,0 +1,121 @@
+// Esquema de Prisma ORM para CRM Óptica
+// Configurado para SQLite local y preparado para migrar a PostgreSQL
+
+generator cliente {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 1. Eventos de webhook para deduplicación e idempotencia estricta
+model EventoWebhook {
+  id_evento     String   @id
+  tipo_evento   String
+  estado        String?  @default("recibido")
+  intentos      Int?     @default(0)
+  payload_json  String
+  error_mensaje String?
+  creado_en     String?  @default("now")
+  actualizado_en String? @default("now")
+
+  @@map("eventos_webhook")
+}
+
+// 2. Pacientes y contactos de la óptica
+model Contacto {
+  id                      Int             @id @default(autoincrement())
+  nombre                  String?
+  telefono                String?
+  correo                  String?
+  business_scoped_user_id String?         @unique
+  creado_en               String?
+  actualizado_en          String?
+
+  conversaciones          Conversacion[]
+  formulas_opticas        FormulaOptica[]
+  citas                   Cita[]
+
+  @@map("contactos")
+}
+
+// 3. Conversaciones multicanal (WhatsApp, Instagram, Messenger)
+model Conversacion {
+  id                         Int       @id @default(autoincrement())
+  contacto_id                Int
+  canal                      String    @default("whatsapp")
+  id_cuenta_zernio           String    @default("")
+  id_conversacion_zernio     String?   @unique
+  ultimo_mensaje_entrante_en String?
+  estado                     String?   @default("abierta")
+  creado_en                  String?
+  actualizado_en             String?
+
+  contacto                   Contacto  @relation(fields: [contacto_id], references: [id], onDelete: Cascade)
+  mensajes                   Mensaje[]
+
+  @@map("conversaciones")
+}
+
+// 4. Mensajes del chat
+model Mensaje {
+  id                    Int          @id @default(autoincrement())
+  conversacion_id       Int
+  id_mensaje_plataforma String?      @unique
+  id_mensaje_zernio     String?
+  direccion             String       // 'entrante' o 'saliente'
+  texto                 String?
+  tipo_contenido        String?      @default("texto")
+  url_adjunto           String?
+  estado_entrega        String?      @default("recibido")
+  atribucion_anuncio    String?
+  creado_en             String?
+
+  conversacion          Conversacion @relation(fields: [conversacion_id], references: [id], onDelete: Cascade)
+
+  @@map("mensajes")
+}
+
+// 5. Fórmulas clínicas optométricas (Refracción OD/OI)
+model FormulaOptica {
+  id                Int       @id @default(autoincrement())
+  contacto_id       Int
+  od_esfera         String?
+  od_cilindro       String?
+  od_eje            String?
+  od_adicion        String?
+  od_agudeza_visual String?
+  oi_esfera         String?
+  oi_cilindro       String?
+  oi_eje            String?
+  oi_adicion        String?
+  oi_agudeza_visual String?
+  distancia_pupilar String?
+  tipo_lente        String?   @default("Monofocal Antirreflejo")
+  observaciones     String?
+  optometra         String?   @default("Dr. Samir Bolívar")
+  fecha_examen      String?
+  proximo_control   String?
+  creado_en         String?
+
+  contacto          Contacto  @relation(fields: [contacto_id], references: [id], onDelete: Cascade)
+
+  @@map("formulas_opticas")
+}
+
+// 6. Citas y controles agendados
+model Cita {
+  id          Int       @id @default(autoincrement())
+  contacto_id Int
+  fecha_cita  String
+  hora_cita   String
+  motivo      String?   @default("Examen visual y control")
+  estado      String?   @default("pendiente")
+  creado_en   String?
+
+  contacto    Contacto  @relation(fields: [contacto_id], references: [id], onDelete: Cascade)
+
+  @@map("citas")
+}

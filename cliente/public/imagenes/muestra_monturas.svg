@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 340" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGafas" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+    <linearGradient id="lensReflect" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.45)" />
+      <stop offset="100%" stop-color="rgba(255,255,255,0.05)" />
+    </linearGradient>
+  </defs>
+
+  <rect width="600" height="340" fill="url(#bgGafas)" />
+  
+  <g transform="translate(100, 60)">
+    <!-- Marco izquierdo -->
+    <ellipse cx="110" cy="100" rx="75" ry="60" fill="rgba(14, 165, 233, 0.15)" stroke="url(#goldGrad)" stroke-width="7" />
+    <path d="M 60,65 Q 110,80 155,75" stroke="url(#lensReflect)" stroke-width="6" stroke-linecap="round" fill="none" />
+    
+    <!-- Marco derecho -->
+    <ellipse cx="290" cy="100" rx="75" ry="60" fill="rgba(14, 165, 233, 0.15)" stroke="url(#goldGrad)" stroke-width="7" />
+    <path d="M 240,65 Q 290,80 335,75" stroke="url(#lensReflect)" stroke-width="6" stroke-linecap="round" fill="none" />
+    
+    <!-- Puente central -->
+    <path d="M 185,90 Q 200,75 215,90" stroke="url(#goldGrad)" stroke-width="6" fill="none" stroke-linecap="round" />
+    
+    <!-- Patillas -->
+    <path d="M 35,95 Q 10,90 0,65" stroke="url(#goldGrad)" stroke-width="5" fill="none" stroke-linecap="round" />
+    <path d="M 365,95 Q 390,90 400,65" stroke="url(#goldGrad)" stroke-width="5" fill="none" stroke-linecap="round" />
+  </g>
+
+  <!-- Textos de promoción -->
+  <text x="300" y="245" font-family="'Segoe UI', Roboto, sans-serif" font-size="24" font-weight="bold" fill="#ffffff" text-anchor="middle">
+    NUEVA COLECCIÓN DE MONTURAS
+  </text>
+  <text x="300" y="278" font-family="'Segoe UI', Roboto, sans-serif" font-size="15" fill="#38bdf8" font-weight="600" text-anchor="middle">
+    Tu Visión Óptica · 50% DCTO en Segunda Unidad
+  </text>
+</svg>

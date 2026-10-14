@@ -1,0 +1,942 @@
+/* ==========================================================================
+   ESTILOS CORPORATIVOS PREMIUM - CRM ÓPTICA "TU VISIÓN"
+   Modo Alta Densidad / Compacto para Máximo Aprovechamiento de Pantalla
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap');
+
+:root {
+  /* Paleta Extraída del Logotipo "TU VISIÓN Opttica" */
+  --color-primario: #0d2167;         /* Azul marino institucional profundo */
+  --color-primario-oscuro: #08133f;  /* Sombra / acento profundo */
+  --color-primario-claro: #0088cc;   /* Cyan / azul brillante de la retícula */
+  --color-acento-cyan: #00a8cc;      /* Iris turquesa del logo */
+  --color-acento-azul: #2563eb;      /* Azul eléctrico interactivo */
+
+  /* Estados Semafóricos y Ventana 24h */
+  --color-exito: #10b981;
+  --color-exito-suave: #d1fae5;
+  --azul-suave: #dbeafe;
+  --color-alerta-amarillo: #f59e0b;
+  --color-alerta-amarillo-suave: #fef3c7;
+  --color-peligro-rojo: #ef4444;
+  --color-peligro-rojo-suave: #fee2e2;
+
+  /* TEMA CLARO (PREDETERMINADO) */
+  --fondo-base: #f8fafc;
+  --fondo-tarjeta: #ffffff;
+  --fondo-elevado: #f1f5f9;
+  --fondo-hover: #e2e8f0;
+  --borde-tarjeta: #e2e8f0;
+  --borde-suave: #cbd5e1;
+
+  --texto-principal: #0f172a;
+  --texto-secundario: #475569;
+  --texto-atenuado: #64748b;
+  --texto-inverso: #ffffff;
+
+  --sombra-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --sombra-md: 0 3px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+  --sombra-lg: 0 10px 20px -3px rgba(13, 33, 103, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --sombra-brillo: 0 0 18px rgba(0, 168, 204, 0.16);
+
+  --radio-sm: 6px;
+  --radio-md: 9px;
+  --radio-lg: 12px;
+  --radio-completo: 9999px;
+
+  --fuente-cuerpo: 'Inter', system-ui, -apple-system, sans-serif;
+  --fuente-titulos: 'Outfit', 'Inter', sans-serif;
+}
+
+/* TEMA OSCURO (AZUL NOCHE CORPORATIVO) */
+[data-tema="oscuro"] {
+  --fondo-base: #070d19;
+  --fondo-tarjeta: #0e172a;
+  --fondo-elevado: #16223b;
+  --azul-suave: rgba(0, 136, 204, 0.22);
+  --fondo-hover: #1e2e4e;
+  --borde-tarjeta: #1c2b48;
+  --borde-suave: #273b61;
+
+  --texto-principal: #f8fafc;
+  --texto-secundario: #cbd5e1;
+  --texto-atenuado: #94a3b8;
+  --texto-inverso: #0f172a;
+
+  --sombra-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --sombra-md: 0 3px 6px -1px rgba(0, 0, 0, 0.5);
+  --sombra-lg: 0 10px 20px -3px rgba(0, 0, 0, 0.6);
+  --sombra-brillo: 0 0 22px rgba(0, 168, 204, 0.35);
+}
+
+/* Escala Base Ajustada (+10% para coincidir con la vista a escala 110%) */
+html {
+  font-size: 14.2px;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (max-width: 1200px) {
+  html {
+    font-size: 13.8px;
+  }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: var(--fuente-cuerpo);
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+body {
+  background-color: var(--fondo-base);
+  color: var(--texto-principal);
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* Layout General */
+.layout-con-panel-lateral {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background-color: var(--fondo-base);
+}
+
+/* ==========================================================================
+   PANEL LATERAL (PROPORCIÓN EQUILIBRADA)
+   ========================================================================== */
+.panel-lateral {
+  background-color: var(--fondo-tarjeta);
+  border-right: 1px solid var(--borde-tarjeta);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100vh;
+  z-index: 60;
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.22s ease;
+  box-shadow: var(--sombra-sm);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.panel-lateral.colapsado {
+  width: 58px;
+  min-width: 58px;
+}
+
+.panel-lateral.expandido {
+  width: 205px;
+  min-width: 205px;
+}
+
+/* Cabecera del Panel */
+.panel-lateral-cabecera {
+  height: 50px;
+  min-height: 50px;
+  max-height: 50px;
+  padding: 0 0.7rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border-bottom: 1px solid var(--borde-tarjeta);
+}
+
+.panel-logo-caja {
+  width: 35px;
+  height: 35px;
+  min-width: 35px;
+  border-radius: 9px;
+  background: #ffffff !important;
+  border: 1.5px solid var(--color-primario-claro);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 136, 204, 0.2);
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+  overflow: hidden;
+}
+
+.panel-logo-caja:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 10px rgba(0, 168, 204, 0.4);
+}
+
+.panel-logo-imagen {
+  height: 26px;
+  width: 26px;
+  object-fit: contain;
+}
+
+.panel-logo-texto-grupo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  min-width: 0;
+}
+
+.panel-logo-texto {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel-logo-titulo {
+  font-family: var(--fuente-titulos);
+  font-weight: 800;
+  font-size: 0.88rem;
+  color: var(--color-primario);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+[data-tema="oscuro"] .panel-logo-titulo {
+  color: #38bdf8;
+}
+
+.panel-logo-subtitulo {
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: var(--texto-secundario);
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  white-space: nowrap;
+}
+
+.panel-toggle-superior-btn {
+  background: transparent;
+  border: none;
+  color: var(--texto-atenuado);
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.panel-toggle-superior-btn:hover {
+  background: var(--fondo-hover);
+  color: var(--texto-principal);
+}
+
+/* Navegación del Panel */
+.panel-lateral-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0.4rem;
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Botones de Menú en Píldora */
+.panel-item-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border: none;
+  background: transparent;
+  border-radius: var(--radio-md);
+  color: var(--texto-secundario);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.16s ease;
+  text-align: left;
+}
+
+.panel-item-btn:hover:not(.activo) {
+  background-color: var(--fondo-hover);
+  color: var(--texto-principal);
+}
+
+/* Estado Activo: Píldora Azul Vibrante */
+.panel-item-btn.activo {
+  background: linear-gradient(135deg, #0284c7 0%, #0077b6 100%);
+  color: #ffffff !important;
+  font-weight: 600;
+  box-shadow: 0 3px 10px rgba(2, 132, 199, 0.32);
+}
+
+[data-tema="oscuro"] .panel-item-btn.activo {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  box-shadow: 0 3px 12px rgba(2, 132, 199, 0.4);
+}
+
+.panel-item-izq {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.panel-item-icono {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.panel-item-etiqueta {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.panel-item-badge-conteo {
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--radio-completo);
+  font-size: 0.64rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+}
+
+.panel-item-btn:not(.activo) .panel-item-badge-conteo {
+  background: var(--fondo-elevado);
+  color: var(--texto-secundario);
+}
+
+/* Tooltip Flotante al estar colapsado */
+.panel-tooltip-flotante {
+  display: none;
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: #0f172a;
+  color: #ffffff;
+  padding: 0.3rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+
+.panel-lateral.colapsado .panel-item-btn:hover .panel-tooltip-flotante {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* Pie del Panel */
+.panel-lateral-pie {
+  padding: 0.4rem 0.4rem;
+  border-top: 1px solid var(--borde-tarjeta);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.panel-btn-accion-pie {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--borde-tarjeta);
+  background: var(--fondo-elevado);
+  border-radius: var(--radio-md);
+  color: var(--texto-secundario);
+  font-size: 0.74rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.panel-btn-accion-pie:hover {
+  background: var(--fondo-hover);
+  color: var(--texto-principal);
+}
+
+/* ==========================================================================
+   ÁREA DE CONTENIDO PRINCIPAL
+   ========================================================================== */
+.contenido-principal {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--fondo-base);
+  min-width: 0;
+}
+
+.barra-superior {
+  height: 50px;
+  min-height: 50px;
+  max-height: 50px;
+  padding: 0 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--fondo-tarjeta);
+  border-bottom: 1px solid var(--borde-tarjeta);
+  box-shadow: var(--sombra-sm);
+  z-index: 40;
+}
+
+.barra-titulo-grupo h1 {
+  font-family: var(--fuente-titulos);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--texto-principal);
+  line-height: 1.2;
+}
+
+.barra-titulo-grupo p {
+  font-size: 0.7rem;
+  color: var(--texto-atenuado);
+}
+
+.barra-acciones {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* ==========================================================================
+   VISTA: BANDEJA WHATSAPP TRIPARTITA CON FICHA CONTRAÍBLE
+   ========================================================================== */
+.vista-mensajeria-tripartita {
+  display: grid;
+  grid-template-columns: 250px 1fr 295px;
+  height: calc(100vh - 50px);
+  overflow: hidden;
+  transition: grid-template-columns 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+}
+
+/* Estado de Ficha Contraída (Gana todo el espacio para el chat) */
+.vista-mensajeria-tripartita.ficha-colapsada {
+  grid-template-columns: 250px 1fr 0px;
+}
+
+/* 1. Columna de Conversaciones */
+.columna-conversaciones {
+  background: var(--fondo-tarjeta);
+  border-right: 1px solid var(--borde-tarjeta);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 250px;
+  min-width: 250px;
+}
+
+.buscador-conversaciones {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--borde-tarjeta);
+}
+
+.campo-busqueda-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.campo-busqueda-wrapper input {
+  width: 100%;
+  padding: 0.35rem 0.6rem 0.35rem 1.85rem;
+  background: var(--fondo-elevado);
+  border: 1px solid var(--borde-tarjeta);
+  border-radius: var(--radio-md);
+  font-size: 0.76rem;
+  color: var(--texto-principal);
+  outline: none;
+}
+
+.campo-busqueda-wrapper input:focus {
+  border-color: var(--color-primario-claro);
+  box-shadow: 0 0 0 2px rgba(0, 168, 204, 0.15);
+}
+
+.icono-busqueda {
+  position: absolute;
+  left: 0.6rem;
+  color: var(--texto-atenuado);
+  pointer-events: none;
+}
+
+.lista-conversaciones {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.tarjeta-conversacion-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  border-bottom: 1px solid var(--borde-tarjeta);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.tarjeta-conversacion-item:hover {
+  background: var(--fondo-elevado);
+}
+
+.tarjeta-conversacion-item.activa {
+  background: rgba(2, 132, 199, 0.08);
+  border-left: 3px solid var(--color-primario-claro);
+}
+
+.avatar-contacto {
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-primario) 0%, var(--color-primario-claro) 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+}
+
+.info-conversacion {
+  flex: 1;
+  min-width: 0;
+}
+
+.fila-nombre-hora {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.15rem;
+}
+
+.nombre-paciente-chat {
+  font-weight: 600;
+  font-size: 0.78rem;
+  color: var(--texto-principal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hora-chat {
+  font-size: 0.64rem;
+  color: var(--texto-atenuado);
+}
+
+.ultimo-mensaje-chat {
+  font-size: 0.72rem;
+  color: var(--texto-secundario);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge-24h {
+  font-size: 0.62rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: var(--radio-completo);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-top: 0.15rem;
+}
+
+.badge-24h.activa {
+  background: var(--color-exito-suave);
+  color: #065f46;
+}
+
+[data-tema="oscuro"] .badge-24h.activa {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.badge-24h.expirada {
+  background: var(--color-alerta-amarillo-suave);
+  color: #92400e;
+}
+
+[data-tema="oscuro"] .badge-24h.expirada {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fde68a;
+}
+
+/* 2. Columna Central de Chat */
+.columna-chat-conversacion {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--fondo-base);
+  min-width: 0;
+}
+
+.cabecera-chat-activa {
+  height: 50px;
+  min-height: 50px;
+  padding: 0 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--fondo-tarjeta);
+  border-bottom: 1px solid var(--borde-tarjeta);
+  gap: 0.5rem;
+}
+
+.chat-paciente-detalle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.chat-telefono-visible {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #0284c7;
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+/* Botón Toggle de la Ficha Optométrica */
+.btn-toggle-ficha {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--fondo-elevado);
+  border: 1px solid var(--color-primario-claro);
+  color: var(--color-primario-claro);
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radio-completo);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 136, 204, 0.1);
+}
+
+.btn-toggle-ficha:hover {
+  background: var(--color-primario-claro);
+  color: #ffffff;
+}
+
+/* Cuando la ficha está abierta (no colapsada), se oculta del chat para evitar redundancia con el botón [X] */
+.vista-mensajeria-tripartita:not(.ficha-colapsada) .btn-toggle-ficha {
+  display: none !important;
+}
+
+.area-mensajes-burbujas {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.burbuja-mensaje {
+  max-width: 70%;
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  position: relative;
+  box-shadow: var(--sombra-sm);
+  word-break: break-word;
+}
+
+.burbuja-mensaje.entrante {
+  align-self: flex-start;
+  background: var(--fondo-tarjeta);
+  border: 1px solid var(--borde-tarjeta);
+  color: var(--texto-principal);
+  border-bottom-left-radius: 2px;
+}
+
+.burbuja-mensaje.saliente {
+  align-self: flex-end;
+  background: linear-gradient(135deg, var(--color-primario) 0%, #0284c7 100%);
+  color: #ffffff;
+  border-bottom-right-radius: 2px;
+}
+
+.burbuja-hora {
+  font-size: 0.62rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.2rem;
+  margin-top: 0.2rem;
+  opacity: 0.85;
+}
+
+/* Banner Informativo Ventana 24h */
+.banner-ventana-24h-alerta {
+  background: #fffbeb;
+  border-top: 1px solid #fde68a;
+  border-bottom: 1px solid #fde68a;
+  padding: 0.35rem 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: #92400e;
+}
+
+[data-tema="oscuro"] .banner-ventana-24h-alerta {
+  background: #1c1917;
+  border-color: #44403c;
+  color: #fde68a;
+}
+
+.area-envio-mensaje {
+  padding: 0.35rem 0.75rem;
+  background: var(--fondo-tarjeta);
+  border-top: 1px solid var(--borde-tarjeta);
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.area-envio-mensaje input {
+  flex: 1;
+  padding: 0.38rem 0.75rem;
+  background: var(--fondo-elevado);
+  border: 1px solid var(--borde-tarjeta);
+  border-radius: var(--radio-completo);
+  font-size: 0.78rem;
+  color: var(--texto-principal);
+  outline: none;
+}
+
+.area-envio-mensaje input:focus {
+  border-color: var(--color-primario-claro);
+  box-shadow: 0 0 0 2px rgba(0, 168, 204, 0.15);
+}
+
+.btn-enviar-accion {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  border-radius: 50%;
+  background: var(--color-primario);
+  border: none;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(13, 33, 103, 0.25);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.btn-enviar-accion:hover {
+  transform: scale(1.05);
+  background: var(--color-primario-claro);
+}
+
+/* 3. Columna Lateral Derecha: FICHA CLÍNICA OPTOMÉTRICA */
+.columna-ficha-optometrica {
+  background: var(--fondo-tarjeta);
+  border-left: 1px solid var(--borde-tarjeta);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.75rem;
+  gap: 0.55rem;
+  width: 295px;
+  min-width: 295px;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Cuando la ficha está colapsada, desaparece limpiamente */
+.vista-mensajeria-tripartita.ficha-colapsada .columna-ficha-optometrica {
+  display: none !important;
+  width: 0px !important;
+  min-width: 0px !important;
+  max-width: 0px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-left: none !important;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.btn-cerrar-ficha {
+  background: var(--fondo-elevado);
+  border: 1px solid var(--borde-tarjeta);
+  color: var(--texto-atenuado);
+  border-radius: 6px;
+  padding: 2px 5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.btn-cerrar-ficha:hover {
+  background: var(--fondo-hover);
+  color: var(--color-peligro-rojo);
+  border-color: var(--color-peligro-rojo-suave);
+}
+
+.ficha-seccion-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--borde-tarjeta);
+  padding-bottom: 0.4rem;
+}
+
+.ficha-seccion-titulo {
+  font-family: var(--fuente-titulos);
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--texto-principal);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Tabla de Fórmula Clínica */
+.tabla-formula-optica {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.7rem;
+  margin-top: 0.35rem;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--borde-tarjeta);
+}
+
+.tabla-formula-optica th,
+.tabla-formula-optica td {
+  padding: 0.25rem 0.35rem;
+  text-align: center;
+  border: 1px solid var(--borde-tarjeta);
+}
+
+.tabla-formula-optica th {
+  background: var(--fondo-elevado);
+  color: var(--texto-secundario);
+  font-weight: 600;
+  font-size: 0.7rem;
+}
+
+.tabla-formula-optica td.ojo-rotulo {
+  font-weight: 700;
+  background: rgba(2, 132, 199, 0.08);
+  color: #0284c7;
+}
+
+/* Botones de Acción Primaria */
+.btn-primario-optica {
+  background: linear-gradient(135deg, var(--color-primario) 0%, var(--color-primario-claro) 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radio-md);
+  padding: 0.42rem 0.75rem;
+  font-weight: 600;
+  font-size: 0.78rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  box-shadow: 0 3px 8px rgba(2, 132, 199, 0.2);
+  transition: all 0.15s ease;
+}
+
+.btn-primario-optica:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+}
+
+/* Tarjetas KPI */
+.grilla-kpis-optica {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+}
+
+.tarjeta-kpi {
+  background: var(--fondo-tarjeta);
+  border: 1px solid var(--borde-tarjeta);
+  border-radius: var(--radio-lg);
+  padding: 0.9rem 1rem;
+  box-shadow: var(--sombra-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.tarjeta-kpi::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primario) 0%, var(--color-acento-cyan) 100%);
+}
+
+.tarjeta-kpi-valor {
+  font-family: var(--fuente-titulos);
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--texto-principal);
+  margin: 0.25rem 0 0.15rem 0;
+}
+
+.tarjeta-kpi-etiqueta {
+  font-size: 0.74rem;
+  color: var(--texto-atenuado);
+  font-weight: 500;
+}
+
+/* Modal Emergente */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-contenedor {
+  background: var(--fondo-tarjeta);
+  border: 1px solid var(--borde-tarjeta);
+  border-radius: var(--radio-lg);
+  width: 90%;
+  max-width: 520px;
+  box-shadow: var(--sombra-lg);
+  padding: 1.25rem 1.5rem;
+  animation: modalEntrada 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalEntrada {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}

@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="es" data-tema="claro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TU VISIÓN Opttica - CRM Omnicanal</title>
+  <link rel="stylesheet" href="/estilos/corporativo.css">
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <div class="layout-con-panel-lateral">
+    
+    <!-- ====================================================================
+         PANEL LATERAL (ESTILO CORPORATIVO IDENTICO A LA REFERENCIA)
+         ==================================================================== -->
+    <aside id="panel-lateral" class="panel-lateral expandido">
+      <!-- Cabecera del Panel con Logo en Caja Redondeada -->
+      <div class="panel-lateral-cabecera">
+        <div 
+          class="panel-logo-caja" 
+          onclick="alternarColapsoPanel()"
+          title="Clic para contraer/expandir menú"
+          role="button"
+        >
+          <img 
+            src="/logo.jpeg" 
+            alt="Logo TU VISIÓN" 
+            class="panel-logo-imagen" 
+          />
+        </div>
+
+        <div id="panel-logo-texto-grupo" class="panel-logo-texto-grupo">
+          <div class="panel-logo-texto" onclick="alternarColapsoPanel()" style="cursor: pointer;">
+            <span class="panel-logo-titulo">TU VISIÓN</span>
+            <span class="panel-logo-subtitulo">
+              <i data-lucide="eye" style="width: 14px; height: 14px; color: var(--color-primario-claro);"></i>
+              <span>Optometría & CRM</span>
+            </span>
+          </div>
+          <button 
+            class="panel-toggle-superior-btn"
+            onclick="alternarColapsoPanel()"
+            title="Contraer menú"
+          >
+            <i data-lucide="chevron-left" style="width: 18px; height: 18px;"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Navegación con Botones en Píldora -->
+      <nav class="panel-lateral-nav">
+        <!-- 1. Bandeja WhatsApp -->
+        <button 
+          class="panel-item-btn activo" 
+          data-vista="mensajeria"
+          onclick="cambiarVista('mensajeria')"
+        >
+          <div class="panel-item-izq">
+            <i data-lucide="message-square" class="panel-item-icono"></i>
+            <span class="panel-item-etiqueta">Bandeja WhatsApp</span>
+          </div>
+          <span id="badge-chats-conteo" class="panel-item-badge-conteo">1</span>
+          <div class="panel-tooltip-flotante">
+            <span>Bandeja WhatsApp</span>
+          </div>
+        </button>
+
+        <!-- 2. Pacientes & Fichas -->
+        <button 
+          class="panel-item-btn" 
+          data-vista="pacientes"
+          onclick="cambiarVista('pacientes')"
+        >
+          <div class="panel-item-izq">
+            <i data-lucide="users" class="panel-item-icono"></i>
+            <span class="panel-item-etiqueta">Pacientes & Fichas</span>
+          </div>
+          <span id="badge-pacientes-conteo" class="panel-item-badge-conteo">0</span>
+          <div class="panel-tooltip-flotante">
+            <span>Pacientes & Fichas</span>
+          </div>
+        </button>
+
+        <!-- 3. Campañas & Segmentación -->
+        <button 
+          class="panel-item-btn" 
+          data-vista="campanas"
+          onclick="cambiarVista('campanas')"
+        >
+          <div class="panel-item-izq">
+            <i data-lucide="target" class="panel-item-icono"></i>
+            <span class="panel-item-etiqueta">Auto-Segmentación</span>
+          </div>
+          <div class="panel-tooltip-flotante">
+            <span>Auto-Segmentación</span>
+          </div>
+        </button>
+
+        <!-- 4. Plantillas Meta -->
+        <button 
+          class="panel-item-btn" 
+          data-vista="plantillas"
+          onclick="cambiarVista('plantillas')"
+        >
+          <div class="panel-item-izq">
+            <i data-lucide="file-text" class="panel-item-icono"></i>
+            <span class="panel-item-etiqueta">Plantillas Meta</span>
+          </div>
+          <div class="panel-tooltip-flotante">
+            <span>Plantillas Meta</span>
+          </div>
+        </button>
+
+        <!-- 5. Analítica & Citas -->
+        <button 
+          class="panel-item-btn" 
+          data-vista="analitica"
+          onclick="cambiarVista('analitica')"
+        >
+          <div class="panel-item-izq">
+            <i data-lucide="bar-chart-3" class="panel-item-icono"></i>
+            <span class="panel-item-etiqueta">Analítica & Citas</span>
+          </div>
+          <div class="panel-tooltip-flotante">
+            <span>Analítica & Citas</span>
+          </div>
+        </button>
+
+        <!-- 6. Configuración & Zernio -->
+        <button 
+          class="panel-item-btn" 
+          data-vista="configuracion"
+          onclick="cambiarVista('configuracion')"
+        >
+          <div class="panel-item-izq">
+            <i data-lucide="sliders" class="panel-item-icono"></i>
+            <span class="panel-item-etiqueta">Línea & Zernio</span>
+          </div>
+          <div class="panel-tooltip-flotante">
+            <span>Línea & Zernio</span>
+          </div>
+        </button>
+      </nav>
+
+      <!-- Pie del Panel: Selector de Tema y Botón Contraer -->
+      <div class="panel-lateral-pie">
+        <!-- Botón de Alternancia de Tema (Claro / Oscuro) -->
+        <button 
+          class="panel-btn-accion-pie" 
+          onclick="alternarTema()" 
+          title="Alternar entre modo Claro y Oscuro"
+        >
+          <i id="icono-tema" data-lucide="moon" style="width: 17px; height: 17px;"></i>
+          <span id="texto-tema" class="panel-item-etiqueta">Modo Oscuro</span>
+        </button>
+
+        <!-- Botón Inferior de Colapso -->
+        <button 
+          class="panel-btn-accion-pie" 
+          onclick="alternarColapsoPanel()"
+          title="Contraer o expandir panel"
+        >
+          <i id="icono-colapso-pie" data-lucide="chevron-left" style="width: 17px; height: 17px;"></i>
+          <span id="texto-colapso-pie" class="panel-item-etiqueta">Contraer menú</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- ====================================================================
+         CONTENIDO PRINCIPAL
+         ==================================================================== -->
+    <main class="contenido-principal">
+      <!-- Barra Superior -->
+      <header class="barra-superior">
+        <div class="barra-titulo-grupo">
+          <h1 id="titulo-seccion-actual">Bandeja Omnicanal WhatsApp</h1>
+          <p id="subtitulo-seccion-actual">Gestión en tiempo real con persistencia en SQLite y control de ventana 24h</p>
+        </div>
+
+        <div class="barra-acciones">
+          <div style="display: flex; align-items: center; gap: 0.5rem; background: var(--fondo-elevado); padding: 0.4rem 0.85rem; border-radius: var(--radio-completo); border: 1px solid var(--borde-tarjeta);">
+            <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 6px #10b981;"></span>
+            <span style="font-size: 0.78rem; font-weight: 600; color: var(--texto-secundario);">WhatsApp: +57 313 2531694</span>
+          </div>
+
+          <button class="btn-primario-optica" onclick="abrirModalNuevaFormula()">
+            <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+            <span>Nueva Fórmula</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- ==================================================================
+           SECCIÓN 1: BANDEJA WHATSAPP TRIPARTITA (FICHA CONTRAÍDA POR DEFECTO)
+           ================================================================== -->
+      <section id="vista-mensajeria" class="vista-mensajeria-tripartita ficha-colapsada">
+        <!-- 1. Lista de Conversaciones -->
+        <div class="columna-conversaciones">
+          <div class="buscador-conversaciones">
+            <div class="campo-busqueda-wrapper">
+              <i data-lucide="search" class="icono-busqueda" style="width: 16px; height: 16px;"></i>
+              <input type="text" id="filtro-busqueda-chat" placeholder="Buscar paciente o teléfono..." onkeyup="filtrarConversaciones()">
+            </div>
+          </div>
+
+          <div id="contenedor-lista-conversaciones" class="lista-conversaciones">
+            <!-- Cargado dinámicamente -->
+          </div>
+        </div>
+
+        <!-- 2. Chat y Mensajes en Tiempo Real -->
+        <div class="columna-chat-conversacion">
+          <div class="cabecera-chat-activa">
+            <div class="chat-paciente-detalle">
+              <div class="avatar-contacto" id="chat-activo-avatar">CM</div>
+              <div>
+                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                  <strong id="chat-activo-nombre" style="font-size: 0.95rem; color: var(--texto-principal);">Seleccione un chat</strong>
+                  <i data-lucide="check-circle-2" style="width: 14px; height: 14px; color: #0284c7;"></i>
+                </div>
+                <div class="chat-telefono-visible">
+                  <i data-lucide="phone" style="width: 13px; height: 13px;"></i>
+                  <span id="chat-activo-telefono">--</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <div id="chat-activo-badge-24h" class="badge-24h activa">
+                <i data-lucide="clock" style="width: 12px; height: 12px;"></i>
+                <span>Ventana 24h Activa</span>
+              </div>
+
+              <!-- Botón para mostrar / contraer la Ficha Optométrica Lateral -->
+              <button 
+                id="btn-toggle-ficha"
+                type="button"
+                class="btn-toggle-ficha"
+                onclick="alternarFichaOptometrica()"
+                title="Mostrar u ocultar la ficha optométrica para ganar espacio"
+              >
+                <i data-lucide="clipboard-list" style="width: 13px; height: 13px;"></i>
+                <span id="texto-btn-ficha">Ver Ficha Clínica</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Banner Alerta 24h si está expirada -->
+          <div id="banner-alerta-24h" class="banner-ventana-24h-alerta" style="display: none;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <i data-lucide="alert-triangle" style="width: 15px; height: 15px;"></i>
+              <span><strong>Ventana de 24h cerrada por Meta:</strong> Para reabrir el chat debe enviar una plantilla aprobada.</span>
+            </div>
+            <button class="btn-primario-optica" style="padding: 0.25rem 0.65rem; font-size: 0.72rem;" onclick="enviarPlantillaSeguimiento()">
+              Reactivar con Plantilla
+            </button>
+          </div>
+
+          <!-- Área de Burbujas de Mensajes -->
+          <div id="contenedor-mensajes-chat" class="area-mensajes-burbujas">
+            <!-- Mensajes inyectados dinámicamente -->
+          </div>
+
+          <!-- Input para enviar mensaje -->
+          <form class="area-envio-mensaje" onsubmit="enviarMensajeDesdeUI(event)">
+            <input 
+              type="text" 
+              id="input-mensaje-texto" 
+              placeholder="Escribe un mensaje al paciente..." 
+              autocomplete="off"
+            >
+            <button type="submit" class="btn-enviar-accion" title="Enviar mensaje">
+              <i data-lucide="send" style="width: 15px; height: 15px;"></i>
+            </button>
+          </form>
+        </div>
+
+        <!-- 3. Ficha Clínica Optométrica Lateral (Colapsable y Contraída por Defecto) -->
+        <div id="columna-ficha-optometrica" class="columna-ficha-optometrica">
+          <div class="ficha-seccion-cabecera">
+            <span class="ficha-seccion-titulo">
+              <i data-lucide="file-text" style="color: var(--color-primario-claro); width: 14px; height: 14px;"></i>
+              <span>Ficha Optométrica</span>
+            </span>
+            <div style="display: flex; align-items: center; gap: 0.35rem;">
+              <button class="btn-primario-optica" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;" onclick="abrirModalNuevaFormula()" title="Añadir fórmula">
+                + Fórmula
+              </button>
+              <button class="btn-cerrar-ficha" onclick="alternarFichaOptometrica()" title="Contraer Ficha para más espacio">
+                <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+              </button>
+            </div>
+          </div>
+
+          <div style="background: var(--fondo-elevado); border: 1px solid var(--borde-tarjeta); border-radius: var(--radio-md); padding: 0.55rem 0.7rem;">
+            <div style="font-weight: 700; font-size: 0.84rem; color: var(--texto-principal);" id="ficha-paciente-nombre">Paciente no seleccionado</div>
+            <div style="font-size: 0.72rem; color: var(--texto-secundario); margin-top: 0.15rem;" id="ficha-paciente-detalles">Selecciona una conversación para cargar su refracción.</div>
+          </div>
+
+          <!-- Historial de Prescripciones -->
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+              <strong style="font-size: 0.82rem; color: var(--texto-principal);">Fórmula Actual Vigente:</strong>
+              <span id="ficha-fecha-examen" style="font-size: 0.72rem; color: var(--texto-atenuado);">--/--/----</span>
+            </div>
+
+            <table class="tabla-formula-optica">
+              <thead>
+                <tr>
+                  <th>Ojo</th>
+                  <th>Esfera</th>
+                  <th>Cil.</th>
+                  <th>Eje</th>
+                  <th>Adic.</th>
+                  <th>AV</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="ojo-rotulo">OD</td>
+                  <td id="f-od-esf">+0.00</td>
+                  <td id="f-od-cil">-0.00</td>
+                  <td id="f-od-eje">0°</td>
+                  <td id="f-od-add">+0.00</td>
+                  <td id="f-od-av">20/20</td>
+                </tr>
+                <tr>
+                  <td class="ojo-rotulo">OI</td>
+                  <td id="f-oi-esf">+0.00</td>
+                  <td id="f-oi-cil">-0.00</td>
+                  <td id="f-oi-eje">0°</td>
+                  <td id="f-oi-add">+0.00</td>
+                  <td id="f-oi-av">20/20</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div style="margin-top: 0.5rem; font-size: 0.72rem; color: var(--texto-secundario); display: flex; flex-direction: column; gap: 0.2rem;">
+              <div><strong>Distancia Pupilar (DP):</strong> <span id="f-dp">62 mm</span></div>
+              <div><strong>Tipo de Lente:</strong> <span id="f-lente" style="background: var(--azul-suave); color: #0284c7; padding: 0.05rem 0.35rem; border-radius: 4px; font-weight: 600;">Monofocal Antirreflejo</span></div>
+              <div><strong>Optómetra:</strong> <span id="f-optometra">Dr. Samir Bolívar</span></div>
+              <div><strong>Próximo Control:</strong> <span id="f-control" style="color: #ea580c; font-weight: 600;">En 12 meses</span></div>
+            </div>
+          </div>
+
+          <!-- Acciones Rápidas del Paciente -->
+          <div style="margin-top: auto; display: flex; flex-direction: column; gap: 0.35rem;">
+            <button class="btn-primario-optica" style="width: 100%; background: #10b981; padding: 0.35rem 0.6rem; font-size: 0.74rem;" onclick="agendarCitaRapida()">
+              <i data-lucide="calendar-plus" style="width: 14px; height: 14px;"></i>
+              <span>Agendar Cita de Control</span>
+            </button>
+            <button class="panel-btn-accion-pie" style="padding: 0.32rem 0.5rem; font-size: 0.72rem;" onclick="abrirSimuladorWhatsApp()">
+              <i data-lucide="smartphone" style="width: 14px; height: 14px;"></i>
+              <span>Simular Plantilla WhatsApp</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           SECCIÓN 2: PACIENTES & FICHAS ÓPTICAS
+           ================================================================== -->
+      <section id="vista-pacientes" style="display: none; padding: 1.5rem 2rem; overflow-y: auto; height: calc(100vh - 72px);">
+        <div style="background: var(--fondo-tarjeta); border: 1px solid var(--borde-tarjeta); border-radius: var(--radio-lg); padding: 1.5rem; box-shadow: var(--sombra-sm);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <div>
+              <h2 style="font-family: var(--fuente-titulos); font-size: 1.2rem; color: var(--texto-principal);">Directorio de Pacientes</h2>
+              <p style="font-size: 0.8rem; color: var(--texto-atenuado);">Historial clínico y fórmulas ópticas almacenadas en SQLite</p>
+            </div>
+            <button class="btn-primario-optica" onclick="abrirModalNuevaFormula()">+ Nuevo Paciente</button>
+          </div>
+
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.86rem; text-align: left;">
+            <thead>
+              <tr style="border-bottom: 2px solid var(--borde-tarjeta); color: var(--texto-atenuado);">
+                <th style="padding: 0.75rem;">Nombre</th>
+                <th style="padding: 0.75rem;">Teléfono</th>
+                <th style="padding: 0.75rem;">Fórmulas Registradas</th>
+                <th style="padding: 0.75rem;">Último Tipo de Lente</th>
+                <th style="padding: 0.75rem;">Fecha Examen</th>
+                <th style="padding: 0.75rem; text-align: right;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-pacientes-cuerpo">
+              <!-- Inyectado dinámicamente -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           SECCIÓN 3: AUTO-SEGMENTACIÓN & CAMPAÑAS
+           ================================================================== -->
+      <section id="vista-campanas" style="display: none; padding: 1.5rem 2rem; overflow-y: auto; height: calc(100vh - 72px);">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem;">
+          <div class="tarjeta-kpi">
+            <span style="font-size: 0.75rem; font-weight: 700; color: #0284c7; text-transform: uppercase;">Segmento 1</span>
+            <h3 style="font-size: 1.1rem; color: var(--texto-principal); margin-top: 0.3rem;">Control Anual Vencido</h3>
+            <p style="font-size: 0.8rem; color: var(--texto-secundario); margin: 0.5rem 0;">Pacientes cuya última fórmula tiene más de 12 meses sin examen.</p>
+            <div class="tarjeta-kpi-valor" style="color: #ea580c;">24 Pacientes</div>
+            <button class="btn-primario-optica" style="margin-top: 0.75rem; width: 100%;" onclick="alert('Campaña de recordatorio anual preparada con plantilla de WhatsApp.')">
+              <i data-lucide="send" style="width: 14px; height: 14px;"></i>
+              <span>Enviar Recordatorio Masivo</span>
+            </button>
+          </div>
+
+          <div class="tarjeta-kpi">
+            <span style="font-size: 0.75rem; font-weight: 700; color: #10b981; text-transform: uppercase;">Segmento 2</span>
+            <h3 style="font-size: 1.1rem; color: var(--texto-principal); margin-top: 0.3rem;">Presbicia & Progresivos</h3>
+            <p style="font-size: 0.8rem; color: var(--texto-secundario); margin: 0.5rem 0;">Pacientes mayores de 40 años con adición formulada.</p>
+            <div class="tarjeta-kpi-valor" style="color: #0284c7;">18 Pacientes</div>
+            <button class="btn-primario-optica" style="margin-top: 0.75rem; width: 100%; background: #0284c7;" onclick="alert('Campaña de lentes progresivos y transitions lista.')">
+              <i data-lucide="send" style="width: 14px; height: 14px;"></i>
+              <span>Enviar Promoción Lentes</span>
+            </button>
+          </div>
+
+          <div class="tarjeta-kpi">
+            <span style="font-size: 0.75rem; font-weight: 700; color: #8b5cf6; text-transform: uppercase;">Segmento 3</span>
+            <h3 style="font-size: 1.1rem; color: var(--texto-principal); margin-top: 0.3rem;">Filtro Blue Protect / Pantallas</h3>
+            <p style="font-size: 0.8rem; color: var(--texto-secundario); margin: 0.5rem 0;">Jóvenes y profesionales con alta exposición a luz azul.</p>
+            <div class="tarjeta-kpi-valor" style="color: #8b5cf6;">31 Pacientes</div>
+            <button class="btn-primario-optica" style="margin-top: 0.75rem; width: 100%; background: #8b5cf6;" onclick="alert('Campaña de protección digital lista.')">
+              <i data-lucide="send" style="width: 14px; height: 14px;"></i>
+              <span>Enviar Campaña Blue Block</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           SECCIÓN 4: PLANTILLAS META & SIMULADOR MÓVIL
+           ================================================================== -->
+      <section id="vista-plantillas" style="display: none; padding: 1.5rem 2rem; overflow-y: auto; height: calc(100vh - 72px);">
+        <div style="display: flex; gap: 2rem; justify-content: center; align-items: flex-start; max-width: 900px; margin: 0 auto;">
+          <!-- Selector de Plantilla -->
+          <div style="flex: 1; background: var(--fondo-tarjeta); border: 1px solid var(--borde-tarjeta); border-radius: var(--radio-lg); padding: 1.5rem;">
+            <h3 style="font-family: var(--fuente-titulos); font-size: 1.15rem; color: var(--texto-principal); margin-bottom: 0.5rem;">Plantillas Aprobadas Meta</h3>
+            <p style="font-size: 0.82rem; color: var(--texto-atenuado); margin-bottom: 1.25rem;">Zernio requiere variables en array plano para abrir hilos fuera de 24h.</p>
+
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+              <button class="panel-item-btn activo" style="border-radius: 8px;">
+                <span>Recordatorio Cita Visual (recordatorio_cita_v1)</span>
+              </button>
+              <button class="panel-item-btn" style="border-radius: 8px;">
+                <span>Entrega de Lentes Listos (lentes_listos_v1)</span>
+              </button>
+              <button class="panel-item-btn" style="border-radius: 8px;">
+                <span>Control Anual Optometría (control_anual_v1)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Simulador de Teléfono Celular WhatsApp -->
+          <div style="width: 330px; height: 580px; background: #000; border-radius: 40px; padding: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 4px solid #334155; position: relative;">
+            <div style="width: 100%; height: 100%; background: #efeae2; border-radius: 30px; overflow: hidden; display: flex; flex-direction: column;">
+              <!-- Header WhatsApp -->
+              <div style="background: #075e54; color: #fff; padding: 10px 14px; display: flex; align-items: center; gap: 8px;">
+                <img src="/logo.jpeg" style="width: 30px; height: 30px; border-radius: 50%; background: #fff;" alt="TU VISIÓN">
+                <div>
+                  <div style="font-size: 0.82rem; font-weight: 700;">TU VISIÓN Óptica</div>
+                  <div style="font-size: 0.65rem; opacity: 0.85;">Cuenta de Empresa</div>
+                </div>
+              </div>
+
+              <!-- Mensaje Plantilla Simulado -->
+              <div style="flex: 1; padding: 12px; background: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); display: flex; flex-direction: column; justify-content: flex-end;">
+                <div style="background: #ffffff; border-radius: 8px; padding: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.2); font-size: 0.8rem; line-height: 1.4; color: #111;">
+                  <strong style="color: #075e54; display: block; margin-bottom: 4px;">👓 TU VISIÓN Óptica Informa</strong>
+                  Hola <strong>Carlos Mendoza</strong>, tus lentes formulados con tratamiento <strong>Antirreflejo</strong> ya están listos en nuestra sede principal.
+                  <div style="margin-top: 8px; font-size: 0.65rem; color: #888; text-align: right;">10:45 AM ✓✓</div>
+                </div>
+                <div style="background: #fff; border-radius: 8px; padding: 6px; text-align: center; margin-top: 6px; color: #00a884; font-weight: 700; font-size: 0.78rem; box-shadow: 0 1px 2px rgba(0,0,0,0.15);">
+                  Confirmar Asistencia
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           SECCIÓN 5: ANALÍTICA & MÉTRICAS
+           ================================================================== -->
+      <section id="vista-analitica" style="display: none; height: calc(100vh - 72px); overflow-y: auto;">
+        <div class="grilla-kpis-optica">
+          <div class="tarjeta-kpi">
+            <span class="tarjeta-kpi-etiqueta">Pacientes Registrados</span>
+            <div class="tarjeta-kpi-valor" id="kpi-total-pacientes">0</div>
+            <span style="font-size: 0.74rem; color: #10b981; font-weight: 600;">Propiedad total en SQLite</span>
+          </div>
+
+          <div class="tarjeta-kpi">
+            <span class="tarjeta-kpi-etiqueta">Fórmulas Médicas</span>
+            <div class="tarjeta-kpi-valor" id="kpi-total-formulas">0</div>
+            <span style="font-size: 0.74rem; color: #0284c7; font-weight: 600;">Refracciones completas</span>
+          </div>
+
+          <div class="tarjeta-kpi">
+            <span class="tarjeta-kpi-etiqueta">Mensajes WhatsApp</span>
+            <div class="tarjeta-kpi-valor" id="kpi-total-mensajes">0</div>
+            <span style="font-size: 0.74rem; color: #8b5cf6; font-weight: 600;">Persistencia indefinida</span>
+          </div>
+
+          <div class="tarjeta-kpi">
+            <span class="tarjeta-kpi-etiqueta">Estado Conexión Zernio</span>
+            <div class="tarjeta-kpi-valor" style="color: #10b981; font-size: 1.4rem;">VERDE (Green)</div>
+            <span style="font-size: 0.74rem; color: var(--texto-atenuado);">Modo Coexistencia Activo</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           SECCIÓN 6: CONFIGURACIÓN ZERNIO
+           ================================================================== -->
+      <section id="vista-configuracion" style="display: none; padding: 1.5rem 2rem; overflow-y: auto; height: calc(100vh - 72px);">
+        <div style="background: var(--fondo-tarjeta); border: 1px solid var(--borde-tarjeta); border-radius: var(--radio-lg); padding: 1.5rem; max-width: 800px; box-shadow: var(--sombra-sm);">
+          <h2 style="font-family: var(--fuente-titulos); font-size: 1.25rem; color: var(--texto-principal); margin-bottom: 0.5rem;">Estado de la Línea WhatsApp & Zernio</h2>
+          <p style="font-size: 0.82rem; color: var(--texto-atenuado); margin-bottom: 1.5rem;">Conexión directa mediante API unificada con Coexistencia oficial de Meta.</p>
+
+          <div style="display: flex; flex-direction: column; gap: 1rem; font-size: 0.88rem;">
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--borde-tarjeta); padding-bottom: 0.5rem;">
+              <span style="color: var(--texto-atenuado);">Línea Telefónica Oficial:</span>
+              <strong style="color: var(--texto-principal);">+57 313 2531694</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--borde-tarjeta); padding-bottom: 0.5rem;">
+              <span style="color: var(--texto-atenuado);">Nombre Comercial Verificado:</span>
+              <strong style="color: var(--texto-principal);">Samir Bolivar Coordinador</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--borde-tarjeta); padding-bottom: 0.5rem;">
+              <span style="color: var(--texto-atenuado);">ID de Cuenta Zernio:</span>
+              <code style="background: var(--fondo-elevado); padding: 2px 6px; border-radius: 4px;">6ab6a5ade55ed05c5f3a902b</code>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--borde-tarjeta); padding-bottom: 0.5rem;">
+              <span style="color: var(--texto-atenuado);">Modo de Operación:</span>
+              <span style="color: #10b981; font-weight: 700;">Coexistencia (App WhatsApp Business + CRM)</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--borde-tarjeta); padding-bottom: 0.5rem;">
+              <span style="color: var(--texto-atenuado);">Webhook Receptor Local:</span>
+              <code style="background: var(--fondo-elevado); padding: 2px 6px; border-radius: 4px;">POST /api/webhook/zernio</code>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ====================================================================
+       MODAL: REGISTRAR NUEVA FÓRMULA OPTOMÉTRICA
+       ==================================================================== -->
+  <div id="modal-formula" class="modal-overlay" style="display: none;">
+    <div class="modal-contenedor">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="font-family: var(--fuente-titulos); font-size: 1.15rem; color: var(--texto-principal);">Registrar Fórmula Optométrica</h3>
+        <button onclick="cerrarModalNuevaFormula()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--texto-atenuado);">&times;</button>
+      </div>
+
+      <form id="form-formula-optica" onsubmit="guardarFormulaOptica(event)">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
+          <div>
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--texto-secundario);">Ojo Derecho (OD) - Esfera</label>
+            <input type="text" id="in-od-esf" placeholder="-1.50" style="width: 100%; padding: 0.45rem; border-radius: 6px; border: 1px solid var(--borde-tarjeta);" required>
+          </div>
+          <div>
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--texto-secundario);">Ojo Derecho (OD) - Cilindro</label>
+            <input type="text" id="in-od-cil" placeholder="-0.75" style="width: 100%; padding: 0.45rem; border-radius: 6px; border: 1px solid var(--borde-tarjeta);">
+          </div>
+          <div>
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--texto-secundario);">Ojo Izquierdo (OI) - Esfera</label>
+            <input type="text" id="in-oi-esf" placeholder="-1.25" style="width: 100%; padding: 0.45rem; border-radius: 6px; border: 1px solid var(--borde-tarjeta);" required>
+          </div>
+          <div>
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--texto-secundario);">Ojo Izquierdo (OI) - Cilindro</label>
+            <input type="text" id="in-oi-cil" placeholder="-0.50" style="width: 100%; padding: 0.45rem; border-radius: 6px; border: 1px solid var(--borde-tarjeta);">
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
+          <div>
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--texto-secundario);">Distancia Pupilar (DP)</label>
+            <input type="text" id="in-dp" placeholder="62 mm" style="width: 100%; padding: 0.45rem; border-radius: 6px; border: 1px solid var(--borde-tarjeta);">
+          </div>
+          <div>
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--texto-secundario);">Tipo de Lente Sugerido</label>
+            <select id="in-lente" style="width: 100%; padding: 0.45rem; border-radius: 6px; border: 1px solid var(--borde-tarjeta);">
+              <option value="Monofocal Antirreflejo">Monofocal Antirreflejo</option>
+              <option value="Progresivo Digital">Progresivo Digital</option>
+              <option value="Filtro Blue Protect">Filtro Blue Protect (Luz Azul)</option>
+              <option value="Fotocromático Transitions">Fotocromático Transitions</option>
+              <option value="Bifocal Invisible">Bifocal Invisible</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+          <button type="button" class="panel-btn-accion-pie" style="width: auto; padding: 0.5rem 1rem;" onclick="cerrarModalNuevaFormula()">Cancelar</button>
+          <button type="submit" class="btn-primario-optica">Guardar Fórmula en Ficha</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       LÓGICA CLIENTE JAVASCRIPT
+       ==================================================================== -->
+  <script>
+    let conversacionesGlobales = [];
+    let conversacionActivaId = null;
+    let contactoActivoId = null;
+    let panelColapsado = false;
+
+    // 1. Alternancia de Tema (Claro / Oscuro) - Blanco por defecto
+    function alternarTema() {
+      const raiz = document.documentElement;
+      const temaActual = raiz.getAttribute('data-tema');
+      const nuevoTema = temaActual === 'oscuro' ? 'claro' : 'oscuro';
+      raiz.setAttribute('data-tema', nuevoTema);
+      localStorage.setItem('crm_tema', nuevoTema);
+
+      const iconoTema = document.getElementById('icono-tema');
+      const textoTema = document.getElementById('texto-tema');
+
+      if (nuevoTema === 'oscuro') {
+        iconoTema.setAttribute('data-lucide', 'sun');
+        textoTema.textContent = 'Modo Claro';
+      } else {
+        iconoTema.setAttribute('data-lucide', 'moon');
+        textoTema.textContent = 'Modo Oscuro';
+      }
+      lucide.createIcons();
+    }
+
+    // 2. Colapso del Panel Lateral
+    function alternarColapsoPanel() {
+      const panel = document.getElementById('panel-lateral');
+      const textoColapso = document.getElementById('texto-colapso-pie');
+      const iconoColapso = document.getElementById('icono-colapso-pie');
+
+      panelColapsado = !panelColapsado;
+
+      if (panelColapsado) {
+        panel.classList.remove('expandido');
+        panel.classList.add('colapsado');
+        if (textoColapso) textoColapso.style.display = 'none';
+        if (iconoColapso) iconoColapso.setAttribute('data-lucide', 'chevron-right');
+      } else {
+        panel.classList.remove('colapsado');
+        panel.classList.add('expandido');
+        if (textoColapso) textoColapso.style.display = 'inline';
+        if (iconoColapso) iconoColapso.setAttribute('data-lucide', 'chevron-left');
+      }
+      lucide.createIcons();
+    }
+
+    // 2.1 Colapso / Expansión de la Ficha Optométrica Lateral (Contraída por defecto)
+    function alternarFichaOptometrica() {
+      const seccion = document.getElementById('vista-mensajeria');
+      const estaColapsada = seccion.classList.contains('ficha-colapsada');
+
+      if (estaColapsada) {
+        seccion.classList.remove('ficha-colapsada');
+      } else {
+        seccion.classList.add('ficha-colapsada');
+      }
+      lucide.createIcons();
+    }
+
+    // 3. Navegación de Vistas
+    function cambiarVista(vista) {
+      const vistas = ['mensajeria', 'pacientes', 'campanas', 'plantillas', 'analitica', 'configuracion'];
+      vistas.forEach(v => {
+        const el = document.getElementById(`vista-${v}`);
+        if (el) el.style.display = (v === vista) ? (v === 'mensajeria' ? 'grid' : 'block') : 'none';
+      });
+
+      // Actualizar botón activo en el panel
+      document.querySelectorAll('.panel-item-btn').forEach(btn => {
+        btn.classList.toggle('activo', btn.getAttribute('data-vista') === vista);
+      });
+
+      const titulos = {
+        mensajeria: ['Bandeja Omnicanal WhatsApp', 'Gestión en tiempo real con persistencia en SQLite y control de 24h'],
+        pacientes: ['Directorio de Pacientes & Fórmulas', 'Fichas clínicas completas con refracciones OD/OI'],
+        campanas: ['Auto-Segmentación & Campañas Preventivas', 'Filtrado inteligente por edad, tipo de lente y control anual'],
+        plantillas: ['Gestor de Plantillas Meta WhatsApp', 'Simulador móvil en tiempo real para reapertura fuera de 24h'],
+        analitica: ['Métricas Clave del CRM Óptica', 'Retención de pacientes, citas agendadas y volumen de mensajes'],
+        configuracion: ['Línea WhatsApp & Configuración Zernio', 'Auditoría en vivo de WABA y modo coexistencia'],
+      };
+
+      if (titulos[vista]) {
+        document.getElementById('titulo-seccion-actual').textContent = titulos[vista][0];
+        document.getElementById('subtitulo-seccion-actual').textContent = titulos[vista][1];
+      }
+
+      if (vista === 'pacientes') cargarPacientesTabla();
+      if (vista === 'analitica') cargarMetricas();
+    }
+
+    // 4. Cargar Conversaciones desde la API
+    async function cargarConversaciones() {
+      try {
+        const res = await fetch('/api/conversaciones');
+        const data = await res.json();
+        if (!data.exito) return;
+
+        conversacionesGlobales = data.conversaciones || [];
+        document.getElementById('badge-chats-conteo').textContent = conversacionesGlobales.length;
+
+        const contenedor = document.getElementById('contenedor-lista-conversaciones');
+        contenedor.innerHTML = '';
+
+        if (conversacionesGlobales.length === 0) {
+          contenedor.innerHTML = `
+            <div style="padding: 2rem; text-align: center; color: var(--texto-atenuado); font-size: 0.85rem;">
+              No hay chats activos aún.<br>Escribe a la línea <strong>+57 313 2531694</strong> para recibir tu primer mensaje.
+            </div>`;
+          return;
+        }
+
+        conversacionesGlobales.forEach((conv, index) => {
+          const iniciales = (conv.contacto_nombre || 'P').substring(0, 2).toUpperCase();
+          const activoClase = (conversacionActivaId === conv.id || (!conversacionActivaId && index === 0)) ? 'activa' : '';
+          
+          if (!conversacionActivaId && index === 0) {
+            seleccionarConversacion(conv.id);
+          }
+
+          const badge24h = conv.ventana_24h_activa 
+            ? `<span class="badge-24h activa">● 24h Activa</span>` 
+            : `<span class="badge-24h expirada">⚠️ 24h Expirada</span>`;
+
+          const itemHTML = `
+            <div class="tarjeta-conversacion-item ${activoClase}" onclick="seleccionarConversacion(${conv.id})">
+              <div class="avatar-contacto">${iniciales}</div>
+              <div class="info-conversacion">
+                <div class="fila-nombre-hora">
+                  <span class="nombre-paciente-chat">${conv.contacto_nombre || 'Paciente Sin Nombre'}</span>
+                  <span class="hora-chat">${conv.ultimo_mensaje_fecha ? new Date(conv.ultimo_mensaje_fecha).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
+                </div>
+                <div class="ultimo-mensaje-chat">${conv.ultimo_mensaje_texto || 'Chat iniciado'}</div>
+                ${badge24h}
+              </div>
+            </div>`;
+          contenedor.insertAdjacentHTML('beforeend', itemHTML);
+        });
+
+      } catch (err) {
+        console.error('Error al cargar conversaciones:', err);
+      }
+    }
+
+    // 5. Seleccionar una Conversación y Cargar Mensajes y Ficha
+    async function seleccionarConversacion(id) {
+      conversacionActivaId = id;
+      const conv = conversacionesGlobales.find(c => c.id === id);
+      if (!conv) return;
+
+      contactoActivoId = conv.contacto_id;
+
+      // Actualizar cabecera chat
+      document.getElementById('chat-activo-nombre').textContent = conv.contacto_nombre || 'Paciente';
+      document.getElementById('chat-activo-telefono').textContent = conv.contacto_telefono || conv.contacto_bsuid || 'Sin teléfono';
+      document.getElementById('chat-activo-avatar').textContent = (conv.contacto_nombre || 'P').substring(0, 2).toUpperCase();
+
+      const badge24 = document.getElementById('chat-activo-badge-24h');
+      const banner24 = document.getElementById('banner-alerta-24h');
+      const inputMsg = document.getElementById('input-mensaje-texto');
+
+      if (conv.ventana_24h_activa) {
+        badge24.className = 'badge-24h activa';
+        badge24.innerHTML = `<i data-lucide="clock" style="width: 12px; height: 12px;"></i><span>Ventana 24h Activa</span>`;
+        banner24.style.display = 'none';
+        inputMsg.disabled = false;
+        inputMsg.placeholder = 'Escribe un mensaje al paciente...';
+      } else {
+        badge24.className = 'badge-24h expirada';
+        badge24.innerHTML = `<i data-lucide="alert-triangle" style="width: 12px; height: 12px;"></i><span>24h Expirada</span>`;
+        banner24.style.display = 'flex';
+        inputMsg.disabled = true;
+        inputMsg.placeholder = 'Ventana de 24h cerrada. Use "Reactivar con Plantilla"...';
+      }
+
+      // Cargar mensajes
+      cargarMensajesChat(id);
+
+      // Cargar Ficha Optométrica del contacto
+      cargarFichaOptometrica(conv.contacto_id);
+
+      // Actualizar resaltado en lista
+      document.querySelectorAll('.tarjeta-conversacion-item').forEach(el => {
+        el.classList.remove('activa');
+      });
+      lucide.createIcons();
+    }
+
+    async function cargarMensajesChat(convId) {
+      try {
+        const res = await fetch(`/api/conversaciones/${convId}/mensajes`);
+        const data = await res.json();
+        const contenedor = document.getElementById('contenedor-mensajes-chat');
+        contenedor.innerHTML = '';
+
+        (data.mensajes || []).forEach(m => {
+          const esSaliente = m.direccion === 'saliente';
+          const hora = m.creado_en ? new Date(m.creado_en).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
+          const tick = esSaliente ? ' ✓✓' : '';
+
+          const burbuja = `
+            <div class="burbuja-mensaje ${esSaliente ? 'saliente' : 'entrante'}">
+              <div>${m.texto || ''}</div>
+              <div class="burbuja-hora">${hora}${tick}</div>
+            </div>`;
+          contenedor.insertAdjacentHTML('beforeend', burbuja);
+        });
+
+        contenedor.scrollTop = contenedor.scrollHeight;
+      } catch (err) {
+        console.error('Error al cargar mensajes:', err);
+      }
+    }
+
+    // 6. Cargar Ficha Optométrica del Paciente
+    async function cargarFichaOptometrica(contactoId) {
+      if (!contactoId) return;
+      try {
+        const res = await fetch(`/api/contactos/${contactoId}`);
+        const data = await res.json();
+        if (!data.exito) return;
+
+        const paciente = data.contacto;
+        const formulas = data.formulas || [];
+
+        document.getElementById('ficha-paciente-nombre').textContent = paciente.nombre || 'Paciente';
+        document.getElementById('ficha-paciente-detalles').textContent = `Tel: ${paciente.telefono || 'No registrado'} | Fórmulas: ${formulas.length}`;
+
+        if (formulas.length > 0) {
+          const f = formulas[0]; // La más reciente
+          document.getElementById('ficha-fecha-examen').textContent = f.fecha_examen || 'Reciente';
+          document.getElementById('f-od-esf').textContent = f.od_esfera || '+0.00';
+          document.getElementById('f-od-cil').textContent = f.od_cilindro || '-0.00';
+          document.getElementById('f-od-eje').textContent = f.od_eje ? `${f.od_eje}°` : '0°';
+          document.getElementById('f-od-add').textContent = f.od_adicion || '+0.00';
+          document.getElementById('f-od-av').textContent = f.od_agudeza_visual || '20/20';
+
+          document.getElementById('f-oi-esf').textContent = f.oi_esfera || '+0.00';
+          document.getElementById('f-oi-cil').textContent = f.oi_cilindro || '-0.00';
+          document.getElementById('f-oi-eje').textContent = f.oi_eje ? `${f.oi_eje}°` : '0°';
+          document.getElementById('f-oi-add').textContent = f.oi_adicion || '+0.00';
+          document.getElementById('f-oi-av').textContent = f.oi_agudeza_visual || '20/20';
+
+          document.getElementById('f-dp').textContent = f.distancia_pupilar || '62 mm';
+          document.getElementById('f-lente').textContent = f.tipo_lente || 'Monofocal Antirreflejo';
+          document.getElementById('f-optometra').textContent = f.optometra || 'Dr. Samir Bolívar';
+          document.getElementById('f-control').textContent = f.proximo_control || 'En 12 meses';
+        }
+      } catch (err) {
+        console.error('Error al cargar ficha optométrica:', err);
+      }
+    }
+
+    // 7. Enviar Mensaje desde el Formulario
+    async function enviarMensajeDesdeUI(e) {
+      e.preventDefault();
+      const input = document.getElementById('input-mensaje-texto');
+      const texto = input.value.trim();
+      if (!texto || !conversacionActivaId) return;
+
+      input.value = '';
+
+      try {
+        const res = await fetch('/api/mensajes/enviar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversacion_id: conversacionActivaId,
+            texto: texto,
+          }),
+        });
+
+        const data = await res.json();
+        if (data.exito) {
+          cargarMensajesChat(conversacionActivaId);
+        } else {
+          alert('Error al enviar: ' + (data.error?.mensaje || 'Error desconocido'));
+        }
+      } catch (err) {
+        console.error('Error al enviar mensaje:', err);
+      }
+    }
+
+    // 8. Enviar Plantilla de Reactivación de Ventana 24h
+    async function enviarPlantillaSeguimiento() {
+      if (!conversacionActivaId) return;
+      const pacienteNombre = document.getElementById('chat-activo-nombre').textContent;
+
+      if (!confirm(`¿Reactivar conversación con la plantilla oficial de seguimiento para ${pacienteNombre}?`)) return;
+
+      try {
+        const res = await fetch('/api/mensajes/enviar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversacion_id: conversacionActivaId,
+            nombre_plantilla: 'recordatorio_cita_v1',
+            idioma_plantilla: 'es',
+            parametros_plantilla: [pacienteNombre, 'Control de Agudeza Visual'],
+          }),
+        });
+
+        const data = await res.json();
+        if (data.exito) {
+          alert('✅ Plantilla enviada con éxito.');
+          cargarConversaciones();
+        } else {
+          alert('Error al enviar plantilla: ' + (data.error?.mensaje || 'Verifique en Meta'));
+        }
+      } catch (err) {
+        console.error('Error al enviar plantilla:', err);
+      }
+    }
+
+    // 9. Modales de Nueva Fórmula
+    function abrirModalNuevaFormula() {
+      document.getElementById('modal-formula').style.display = 'flex';
+    }
+
+    function cerrarModalNuevaFormula() {
+      document.getElementById('modal-formula').style.display = 'none';
+    }
+
+    async function guardarFormulaOptica(e) {
+      e.preventDefault();
+      if (!contactoActivoId) {
+        alert('Seleccione un paciente primero.');
+        return;
+      }
+
+      const body = {
+        od_esfera: document.getElementById('in-od-esf').value,
+        od_cilindro: document.getElementById('in-od-cil').value,
+        oi_esfera: document.getElementById('in-oi-esf').value,
+        oi_cilindro: document.getElementById('in-oi-cil').value,
+        distancia_pupilar: document.getElementById('in-dp').value,
+        tipo_lente: document.getElementById('in-lente').value,
+      };
+
+      try {
+        const res = await fetch(`/api/contactos/${contactoActivoId}/formulas`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        const data = await res.json();
+        if (data.exito) {
+          alert('✅ Fórmula guardada correctamente en la ficha médica.');
+          cerrarModalNuevaFormula();
+          cargarFichaOptometrica(contactoActivoId);
+        }
+      } catch (err) {
+        console.error('Error al guardar fórmula:', err);
+      }
+    }
+
+    // 10. Pacientes y Métricas
+    async function cargarPacientesTabla() {
+      try {
+        const res = await fetch('/api/contactos');
+        const data = await res.json();
+        const tbody = document.getElementById('tabla-pacientes-cuerpo');
+        tbody.innerHTML = '';
+
+        (data.contactos || []).forEach(c => {
+          const fila = `
+            <tr style="border-bottom: 1px solid var(--borde-tarjeta);">
+              <td style="padding: 0.75rem; font-weight: 600;">${c.nombre || 'Sin nombre'}</td>
+              <td style="padding: 0.75rem; color: #0284c7;">${c.telefono || c.business_scoped_user_id || '--'}</td>
+              <td style="padding: 0.75rem;">${c.total_formulas} fórmulas</td>
+              <td style="padding: 0.75rem;">${c.ultimo_tipo_lente || 'Ninguno'}</td>
+              <td style="padding: 0.75rem;">${c.ultima_formula_fecha || '--'}</td>
+              <td style="padding: 0.75rem; text-align: right;">
+                <button class="btn-primario-optica" style="padding: 0.25rem 0.6rem; font-size: 0.75rem; display: inline-flex;" onclick="abrirChatDesdeContacto(${c.id})">Ver Chat</button>
+              </td>
+            </tr>`;
+          tbody.insertAdjacentHTML('beforeend', fila);
+        });
+
+        document.getElementById('badge-pacientes-conteo').textContent = (data.contactos || []).length;
+      } catch (err) {
+        console.error('Error al listar pacientes:', err);
+      }
+    }
+
+    async function cargarMetricas() {
+      try {
+        const res = await fetch('/api/estado');
+        const data = await res.json();
+        if (data.metricas) {
+          document.getElementById('kpi-total-pacientes').textContent = data.metricas.total_contactos;
+          document.getElementById('kpi-total-mensajes').textContent = data.metricas.total_mensajes;
+        }
+      } catch (err) {
+        console.error('Error al cargar métricas:', err);
+      }
+    }
+
+    function abrirChatDesdeContacto(contactoId) {
+      const conv = conversacionesGlobales.find(c => c.contacto_id === contactoId);
+      cambiarVista('mensajeria');
+      if (conv) seleccionarConversacion(conv.id);
+    }
+
+    function agendarCitaRapida() {
+      alert('📅 Módulo de cita rápida: Recordatorio programado para la fecha de control.');
+    }
+
+    function abrirSimuladorWhatsApp() {
+      cambiarVista('plantillas');
+    }
+
+    function filtrarConversaciones() {
+      const termino = document.getElementById('filtro-busqueda-chat').value.toLowerCase();
+      document.querySelectorAll('.tarjeta-conversacion-item').forEach(item => {
+        const texto = item.textContent.toLowerCase();
+        item.style.display = texto.includes(termino) ? 'flex' : 'none';
+      });
+    }
+
+    // Inicialización al cargar la página
+    document.addEventListener('DOMContentLoaded', () => {
+      // Tema guardado o predeterminado claro
+      const temaGuardado = localStorage.getItem('crm_tema') || 'claro';
+      document.documentElement.setAttribute('data-tema', temaGuardado);
+      lucide.createIcons();
+      cargarConversaciones();
+      cargarPacientesTabla();
+      cargarMetricas();
+
+      // Sondeo cada 5 segundos para actualizar nuevos mensajes en vivo
+      setInterval(cargarConversaciones, 5000);
+    });
+  </script>
+</body>
+</html>
