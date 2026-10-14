@@ -100,8 +100,14 @@ export async function sincronizarPlantillasConZernio(opticaId) {
       for (const comp of t.components) {
         const compTipo = (comp.type || '').toUpperCase();
         if (compTipo === 'HEADER') {
-          encabezadoTipo = (comp.format || 'TEXT').toUpperCase() === 'TEXT' ? 'TEXTO' : 'IMAGEN';
-          encabezadoContenido = comp.text || null;
+          const formato = (comp.format || 'TEXT').toUpperCase();
+          encabezadoTipo = formato === 'TEXT' ? 'TEXTO' : (formato === 'VIDEO' ? 'VIDEO' : 'IMAGEN');
+          encabezadoContenido =
+            comp.text ||
+            (Array.isArray(comp.example?.header_handle) && comp.example.header_handle[0]) ||
+            (Array.isArray(comp.example?.header_url) && comp.example.header_url[0]) ||
+            comp.url ||
+            null;
         } else if (compTipo === 'BODY') {
           cuerpo = comp.text || '';
         } else if (compTipo === 'FOOTER') {

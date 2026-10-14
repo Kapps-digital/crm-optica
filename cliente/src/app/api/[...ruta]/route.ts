@@ -65,7 +65,7 @@ async function procesarPeticion(
   metodo: string,
   request: NextRequest,
   segmentosRuta: string[]
-): Promise<NextResponse> {
+): Promise<NextResponse | Response> {
   const rutaStr = segmentosRuta.join('/');
   const { usuario, optica_id } = extraerSesion(request);
   const searchParams = request.nextUrl.searchParams;
@@ -755,6 +755,55 @@ async function procesarPeticion(
         nombre_original: nombre_archivo || 'logo.png',
       });
       return NextResponse.json(resultado);
+    }
+
+    // 10. PROXY MULTIMEDIA WHATSAPP / ZERNIO (IMÁGENES, AUDIOS, VIDEOS, DOCUMENTOS)
+    if (
+      metodo === 'GET' &&
+      ((segmentosRuta[0] === 'media' && segmentosRuta[1] === 'whatsapp' && segmentosRuta.length >= 3) ||
+       (segmentosRuta[0] === 'v1' && segmentosRuta[1] === 'whatsapp' && segmentosRuta[2] === 'media' && segmentosRuta.length >= 4))
+    ) {
+      const media_id = segmentosRuta[0] === 'media' ? segmentosRuta[2] : segmentosRuta[3];
+      const account_id = searchParams.get('accountId') || searchParams.get('account_id') || process.env.ZERNIO_ACCOUNT_ID || '6ab6a5ade55ed05c5f3a902b';
+
+      try {
+        const url_zernio = `https://zernio.com/api/v1/whatsapp/media/${encodeURIComponent(media_id)}?accountId=${encodeURIComponent(account_id)}`;
+        const respZernio = await fetch(url_zernio, {
+          headers: {
+            'Authorization': `Bearer ${process.env.ZERNIO_API_KEY}`,
+          },
+        });
+
+        if (respZernio.status === 410) {
+          return NextResponse.json({
+            exito: false,
+            expirado: true,
+            error: 'Este archivo multimedia ha caducado en los servidores de WhatsApp.',
+          }, { status: 410 });
+        }
+
+        if (!respZernio.ok) {
+          return NextResponse.json({
+            exito: false,
+            error: `Error al obtener multimedia (${respZernio.status})`,
+          }, { status: respZernio.status >= 500 ? 502 : respZernio.status });
+        }
+
+        const tipoContenido = respZernio.headers.get('content-type') || 'application/octet-stream';
+        const buffer = await respZernio.arrayBuffer();
+
+        return new Response(buffer, {
+          status: 200,
+          headers: {
+            'Content-Type': tipoContenido,
+            'Content-Length': String(buffer.byteLength),
+            'Cache-Control': 'public, max-age=604800, immutable',
+          },
+        });
+      } catch (errMedia: any) {
+        console.error(`[Proxy Multimedia] Error al servir medio ${media_id}:`, errMedia);
+        return NextResponse.json({ exito: false, error: 'Error al procesar archivo multimedia' }, { status: 502 });
+      }
     }
 
     return NextResponse.json(

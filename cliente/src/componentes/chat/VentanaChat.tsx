@@ -824,34 +824,39 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
                         }}
                       >
                         {/* 1. Encabezado Multimedia o de Texto */}
-                        {plantilla?.encabezado_tipo === 'IMAGEN' && plantilla.encabezado_contenido && (
-                          <div style={{
-                            margin: '-0.5rem -0.8rem 0.5rem -0.8rem',
-                            borderRadius: '8px 8px 0 0',
-                            overflow: 'hidden',
-                            maxHeight: '220px',
-                            background: esSaliente ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.05)',
-                          }}>
-                            <img
-                              src={plantilla.encabezado_contenido}
-                              alt="Encabezado de plantilla"
-                              style={{
-                                width: '100%',
-                                height: 'auto',
-                                maxHeight: '220px',
-                                objectFit: 'cover',
-                                display: 'block',
-                                cursor: 'pointer',
-                              }}
-                              onLoad={() => {
-                                if (debeSeguirFondoRef.current) {
-                                  bajarAlFondoInstantaneo();
-                                }
-                              }}
-                              onClick={() => window.open(plantilla.encabezado_contenido!, '_blank')}
-                            />
-                          </div>
-                        )}
+                        {(() => {
+                          const urlImgEncabezado = (plantilla?.encabezado_tipo === 'IMAGEN' ? (plantilla.encabezado_contenido || m.url_adjunto) : null) || (m.url_adjunto && !plantilla ? m.url_adjunto : null);
+                          if (!urlImgEncabezado) return null;
+                          const urlResuelta = resolverUrlMediaProxy(urlImgEncabezado);
+                          return (
+                            <div style={{
+                              margin: '-0.5rem -0.8rem 0.5rem -0.8rem',
+                              borderRadius: '8px 8px 0 0',
+                              overflow: 'hidden',
+                              maxHeight: '220px',
+                              background: esSaliente ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.05)',
+                            }}>
+                              <img
+                                src={urlResuelta}
+                                alt="Encabezado de plantilla"
+                                style={{
+                                  width: '100%',
+                                  height: 'auto',
+                                  maxHeight: '220px',
+                                  objectFit: 'cover',
+                                  display: 'block',
+                                  cursor: 'pointer',
+                                }}
+                                onLoad={() => {
+                                  if (debeSeguirFondoRef.current) {
+                                    bajarAlFondoInstantaneo();
+                                  }
+                                }}
+                                onClick={() => setImagenAmpliadaUrl(urlResuelta)}
+                              />
+                            </div>
+                          );
+                        })()}
 
                         {plantilla?.encabezado_tipo === 'VIDEO' && plantilla.encabezado_contenido && (
                           <div style={{
