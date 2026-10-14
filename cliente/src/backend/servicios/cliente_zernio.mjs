@@ -1,5 +1,3 @@
-import 'dotenv/config';
-
 /**
  * Cliente HTTP resiliente para la API unificada de Zernio.
  * Cumple con las directrices de no lanzar excepciones y gestionar reintentos

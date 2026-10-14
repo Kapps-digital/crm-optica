@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import crypto from 'node:crypto';
 import { base_datos } from '../base_datos/conexion.mjs';
 import { ClienteZernio } from './cliente_zernio.mjs';
