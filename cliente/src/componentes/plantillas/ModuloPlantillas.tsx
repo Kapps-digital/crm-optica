@@ -170,7 +170,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
   useEffect(() => {
     cargarDatosPrincipales();
     cargarHistorial();
-  }, [cargarDatosPrincipales, cargarHistorial]);
+  }, [cargarDatosPrincipales, cargarHistorial, opticaId]);
 
 
 

@@ -65,12 +65,14 @@ export const ModalLanzarLote: React.FC<PropiedadesModalLanzarLote> = ({
 
   const inputArchivoRef = useRef<HTMLInputElement>(null);
 
-  // Sincronizar plantilla inicial cuando cambia prop
+  // Sincronizar plantilla inicial cuando cambia prop o cambian las disponibles
   useEffect(() => {
     if (plantilla) {
       setPlantillaActiva(plantilla);
-    } else if (plantillasDisponibles && plantillasDisponibles.length > 0 && !plantillaActiva) {
-      setPlantillaActiva(plantillasDisponibles[0]);
+    } else if (plantillasDisponibles && plantillasDisponibles.length > 0) {
+      if (!plantillaActiva || !plantillasDisponibles.some((p) => p.id === plantillaActiva.id)) {
+        setPlantillaActiva(plantillasDisponibles[0]);
+      }
     }
   }, [plantilla, plantillasDisponibles]);
 
@@ -115,7 +117,7 @@ export const ModalLanzarLote: React.FC<PropiedadesModalLanzarLote> = ({
           diasExclusion: 30,
         });
 
-        if (res.exito) {
+        if (res.exito !== false && (res.exito || res.plantilla)) {
           setResultadoCalculo(res as CalculoAudienciaLote);
           const numLote = res.lote_numero || 1;
           const etiqueta = plantillaActiva.etiqueta || plantillaActiva.nombre;

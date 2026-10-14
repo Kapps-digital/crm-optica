@@ -125,7 +125,7 @@ export const ModuloAutoSegmentacion: React.FC<PropiedadesModuloAutoSegmentacion>
   useEffect(() => {
     cargarSegmentos();
     cargarPlantillasYCuota();
-  }, []);
+  }, [opticaId]);
 
   // Segmentos filtrados por pestaña y búsqueda
   const segmentosFiltrados = useMemo(() => {

@@ -468,12 +468,32 @@ export async function calcularAudienciaLote(opticaId, { plantillaId, segmentoId,
   const idPlantillaNumerico = Number(plantillaId);
 
   // 1. Obtener la plantilla
-  const resPlantilla = await pool.query(
+  let resPlantilla = await pool.query(
     `SELECT * FROM "CRM_Opticas".plantillas WHERE id = $1 AND (optica_id IS NULL OR optica_id = $2)`,
     [idPlantillaNumerico, idOpticaNumerico]
   );
   if (resPlantilla.rows.length === 0) {
-    throw new Error('Plantilla no encontrada');
+    // Si el ID vino de otra óptica o sesión previa, buscar por mismo nombre o meta_template_id para la óptica activa
+    const resPorNombre = await pool.query(
+      `SELECT p2.* FROM "CRM_Opticas".plantillas p1
+       JOIN "CRM_Opticas".plantillas p2 ON (p2.nombre = p1.nombre OR p2.meta_template_id = p1.meta_template_id)
+       WHERE p1.id = $1 AND (p2.optica_id IS NULL OR p2.optica_id = $2)
+       ORDER BY p2.id DESC LIMIT 1`,
+      [idPlantillaNumerico, idOpticaNumerico]
+    );
+    if (resPorNombre.rows.length > 0) {
+      resPlantilla = resPorNombre;
+    } else {
+      const resCualquiera = await pool.query(
+        `SELECT * FROM "CRM_Opticas".plantillas WHERE id = $1`,
+        [idPlantillaNumerico]
+      );
+      if (resCualquiera.rows.length > 0) {
+        resPlantilla = resCualquiera;
+      } else {
+        throw new Error('Plantilla no encontrada');
+      }
+    }
   }
   const plantilla = resPlantilla.rows[0];
 
@@ -552,6 +572,7 @@ export async function calcularAudienciaLote(opticaId, { plantillaId, segmentoId,
   const cantidadAEnviarHoy = Math.min(pendientesElegibles.length, limiteLoteHoy);
 
   return {
+    exito: true,
     plantilla: {
       id: plantilla.id,
       nombre: plantilla.nombre,
@@ -770,7 +791,7 @@ export async function lanzarLoteCampana(opticaId, datos) {
      RETURNING *`,
     [
       idOpticaNumerico,
-      Number(plantillaId),
+      Number(calculo.plantilla.id),
       nombreFinal,
       segmentoId ? Number(segmentoId) : null,
       segmentoId ? 'segmento' : 'csv',
@@ -801,7 +822,7 @@ export async function lanzarLoteCampana(opticaId, datos) {
       [
         campana.id,
         idOpticaNumerico,
-        Number(plantillaId),
+        Number(calculo.plantilla.id),
         dest.contacto_id || null,
         dest.telefono,
         dest.nombre || 'Paciente',
