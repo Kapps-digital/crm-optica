@@ -182,6 +182,84 @@ async function obtenerHorariosDisponibles(opticaId, fechaStr) {
 }
 
 /**
+ * Convierte cualquier fecha YYYY-MM-DD a formato DD/MM/YYYY
+ */
+export function formatearFechaDDMMYYYY(fechaStr) {
+  if (!fechaStr) return '';
+  const str = String(fechaStr).trim();
+  if (str.includes('-')) {
+    const partes = str.split('-');
+    if (partes.length === 3) {
+      return `${partes[2]}/${partes[1]}/${partes[0]}`;
+    }
+  }
+  return str;
+}
+
+/**
+ * Obtiene la fecha actual en zona horaria de Colombia en formato YYYY-MM-DD
+ */
+export function obtenerFechaHoyColombia() {
+  const d = new Date();
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+}
+
+/**
+ * Sanitiza texto Markdown eliminando dobles asteriscos para que WhatsApp
+ * muestre negritas limpias sin asteriscos sueltos (*palabra*, nunca **palabra**)
+ */
+export function sanitizarMarkdownParaWhatsApp(texto) {
+  if (!texto || typeof texto !== 'string') return '';
+  // Convertir dobles asteriscos **palabra** a *palabra*
+  let res = texto.replace(/\*\*([^\n*]+?)\*\*/g, '*$1*');
+  // Reemplazar dobles asteriscos residuales por uno solo
+  res = res.replace(/\*\*/g, '*');
+  return res;
+}
+
+/**
+ * Construye el mensaje estructurado canónico de cita para WhatsApp (idéntico a la plantilla CRM)
+ */
+export function construirMensajeCitaWhatsApp({
+  tipo = 'confirmacion', // 'confirmacion' | 'reprogramacion' | 'consulta'
+  nombreOptica = 'Óptica',
+  nombrePaciente = 'Paciente',
+  fecha,
+  hora,
+  motivo,
+  especialista,
+}) {
+  const encabezado = (nombreOptica || 'Óptica').trim();
+  const fechaVisual = formatearFechaDDMMYYYY(fecha);
+  const espTexto = especialista && String(especialista).trim() !== '' ? String(especialista).trim() : 'Por asignar';
+  const motivoTexto = motivo && String(motivo).trim() !== '' ? String(motivo).trim() : 'Examen de optometría';
+  const pacienteTexto = (nombrePaciente || 'Paciente').trim();
+
+  let titulo = 'Confirmación de Cita';
+  let saludo = `Hola *${pacienteTexto}*, tu cita de optometría ha sido programada con éxito:`;
+
+  if (tipo === 'reprogramacion') {
+    titulo = 'Cita Reprogramada';
+    saludo = `Hola *${pacienteTexto}*, tu cita de optometría ha sido reprogramada con éxito:`;
+  } else if (tipo === 'consulta') {
+    titulo = 'Cita Programada';
+    saludo = `Hola *${pacienteTexto}*, tienes la siguiente cita programada:`;
+  }
+
+  return [
+    `🗓️ *${encabezado} - ${titulo}*`,
+    saludo,
+    ``,
+    `📅 *Fecha:* ${fechaVisual}`,
+    `⏰ *Hora:* ${hora}`,
+    `🎯 *Motivo:* ${motivoTexto}`,
+    `👨‍⚕️ *Especialista:* ${espTexto}`,
+    ``,
+    `📍 Te sugerimos presentarte 10 minutos antes. Si necesitas reprogramar, responde directamente a este chat.`,
+  ].join('\n');
+}
+
+/**
  * Declaraciones de herramientas (Function Calling) en formato OpenAI / OpenRouter
  */
 const HERRAMIENTAS_OPENAI = [
@@ -189,7 +267,7 @@ const HERRAMIENTAS_OPENAI = [
     type: 'function',
     function: {
       name: 'consultar_citas_paciente',
-      description: 'Consulta las citas programadas o vigentes de este paciente.',
+      description: 'Consulta únicamente las citas pendientes vigentes (de hoy en adelante) del paciente. Las citas pasadas ya no son relevantes y no deben mostrarse.',
       parameters: {
         type: 'object',
         properties: {},
@@ -218,7 +296,7 @@ const HERRAMIENTAS_OPENAI = [
     type: 'function',
     function: {
       name: 'agendar_cita',
-      description: 'Agenda y confirma una cita en el CRM una vez que el paciente ha confirmado expresamente la fecha, hora y motivo.',
+      description: 'Agenda y confirma una nueva cita en el CRM una vez que el paciente ha confirmado la fecha y hora. La cita siempre queda en estado Pendiente.',
       parameters: {
         type: 'object',
         properties: {
@@ -228,7 +306,7 @@ const HERRAMIENTAS_OPENAI = [
           },
           hora: {
             type: 'string',
-            description: 'Hora confirmada (ejemplo: "10:30 AM" o "15:00").',
+            description: 'Hora confirmada (ejemplo: "10:30 AM" o "11:00 AM").',
           },
           motivo: {
             type: 'string',
@@ -239,35 +317,91 @@ const HERRAMIENTAS_OPENAI = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'reprogramar_cita',
+      description: 'Mueve o reprograma la cita pendiente existente de un paciente hacia una nueva fecha y hora. Actualiza directamente la cita existente en la base de datos sin duplicarla y la deja en estado Pendiente.',
+      parameters: {
+        type: 'object',
+        properties: {
+          cita_id: {
+            type: 'number',
+            description: 'ID de la cita a reprogramar (opcional, si se omite se reprograma la cita pendiente futura más próxima).',
+          },
+          nueva_fecha: {
+            type: 'string',
+            description: 'Nueva fecha acordada en formato YYYY-MM-DD.',
+          },
+          nueva_hora: {
+            type: 'string',
+            description: 'Nueva hora acordada (ejemplo: "08:30 AM" o "11:00 AM").',
+          },
+          motivo: {
+            type: 'string',
+            description: 'Motivo de la cita (opcional, si se omite conserva el motivo anterior).',
+          },
+        },
+        required: ['nueva_fecha', 'nueva_hora'],
+      },
+    },
+  },
 ];
 
 /**
- * Ejecuta una herramienta llamada por Gemini y retorna el resultado
+ * Ejecuta una herramienta llamada por el modelo de IA y retorna el resultado
  */
 async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId }) {
   if (nombre === 'consultar_citas_paciente') {
+    const hoyStr = obtenerFechaHoyColombia();
     const res = await pool.query(
       `SELECT id, fecha_cita, hora_cita, motivo, especialista, estado 
        FROM "CRM_Opticas".citas 
-       WHERE contacto_id = $1 AND optica_id = $2 AND estado != 'cancelada'
+       WHERE contacto_id = $1 AND optica_id = $2 
+         AND estado NOT IN ('cancelada', 'completada')
+         AND fecha_cita >= $3
        ORDER BY fecha_cita ASC, hora_cita ASC LIMIT 5`,
-      [contactoId, opticaId]
+      [contactoId, opticaId, hoyStr]
     );
 
     if (res.rows.length === 0) {
-      return { tiene_citas: false, mensaje: 'El paciente no tiene ninguna cita programada actualmente.' };
+      return { 
+        tiene_citas: false, 
+        mensaje: 'El paciente no tiene ninguna cita pendiente programada de hoy en adelante.' 
+      };
     }
+
+    const resOptica = await pool.query(`SELECT nombre FROM "CRM_Opticas".opticas WHERE id = $1`, [opticaId]);
+    const nombreOptica = resOptica.rows[0]?.nombre || 'Óptica';
+
+    const resContacto = await pool.query(`SELECT nombre_completo FROM "CRM_Opticas".contactos WHERE id = $1`, [contactoId]);
+    const nombrePaciente = resContacto.rows[0]?.nombre_completo || 'Paciente';
+
+    const citasFormateadas = res.rows.map((c) => ({
+      id: c.id,
+      fecha_iso: c.fecha_cita,
+      fecha: formatearFechaDDMMYYYY(c.fecha_cita),
+      hora: c.hora_cita,
+      motivo: c.motivo || 'Examen de optometría',
+      especialista: c.especialista || 'Por asignar',
+      estado: c.estado,
+    }));
+
+    const primeraCita = citasFormateadas[0];
+    const mensajePreformateado = construirMensajeCitaWhatsApp({
+      tipo: 'consulta',
+      nombreOptica,
+      nombrePaciente,
+      fecha: primeraCita.fecha,
+      hora: primeraCita.hora,
+      motivo: primeraCita.motivo,
+      especialista: primeraCita.especialista,
+    });
 
     return {
       tiene_citas: true,
-      citas: res.rows.map((c) => ({
-        id: c.id,
-        fecha: c.fecha_cita,
-        hora: c.hora_cita,
-        motivo: c.motivo || 'Examen visual',
-        especialista: c.especialista || 'Optómetra',
-        estado: c.estado,
-      })),
+      citas: citasFormateadas,
+      mensaje_whatsapp_preformateado: mensajePreformateado,
     };
   }
 
@@ -298,31 +432,159 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId })
       };
     }
 
-    // Obtener especialista por defecto
+    // Obtener especialista predeterminado de la configuración de la óptica
     const resOptica = await pool.query(
-      `SELECT especialista_defecto, motivo_cita_defecto FROM "CRM_Opticas".opticas WHERE id = $1`,
+      `SELECT nombre, especialista_defecto, motivo_cita_defecto FROM "CRM_Opticas".opticas WHERE id = $1`,
       [opticaId]
     );
-    const espDefecto = resOptica.rows[0]?.especialista_defecto || 'Optómetra de turno';
-    const motivoFinal = motivo || resOptica.rows[0]?.motivo_cita_defecto || 'Examen de optometría';
+    const espDefectoConfig = (resOptica.rows[0]?.especialista_defecto || '').trim();
+    const espFinal = espDefectoConfig !== '' ? espDefectoConfig : null;
+    const motivoFinal = motivo || resOptica.rows[0]?.motivo_cita_defecto || 'Primera Vez - Examen Computarizado';
+    const nombreOptica = resOptica.rows[0]?.nombre || 'Óptica';
+
+    const resContacto = await pool.query(`SELECT nombre_completo FROM "CRM_Opticas".contactos WHERE id = $1`, [contactoId]);
+    const nombrePaciente = resContacto.rows[0]?.nombre_completo || 'Paciente';
 
     const resInsert = await pool.query(
       `INSERT INTO "CRM_Opticas".citas 
         (contacto_id, optica_id, fecha_cita, hora_cita, motivo, especialista, estado, observaciones, creado_en)
        VALUES 
-        ($1, $2, $3, $4, $5, $6, 'programada', 'Agendada automáticamente por el Asistente Virtual de IA', NOW())
+        ($1, $2, $3, $4, $5, $6, 'pendiente', 'Agendada automáticamente por el Asistente Virtual de IA vía WhatsApp', NOW())
        RETURNING id`,
-      [contactoId, opticaId, fecha, hora, motivoFinal, espDefecto]
+      [contactoId, opticaId, fecha, hora, motivoFinal, espFinal]
     );
+
+    const mensajeOficial = construirMensajeCitaWhatsApp({
+      tipo: 'confirmacion',
+      nombreOptica,
+      nombrePaciente,
+      fecha,
+      hora,
+      motivo: motivoFinal,
+      especialista: espFinal,
+    });
 
     return {
       exito: true,
-      mensaje: 'Cita agendada exitosamente en el sistema de la óptica.',
+      accion: 'cita_agendada',
       cita_id: resInsert.rows[0].id,
       fecha,
       hora,
       motivo: motivoFinal,
-      especialista: espDefecto,
+      especialista: espFinal || 'Por asignar',
+      estado: 'pendiente',
+      mensaje_confirmacion_oficial: mensajeOficial,
+    };
+  }
+
+  if (nombre === 'reprogramar_cita') {
+    const { cita_id, nueva_fecha, nueva_hora, motivo } = argumentos;
+    const hoyStr = obtenerFechaHoyColombia();
+
+    // 1. Localizar la cita que se va a mover
+    let citaExistente = null;
+    if (cita_id) {
+      const resCita = await pool.query(
+        `SELECT id, fecha_cita, hora_cita, motivo, especialista, estado
+         FROM "CRM_Opticas".citas
+         WHERE id = $1 AND contacto_id = $2 AND optica_id = $3`,
+        [cita_id, contactoId, opticaId]
+      );
+      if (resCita.rows.length > 0) {
+        citaExistente = resCita.rows[0];
+      }
+    }
+
+    if (!citaExistente) {
+      // Buscar la cita pendiente futura más próxima
+      const resCitaProx = await pool.query(
+        `SELECT id, fecha_cita, hora_cita, motivo, especialista, estado
+         FROM "CRM_Opticas".citas
+         WHERE contacto_id = $1 AND optica_id = $2
+           AND estado NOT IN ('cancelada', 'completada')
+           AND fecha_cita >= $3
+         ORDER BY fecha_cita ASC, hora_cita ASC LIMIT 1`,
+        [contactoId, opticaId, hoyStr]
+      );
+      if (resCitaProx.rows.length > 0) {
+        citaExistente = resCitaProx.rows[0];
+      }
+    }
+
+    if (!citaExistente) {
+      return {
+        exito: false,
+        error: 'No se encontró ninguna cita pendiente para reprogramar. Ofrece al paciente agendar una nueva cita.',
+      };
+    }
+
+    // 2. Verificar que el nuevo horario no esté ocupado por otra cita
+    const resOcupado = await pool.query(
+      `SELECT id FROM "CRM_Opticas".citas 
+       WHERE optica_id = $1 AND fecha_cita = $2 
+         AND LOWER(TRIM(hora_cita)) = LOWER(TRIM($3)) 
+         AND estado != 'cancelada'
+         AND id != $4`,
+      [opticaId, nueva_fecha, nueva_hora, citaExistente.id]
+    );
+
+    if (resOcupado.rows.length > 0) {
+      return {
+        exito: false,
+        error: 'Ese horario ya está ocupado por otra cita en esa fecha. Por favor ofrece otro horario disponible al paciente.',
+      };
+    }
+
+    // 3. Determinar especialista:
+    // Si la óptica tiene Especialista Principal configurado en parámetros clínicos, se usa ese.
+    // De lo contrario se deja en blanco (null / Por asignar).
+    const resOptica = await pool.query(
+      `SELECT nombre, especialista_defecto, motivo_cita_defecto FROM "CRM_Opticas".opticas WHERE id = $1`,
+      [opticaId]
+    );
+    const espDefectoConfig = (resOptica.rows[0]?.especialista_defecto || '').trim();
+    const espFinal = espDefectoConfig !== '' ? espDefectoConfig : null;
+    const motivoFinal = motivo || citaExistente.motivo || resOptica.rows[0]?.motivo_cita_defecto || 'Primera Vez - Examen Computarizado';
+    const nombreOptica = resOptica.rows[0]?.nombre || 'Óptica';
+
+    const resContacto = await pool.query(`SELECT nombre_completo FROM "CRM_Opticas".contactos WHERE id = $1`, [contactoId]);
+    const nombrePaciente = resContacto.rows[0]?.nombre_completo || 'Paciente';
+
+    // 4. Mover la cita existente (UPDATE directo sin duplicar)
+    await pool.query(
+      `UPDATE "CRM_Opticas".citas
+       SET fecha_cita = $1,
+           hora_cita = $2,
+           especialista = $3,
+           motivo = $4,
+           estado = 'pendiente',
+           observaciones = 'Reprogramada automáticamente por el Asistente Virtual de IA vía WhatsApp'
+       WHERE id = $5`,
+      [nueva_fecha, nueva_hora, espFinal, motivoFinal, citaExistente.id]
+    );
+
+    // 5. Construir mensaje oficial estructurado de reprogramación
+    const mensajeOficial = construirMensajeCitaWhatsApp({
+      tipo: 'reprogramacion',
+      nombreOptica,
+      nombrePaciente,
+      fecha: nueva_fecha,
+      hora: nueva_hora,
+      motivo: motivoFinal,
+      especialista: espFinal,
+    });
+
+    return {
+      exito: true,
+      accion: 'cita_reprogramada',
+      cita_id: citaExistente.id,
+      fecha_anterior: citaExistente.fecha_cita,
+      nueva_fecha,
+      nueva_hora,
+      motivo: motivoFinal,
+      especialista: espFinal || 'Por asignar',
+      estado: 'pendiente',
+      mensaje_confirmacion_oficial: mensajeOficial,
     };
   }
 
@@ -371,17 +633,20 @@ export async function procesarMensajeConIA({ conversacion_id, contacto_id, optic
   const paciente = resContacto.rows[0] || {};
   const nombrePaciente = paciente.nombre_completo || 'Paciente';
 
-  // 3. Obtener citas activas del paciente
+  // 3. Obtener citas pendientes vigentes del paciente (solo de hoy en adelante)
+  const hoyStr = obtenerFechaHoyColombia();
   const resCitas = await pool.query(
     `SELECT fecha_cita, hora_cita, motivo, especialista, estado 
      FROM "CRM_Opticas".citas 
-     WHERE contacto_id = $1 AND optica_id = $2 AND estado != 'cancelada'
-     ORDER BY fecha_cita ASC, hora_cita ASC LIMIT 2`,
-    [idContacto, optica_id]
+     WHERE contacto_id = $1 AND optica_id = $2 
+       AND estado NOT IN ('cancelada', 'completada')
+       AND fecha_cita >= $3
+     ORDER BY fecha_cita ASC, hora_cita ASC LIMIT 5`,
+    [idContacto, optica_id, hoyStr]
   );
   const citasTexto = resCitas.rows.length > 0
-    ? resCitas.rows.map((c) => `- ${c.fecha_cita} a las ${c.hora_cita} (${c.motivo || 'Examen visual'}, con ${c.especialista || 'Optómetra'})`).join('\n')
-    : 'No registra citas activas programadas actualmente.';
+    ? resCitas.rows.map((c) => `- ${formatearFechaDDMMYYYY(c.fecha_cita)} a las ${c.hora_cita} (${c.motivo || 'Examen visual'}, Especialista: ${c.especialista || 'Por asignar'}, Estado: ${c.estado})`).join('\n')
+    : 'No registra citas pendientes programadas de hoy en adelante.';
 
   // 4. Obtener historial reciente del chat (últimos 6 mensajes)
   const resHistorial = await pool.query(
@@ -403,25 +668,54 @@ export async function procesarMensajeConIA({ conversacion_id, contacto_id, optic
   const promptSistema = `Eres ${configOptica.ia_nombre}, el asistente virtual oficial de "${configOptica.nombre || 'Óptica'}".
 Fecha de hoy: ${fechaHoy}.
 
-REGLAS DE SEGURIDAD Y BLINDAJE INFRANQUEABLES:
-1. TEMPERATURA 0: No inventes precios, promociones, diagnósticos ni citas que no existan.
-2. NUNCA des diagnósticos médicos ni afirmes qué graduación necesita el paciente. Siempre invita a agendar un examen visual con el optómetra profesional.
-3. TONO DE VOZ: ${configOptica.ia_tono}. Sé conciso, empático y humano. Respuestas directas al grano (máximo 2 a 3 oraciones por mensaje).
-4. AGENDAMIENTO DE CITAS:
-   - Si el paciente desea cita, pregúntale qué día prefiere.
-   - Usa la herramienta "consultar_horarios_disponibles" con la fecha indicada para ofrecerle horarios reales.
-   - Cuando el paciente elija un horario específico, invoca la herramienta "agendar_cita" para registrarla formalmente.
-5. TRANSFERENCIA HUMANA:
-   - Si el paciente pide hablar con un asesor o una persona, o si hace una consulta médica/específica que no está en la base de conocimiento, responde amablemente que lo comunicas con un asesor humano de inmediato (ejemplo: "Con mucho gusto, ya le transfiero tu caso a uno de nuestros asesores para atenderte personalmente").
-   - NUNCA inventes respuestas para preguntas no documentadas.
+REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
+1. NEGRITAS: Utiliza EXCLUSIVAMENTE un solo asterisco a cada lado: *texto en negrita*.
+   - PROHIBIDO usar doble asterisco (**texto**). En WhatsApp el doble asterisco se rompe y muestra asteriscos literales.
+   - Asegúrate de que no haya espacios pegados al asterisco: usa *palabra*, jamás * palabra *.
+2. DIRECTO Y HUMANO: Tono ${configOptica.ia_tono}. Respuestas concisas y directas (máximo 2 a 3 oraciones en mensajes conversacionales ordinarios).
+3. TEMPERATURA 0: No inventes precios, promociones, diagnósticos ni citas que no existan.
+4. NUNCA des diagnósticos médicos ni afirmes fórmulas. Siempre invita al examen de optometría.
+
+REGLAS PARA CITAS (CONSULTA, AGENDAMIENTO Y REPROGRAMACIÓN):
+1. CONSULTA DE CITAS PENDIENTES:
+   - Si el paciente pregunta qué citas tiene o si tiene alguna cita pendiente, invoca "consultar_citas_paciente".
+   - MUESTRA ÚNICAMENTE citas vigentes de hoy en adelante. Las citas pasadas ya ocurrieron y NUNCA debes mencionarlas.
+   - Para responder, utiliza exactamente la estructura oficial de cita (con fecha en formato DD/MM/YYYY):
+🗓️ *${configOptica.nombre || 'Óptica'} - Cita Programada*
+Hola *${nombrePaciente}*, tienes la siguiente cita programada:
+
+📅 *Fecha:* DD/MM/YYYY
+⏰ *Hora:* HH:MM AM/PM
+🎯 *Motivo:* [Motivo]
+👨‍⚕️ *Especialista:* [Especialista o 'Por asignar']
+
+📍 Te sugerimos presentarte 10 minutos antes. Si necesitas reprogramar, responde directamente a este chat.
+   - Si no tiene citas pendientes futuras, responde amablemente indicando que no registra ninguna cita pendiente y ofrécele agendar una.
+
+2. AGENDAMIENTO DE CITAS NUEVAS:
+   - Si el paciente desea agendar, pregunta qué día prefiere.
+   - Consulta disponibilidad con "consultar_horarios_disponibles".
+   - Al confirmar día y hora, ejecuta "agendar_cita". La cita quedará guardada en estado Pendiente.
+
+3. REPROGRAMACIÓN DE CITAS EXISTENTES:
+   - Si el paciente solicita cambiar la fecha u hora o reprogramar una cita ya programada, pregúntale para qué día desea el cambio.
+   - Consulta disponibilidad con "consultar_horarios_disponibles".
+   - Una vez confirmada la nueva fecha y hora, ejecuta "reprogramar_cita".
+   - Esto moverá directamente la cita existente sin duplicarla, y la dejará en estado Pendiente. Si la cita tenía especialista, se actualizará al especialista predeterminado de la óptica si existe, o quedará sin asignar ('Por asignar').
+
+4. CONFIRMACIÓN OFICIAL:
+   - Cada vez que ejecutes "agendar_cita" o "reprogramar_cita", responde al cliente utilizando exactamente el "mensaje_confirmacion_oficial" retornado por la herramienta, sin omitir ni alterar ningún dato.
+
+TRANSFERENCIA A ASESOR HUMANO:
+- Si el paciente pide hablar con un asesor o una persona, o si hace una consulta médica no documentada, responde amablemente que lo comunicas con un asesor humano de inmediato (ejemplo: "Con mucho gusto, ya le transfiero tu caso a uno de nuestros asesores para atenderte personalmente").
 
 INFORMACIÓN DEL PACIENTE ACTUAL:
 - Nombre: ${nombrePaciente}
-- Citas registradas en el sistema:
+- Citas pendientes vigentes registradas:
 ${citasTexto}
 
 DIRECTRICES ESPECÍFICAS DE LA ÓPTICA:
-${configOptica.ia_instrucciones || 'Atender amablemente a los pacientes y ayudarles a consultar o agendar sus citas.'}
+${configOptica.ia_instrucciones || 'Atender amablemente a los pacientes y ayudarles a consultar, agendar o reprogramar sus citas.'}
 
 BASE DE CONOCIMIENTO Y PREGUNTAS FRECUENTES (FAQ):
 ${configOptica.ia_preguntas_frecuentes || 'Horario de atención: ' + (configOptica.hora_inicio_atencion || '8:00 AM') + ' a ' + (configOptica.hora_fin_atencion || '6:00 PM') + '.'}
@@ -452,6 +746,7 @@ ${configOptica.ia_preguntas_frecuentes || 'Horario de atención: ' + (configOpti
   try {
     let llamadasRestantes = 3;
     let respuestaFinalTexto = '';
+    let ultimoMensajeConfirmacionOficial = null;
 
     while (llamadasRestantes > 0) {
       llamadasRestantes--;
@@ -490,7 +785,6 @@ ${configOptica.ia_preguntas_frecuentes || 'Horario de atención: ' + (configOpti
 
       // Si el modelo pide ejecutar herramientas (Tool Calling)
       if (mensajeRespuesta.tool_calls && mensajeRespuesta.tool_calls.length > 0) {
-        // Añadir el mensaje del modelo con sus tool_calls
         messages.push(mensajeRespuesta);
 
         for (const call of mensajeRespuesta.tool_calls) {
@@ -513,7 +807,11 @@ ${configOptica.ia_preguntas_frecuentes || 'Horario de atención: ' + (configOpti
             contactoId: idContacto,
           });
 
-          // Añadir el mensaje de resultado de la herramienta
+          // Si la herramienta retornó un mensaje oficial de cita estructurado, retenerlo
+          if (resultadoHerramienta?.mensaje_confirmacion_oficial) {
+            ultimoMensajeConfirmacionOficial = resultadoHerramienta.mensaje_confirmacion_oficial;
+          }
+
           messages.push({
             role: 'tool',
             tool_call_id: call.id,
@@ -531,18 +829,26 @@ ${configOptica.ia_preguntas_frecuentes || 'Horario de atención: ' + (configOpti
       }
     }
 
+    // Si se agendó o reprogramó con éxito, asegurar el envío del mensaje oficial canónico
+    if (ultimoMensajeConfirmacionOficial) {
+      respuestaFinalTexto = ultimoMensajeConfirmacionOficial;
+    }
+
     if (!respuestaFinalTexto) {
       return { respondido: false, motivo: 'sin_texto_generado' };
     }
 
+    // Sanitizar Markdown para WhatsApp (*negrita*, nunca **negrita**)
+    const textoParaWhatsApp = sanitizarMarkdownParaWhatsApp(respuestaFinalTexto);
+
     // 7. Enviar respuesta por WhatsApp vía Zernio
     const resEnvio = await enviar_mensaje({
       conversacion_id,
-      texto: respuestaFinalTexto,
+      texto: textoParaWhatsApp,
     });
 
     // 8. Si la respuesta contiene indicación de transferencia a asesor humano, pausar IA en este chat
-    const textoMinus = respuestaFinalTexto.toLowerCase();
+    const textoMinus = textoParaWhatsApp.toLowerCase();
     if (
       textoMinus.includes('asesor') ||
       textoMinus.includes('comunico con') ||
@@ -559,7 +865,7 @@ ${configOptica.ia_preguntas_frecuentes || 'Horario de atención: ' + (configOpti
 
     return {
       respondido: true,
-      texto: respuestaFinalTexto,
+      texto: textoParaWhatsApp,
       exito_envio: resEnvio.exito,
     };
   } catch (error) {
