@@ -568,6 +568,32 @@ input[type="number"] {
   pointer-events: none;
 }
 
+.barra-filtros-whatsapp {
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+}
+
+.barra-filtros-whatsapp::-webkit-scrollbar {
+  height: 3px;
+}
+
+.barra-filtros-whatsapp::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.barra-filtros-whatsapp::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 4px;
+}
+
+.barra-filtros-whatsapp::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6);
+}
+
 .lista-conversaciones {
   flex: 1 1 0%;
   min-height: 0;

@@ -121,30 +121,41 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
         </div>
       </div>
 
-      {/* 2. Barra de Filtros estilo WhatsApp (Píldoras) */}
+      {/* 2. Barra de Filtros estilo WhatsApp (Píldoras con desplazamiento horizontal) */}
       <div
         className="barra-filtros-whatsapp"
+        onWheel={(e) => {
+          if (e.deltaY !== 0) {
+            e.currentTarget.scrollLeft += e.deltaY;
+          }
+        }}
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '0.4rem',
-          padding: '0.45rem 0.85rem 0.65rem 0.85rem',
+          gap: '0.35rem',
+          padding: '0.45rem 0.65rem 0.55rem 0.65rem',
           borderBottom: '1px solid var(--borde-tarjeta, rgba(0, 0, 0, 0.06))',
           overflowX: 'auto',
-          scrollbarWidth: 'none',
+          overflowY: 'hidden',
+          width: '100%',
+          maxWidth: '100%',
+          flexShrink: 0,
+          whiteSpace: 'nowrap',
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         {/* Píldora: Todos */}
         <button
           type="button"
           onClick={() => setFiltroSeleccionado('todos')}
+          title="Ver todas las conversaciones"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: '0.3rem',
-            padding: '0.3rem 0.75rem',
+            padding: '0.28rem 0.65rem',
             borderRadius: '9999px',
-            fontSize: '0.78rem',
+            fontSize: '0.76rem',
             fontWeight: 600,
             cursor: 'pointer',
             border: 'none',
@@ -152,6 +163,7 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
             color: filtroSeleccionado === 'todos' ? '#ffffff' : 'var(--texto-secundario, #475569)',
             transition: 'all 0.15s ease',
             whiteSpace: 'nowrap',
+            flexShrink: 0,
           }}
         >
           Todos
@@ -161,13 +173,14 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
         <button
           type="button"
           onClick={() => setFiltroSeleccionado('no_leidos')}
+          title="Filtrar mensajes no leídos"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '0.35rem',
-            padding: '0.3rem 0.75rem',
+            gap: '0.3rem',
+            padding: '0.28rem 0.65rem',
             borderRadius: '9999px',
-            fontSize: '0.78rem',
+            fontSize: '0.76rem',
             fontWeight: 600,
             cursor: 'pointer',
             border: 'none',
@@ -175,6 +188,7 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
             color: filtroSeleccionado === 'no_leidos' ? '#ffffff' : 'var(--texto-secundario, #475569)',
             transition: 'all 0.15s ease',
             whiteSpace: 'nowrap',
+            flexShrink: 0,
           }}
         >
           <span>No leídos</span>
@@ -183,7 +197,7 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
               style={{
                 background: filtroSeleccionado === 'no_leidos' ? 'rgba(255, 255, 255, 0.28)' : 'var(--color-primario, #0284c7)',
                 color: '#ffffff',
-                fontSize: '0.66rem',
+                fontSize: '0.64rem',
                 fontWeight: 700,
                 padding: '0 5px',
                 borderRadius: '9999px',
@@ -199,17 +213,18 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
           )}
         </button>
 
-        {/* Píldora: Requiere Asesor (Urgente con acento rojo) */}
+        {/* Píldora: Asesor (Requiere Asesor Humano / Urgente con acento rojo) */}
         <button
           type="button"
           onClick={() => setFiltroSeleccionado('urgente')}
+          title="Conversaciones que requieren atención de un asesor humano"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '0.35rem',
-            padding: '0.3rem 0.75rem',
+            gap: '0.3rem',
+            padding: '0.28rem 0.65rem',
             borderRadius: '9999px',
-            fontSize: '0.78rem',
+            fontSize: '0.76rem',
             fontWeight: 700,
             cursor: 'pointer',
             border: filtroSeleccionado === 'urgente' ? '1px solid #ef4444' : '1px solid rgba(239, 68, 68, 0.35)',
@@ -217,16 +232,17 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
             color: filtroSeleccionado === 'urgente' ? '#ffffff' : '#ef4444',
             transition: 'all 0.15s ease',
             whiteSpace: 'nowrap',
+            flexShrink: 0,
           }}
         >
-          <AlertCircle style={{ width: '13px', height: '13px' }} />
-          <span>Requiere Asesor</span>
+          <AlertCircle style={{ width: '12px', height: '12px' }} />
+          <span>Asesor</span>
           {conteos.urgentes > 0 && (
             <span
               style={{
                 background: filtroSeleccionado === 'urgente' ? 'rgba(255, 255, 255, 0.32)' : '#ef4444',
                 color: '#ffffff',
-                fontSize: '0.66rem',
+                fontSize: '0.64rem',
                 fontWeight: 700,
                 padding: '0 5px',
                 borderRadius: '9999px',
@@ -242,17 +258,18 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
           )}
         </button>
 
-        {/* Píldora: Atendido por IA */}
+        {/* Píldora: IA (Atendido por IA) */}
         <button
           type="button"
           onClick={() => setFiltroSeleccionado('ia')}
+          title="Conversaciones gestionadas por el Agente IA"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '0.35rem',
-            padding: '0.3rem 0.75rem',
+            gap: '0.3rem',
+            padding: '0.28rem 0.65rem',
             borderRadius: '9999px',
-            fontSize: '0.78rem',
+            fontSize: '0.76rem',
             fontWeight: 600,
             cursor: 'pointer',
             border: 'none',
@@ -260,16 +277,17 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
             color: filtroSeleccionado === 'ia' ? '#ffffff' : 'var(--texto-secundario, #475569)',
             transition: 'all 0.15s ease',
             whiteSpace: 'nowrap',
+            flexShrink: 0,
           }}
         >
-          <Bot style={{ width: '13px', height: '13px' }} />
-          <span>Atendido IA</span>
+          <Bot style={{ width: '12px', height: '12px' }} />
+          <span>IA</span>
           {conteos.ia > 0 && (
             <span
               style={{
                 background: filtroSeleccionado === 'ia' ? 'rgba(255, 255, 255, 0.28)' : 'rgba(16, 185, 129, 0.2)',
                 color: filtroSeleccionado === 'ia' ? '#ffffff' : '#10b981',
-                fontSize: '0.66rem',
+                fontSize: '0.64rem',
                 fontWeight: 700,
                 padding: '0 5px',
                 borderRadius: '9999px',
