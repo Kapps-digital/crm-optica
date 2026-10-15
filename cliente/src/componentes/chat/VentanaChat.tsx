@@ -727,12 +727,7 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          {enVentana24h ? (
-            <div id="chat-activo-badge-24h" className="badge-24h activa">
-              <Clock style={{ width: '12px', height: '12px' }} />
-              <span>Ventana 24h Activa</span>
-            </div>
-          ) : (
+          {!enVentana24h && (
             <div id="chat-activo-badge-24h" className="badge-24h expirada">
               <AlertTriangle style={{ width: '12px', height: '12px' }} />
               <span>Ventana 24h Expirada</span>
@@ -768,7 +763,7 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
                   }}
                 >
                   <Bot style={{ width: '13px', height: '13px', color: 'var(--texto-atenuado)' }} />
-                  <span>IA Apagada (Global)</span>
+                  <span>IA Apagada</span>
                 </button>
               </EtiquetaTooltip>
             ) : (
