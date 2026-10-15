@@ -213,7 +213,7 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
           )}
         </button>
 
-        {/* Píldora: Asesor (Requiere Asesor Humano / Urgente con acento rojo) */}
+        {/* Píldora: Asesor */}
         <button
           type="button"
           onClick={() => setFiltroSeleccionado('urgente')}
@@ -225,11 +225,11 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
             padding: '0.28rem 0.65rem',
             borderRadius: '9999px',
             fontSize: '0.76rem',
-            fontWeight: 700,
+            fontWeight: 600,
             cursor: 'pointer',
-            border: filtroSeleccionado === 'urgente' ? '1px solid #ef4444' : '1px solid rgba(239, 68, 68, 0.35)',
-            background: filtroSeleccionado === 'urgente' ? '#ef4444' : (conteos.urgentes > 0 ? 'rgba(239, 68, 68, 0.12)' : 'var(--fondo-elevado, #f1f5f9)'),
-            color: filtroSeleccionado === 'urgente' ? '#ffffff' : '#ef4444',
+            border: 'none',
+            background: filtroSeleccionado === 'urgente' ? 'var(--color-primario, #0284c7)' : 'var(--fondo-elevado, #f1f5f9)',
+            color: filtroSeleccionado === 'urgente' ? '#ffffff' : 'var(--texto-secundario, #475569)',
             transition: 'all 0.15s ease',
             whiteSpace: 'nowrap',
             flexShrink: 0,
@@ -240,7 +240,7 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
           {conteos.urgentes > 0 && (
             <span
               style={{
-                background: filtroSeleccionado === 'urgente' ? 'rgba(255, 255, 255, 0.32)' : '#ef4444',
+                background: filtroSeleccionado === 'urgente' ? 'rgba(255, 255, 255, 0.28)' : 'var(--color-primario, #0284c7)',
                 color: '#ffffff',
                 fontSize: '0.64rem',
                 fontWeight: 700,
@@ -258,7 +258,7 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
           )}
         </button>
 
-        {/* Píldora: IA (Atendido por IA) */}
+        {/* Píldora: IA */}
         <button
           type="button"
           onClick={() => setFiltroSeleccionado('ia')}
@@ -273,7 +273,7 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
             fontWeight: 600,
             cursor: 'pointer',
             border: 'none',
-            background: filtroSeleccionado === 'ia' ? '#10b981' : 'var(--fondo-elevado, #f1f5f9)',
+            background: filtroSeleccionado === 'ia' ? 'var(--color-primario, #0284c7)' : 'var(--fondo-elevado, #f1f5f9)',
             color: filtroSeleccionado === 'ia' ? '#ffffff' : 'var(--texto-secundario, #475569)',
             transition: 'all 0.15s ease',
             whiteSpace: 'nowrap',
@@ -285,8 +285,8 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
           {conteos.ia > 0 && (
             <span
               style={{
-                background: filtroSeleccionado === 'ia' ? 'rgba(255, 255, 255, 0.28)' : 'rgba(16, 185, 129, 0.2)',
-                color: filtroSeleccionado === 'ia' ? '#ffffff' : '#10b981',
+                background: filtroSeleccionado === 'ia' ? 'rgba(255, 255, 255, 0.28)' : 'var(--color-primario, #0284c7)',
+                color: '#ffffff',
                 fontSize: '0.64rem',
                 fontWeight: 700,
                 padding: '0 5px',
