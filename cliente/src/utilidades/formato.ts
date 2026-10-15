@@ -102,5 +102,51 @@ export function estaEnVentana24Horas(ultimoMensajeEntranteEn?: string | null): b
   return (Date.now() - fecha) < 24 * 60 * 60 * 1000;
 }
 
+/**
+ * Convierte un texto de hora en cualquier formato (ej: '03:00 PM', '11:00 AM', '15:30', '9:00am')
+ * a minutos totales desde la medianoche (0 - 1439).
+ * Permite ordenar cronológicamente de la cita más temprana a la más tardía.
+ */
+export function convertirHoraAMinutos(hora?: string | null): number {
+  if (!hora || typeof hora !== 'string') return 0;
+  const texto = hora.trim().toUpperCase();
+  const esPM = texto.includes('PM');
+  const esAM = texto.includes('AM');
+
+  const match = texto.match(/(\d{1,2}):(\d{2})/);
+  if (!match) return 0;
+
+  let horas = parseInt(match[1], 10);
+  const minutos = parseInt(match[2], 10);
+
+  if (esPM) {
+    if (horas < 12) horas += 12;
+  } else if (esAM) {
+    if (horas === 12) horas = 0;
+  }
+
+  return horas * 60 + minutos;
+}
+
+/**
+ * Función de comparación para ordenar citas estrictamente cronológicas:
+ * 1. Por fecha ascendente (YYYY-MM-DD)
+ * 2. Por hora ascendente (de más temprana a más tardía considerando AM/PM)
+ * 3. Por id ascendente
+ */
+export function compararCitasPorFechaYHora<T extends { fecha_cita?: string | null; hora_cita?: string | null; id?: any }>(a: T, b: T): number {
+  const fA = a.fecha_cita || '';
+  const fB = b.fecha_cita || '';
+  if (fA !== fB) {
+    return fA.localeCompare(fB);
+  }
+  const minA = convertirHoraAMinutos(a.hora_cita);
+  const minB = convertirHoraAMinutos(b.hora_cita);
+  if (minA !== minB) {
+    return minA - minB;
+  }
+  return Number(a.id || 0) - Number(b.id || 0);
+}
+
 
 

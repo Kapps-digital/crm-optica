@@ -15,6 +15,7 @@ export const ENCABEZADOS_NO_CACHE = {
 };
 
 import { base_datos as bdModulo } from '@/backend/base_datos/conexion.mjs';
+import { compararCitasPorFechaYHora } from '@/utilidades/formato';
 import { ClienteZernio } from '@/backend/servicios/cliente_zernio.mjs';
 import { enviar_mensaje, esta_en_ventana_24_horas } from '@/backend/servicios/gestor_mensajeria.mjs';
 import { sincronizar_conversaciones_zernio, sincronizar_mensajes_conversacion } from '@/backend/servicios/sincronizador_zernio.mjs';
@@ -627,9 +628,10 @@ async function procesarPeticion(
         paramsSql.push(especialista);
       }
 
-      consulta += ` ORDER BY c.fecha_cita ASC, c.hora_cita ASC, c.id ASC`;
+      consulta += ` ORDER BY c.fecha_cita ASC, c.id ASC`;
       const citas = await base_datos.prepare(consulta).all(...paramsSql);
-      return NextResponse.json({ exito: true, citas: citas || [] });
+      const citasOrdenadas = (citas || []).sort(compararCitasPorFechaYHora);
+      return NextResponse.json({ exito: true, citas: citasOrdenadas }, { headers: ENCABEZADOS_NO_CACHE });
     }
 
     if (metodo === 'POST' && (rutaStr === 'citas' || (segmentosRuta[0] === 'contactos' && segmentosRuta[2] === 'citas'))) {

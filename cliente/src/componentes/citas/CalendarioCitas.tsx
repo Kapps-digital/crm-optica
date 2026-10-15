@@ -41,7 +41,12 @@ import {
   cancelarCita,
   registrarCita,
 } from '@/servicios/api_crm';
-import { formatearTelefono, obtenerNombrePaciente } from '@/utilidades/formato';
+import {
+  formatearTelefono,
+  obtenerNombrePaciente,
+  compararCitasPorFechaYHora,
+  convertirHoraAMinutos,
+} from '@/utilidades/formato';
 
 interface PropiedadesCalendarioCitas {
   contactos: Contacto[];
@@ -209,7 +214,7 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
 
   // Citas filtradas
   const citasFiltradas = useMemo(() => {
-    return citas.filter((c) => {
+    const lista = citas.filter((c) => {
       // Filtro de especialista
       if (filtroEspecialista === 'sin_asignar') {
         if (c.especialista && c.especialista.trim() && c.especialista.toLowerCase() !== 'sin especialista') {
@@ -238,6 +243,9 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
 
       return true;
     });
+
+    // Ordenar estrictamente de la cita más temprana a la más tardía
+    return lista.sort(compararCitasPorFechaYHora);
   }, [citas, filtroEspecialista, filtroEstado, terminoBusqueda]);
 
   // Opciones de filas por página para la agenda
@@ -256,11 +264,7 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
     const filtradas = citasFiltradas.filter((c) => {
       return evaluarCoincidenciaPeriodo(c.fecha_cita, filtroPeriodoAgenda);
     });
-    return filtradas.sort((a, b) => {
-      const fA = `${a.fecha_cita || ''} ${a.hora_cita || ''}`;
-      const fB = `${b.fecha_cita || ''} ${b.hora_cita || ''}`;
-      return fA.localeCompare(fB);
-    });
+    return filtradas.sort(compararCitasPorFechaYHora);
   }, [citasFiltradas, filtroPeriodoAgenda]);
 
   // Cálculos de paginación en vista Agenda
@@ -276,7 +280,7 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
     setPaginaAgenda(1);
   }, [filtroEspecialista, filtroEstado, terminoBusqueda, filtroPeriodoAgenda]);
 
-  // Mapa de citas por fecha (YYYY-MM-DD)
+  // Mapa de citas por fecha (YYYY-MM-DD), asegurando que cada día esté ordenado de la más temprana a la más tardía
   const citasPorFecha = useMemo(() => {
     const mapa = new Map<string, Cita[]>();
     citasFiltradas.forEach((c) => {
@@ -286,6 +290,17 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
       actual.push(c);
       mapa.set(f, actual);
     });
+
+    // Ordenar las citas de cada día cronológicamente (ej: 11:00 AM antes de 03:00 PM)
+    mapa.forEach((lista) => {
+      lista.sort((a, b) => {
+        const minA = convertirHoraAMinutos(a.hora_cita);
+        const minB = convertirHoraAMinutos(b.hora_cita);
+        if (minA !== minB) return minA - minB;
+        return Number(a.id || 0) - Number(b.id || 0);
+      });
+    });
+
     return mapa;
   }, [citasFiltradas]);
 
