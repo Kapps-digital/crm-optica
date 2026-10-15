@@ -121,9 +121,9 @@ export async function alternarEstadoIAChat(conversacionId, activo) {
 }
 
 /**
- * Genera ranuras de horario disponibles para una fecha específica
+ * Genera ranuras de horario disponibles para una fecha específica respetando jornada y horario hábil
  */
-async function obtenerHorariosDisponibles(opticaId, fechaStr) {
+export async function obtenerHorariosDisponibles(opticaId, fechaStr, jornada = 'todas') {
   const resOptica = await pool.query(
     `SELECT hora_inicio_atencion, hora_fin_atencion, duracion_cita_minutos 
      FROM "CRM_Opticas".opticas WHERE id = $1`,
@@ -169,16 +169,67 @@ async function obtenerHorariosDisponibles(opticaId, fechaStr) {
     return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
   };
 
-  const horariosLibres = [];
+  // Si la fecha consultada es HOY en Colombia, descartar horas pasadas o inmediatas
+  const hoyStr = obtenerFechaHoyColombia();
+  let limiteMinutosHoy = -1;
+  if (fechaStr === hoyStr) {
+    const ahora = new Date();
+    const partes = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Bogota',
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+    }).formatToParts(ahora);
+    const hActual = parseInt(partes.find((p) => p.type === 'hour')?.value || '0', 10);
+    const mActual = parseInt(partes.find((p) => p.type === 'minute')?.value || '0', 10);
+    // Margen mínimo de 25 minutos: si son las 10:03, límite es 10:28 (mínimo ofrecible 10:30)
+    limiteMinutosHoy = hActual * 60 + mActual + 25;
+  }
+
+  // Divisoria canónica: Mañana (antes de 01:00 PM / 780 min), Tarde (01:00 PM / 780 min en adelante)
+  const MINUTOS_CORTE_TARDE = 13 * 60;
+
+  const horariosManana = [];
+  const horariosTarde = [];
+
   for (let m = minInicio; m < minFin; m += duracionMin) {
+    // Si la fecha es hoy y la hora ya pasó o el paciente no alcanza a llegar, descartar
+    if (limiteMinutosHoy > 0 && m < limiteMinutosHoy) {
+      continue;
+    }
+
     const texto12 = formatearMinutos(m);
     const horaNorm = texto12.toLowerCase();
     if (!horasOcupadas.has(horaNorm)) {
-      horariosLibres.push(texto12);
+      if (m < MINUTOS_CORTE_TARDE) {
+        horariosManana.push(texto12);
+      } else {
+        horariosTarde.push(texto12);
+      }
     }
   }
 
-  return horariosLibres.slice(0, 10); // Limitar a un conjunto manejable
+  let seleccion = [];
+  const jNorm = String(jornada || 'todas').toLowerCase();
+  if (jNorm === 'manana' || jNorm === 'mañana') {
+    seleccion = horariosManana;
+  } else if (jNorm === 'tarde') {
+    seleccion = horariosTarde;
+  } else {
+    seleccion = [...horariosManana, ...horariosTarde];
+  }
+
+  return {
+    fecha: fechaStr,
+    es_hoy: fechaStr === hoyStr,
+    jornada_solicitada: jornada,
+    horarios_manana: horariosManana,
+    horarios_tarde: horariosTarde,
+    horarios_disponibles: seleccion,
+    total_disponibles: seleccion.length,
+    hay_manana: horariosManana.length > 0,
+    hay_tarde: horariosTarde.length > 0,
+  };
 }
 
 /**
@@ -321,7 +372,7 @@ const HERRAMIENTAS_OPENAI = [
     type: 'function',
     function: {
       name: 'reprogramar_cita',
-      description: 'Mueve o reprograma la cita pendiente existente de un paciente hacia una nueva fecha y hora. Actualiza directamente la cita existente en la base de datos sin duplicarla y la deja en estado Pendiente.',
+      description: 'Mueve o reprograma la cita pendiente existente de un paciente hacia una nueva fecha y hora CONFIRMADA por el paciente. ¡ATENCIÓN!: NUNCA ejecutes esta herramienta si el paciente solo mencionó el día sin confirmar la hora exacta. Primero pregúntale si prefiere jornada de mañana o tarde y espera su confirmación.',
       parameters: {
         type: 'object',
         properties: {
@@ -335,7 +386,7 @@ const HERRAMIENTAS_OPENAI = [
           },
           nueva_hora: {
             type: 'string',
-            description: 'Nueva hora acordada (ejemplo: "08:30 AM" o "11:00 AM").',
+            description: 'Nueva hora acordada y confirmada explícitamente por el paciente (ejemplo: "10:30 AM", "04:00 PM"). OBLIGATORIO.',
           },
           motivo: {
             type: 'string',
@@ -406,17 +457,44 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId })
   }
 
   if (nombre === 'consultar_horarios_disponibles') {
-    const fecha = argumentos.fecha;
-    const horarios = await obtenerHorariosDisponibles(opticaId, fecha);
-    return {
-      fecha,
-      horarios_disponibles: horarios,
-      hay_disponibilidad: horarios.length > 0,
-    };
+    const { fecha, jornada } = argumentos;
+    const resultado = await obtenerHorariosDisponibles(opticaId, fecha, jornada);
+    return resultado;
   }
 
   if (nombre === 'agendar_cita') {
     const { fecha, hora, motivo } = argumentos;
+    const hoyStr = obtenerFechaHoyColombia();
+
+    // Validar que si es para hoy no sea una hora que ya pasó
+    if (fecha === hoyStr && hora) {
+      const ahora = new Date();
+      const partes = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Bogota',
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+      }).formatToParts(ahora);
+      const hAct = parseInt(partes.find((p) => p.type === 'hour')?.value || '0', 10);
+      const mAct = parseInt(partes.find((p) => p.type === 'minute')?.value || '0', 10);
+      const minActuales = hAct * 60 + mAct;
+
+      const match = hora.trim().match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
+      if (match) {
+        let horas = parseInt(match[1], 10);
+        const minutos = parseInt(match[2], 10);
+        const ampm = match[3]?.toUpperCase();
+        if (ampm === 'PM' && horas < 12) horas += 12;
+        if (ampm === 'AM' && horas === 12) horas = 0;
+        const minHora = horas * 60 + minutos;
+        if (minHora < minActuales + 20) {
+          return {
+            exito: false,
+            error: `La hora ${hora} ya pasó o no permite tiempo de llegada para el día de hoy. Por favor ofrece una hora disponible posterior.`,
+          };
+        }
+      }
+    }
 
     // Verificar si ya existe cita a esa misma hora
     const resOcupado = await pool.query(
@@ -480,6 +558,44 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId })
   if (nombre === 'reprogramar_cita') {
     const { cita_id, nueva_fecha, nueva_hora, motivo } = argumentos;
     const hoyStr = obtenerFechaHoyColombia();
+
+    // Validar hora obligatoria y confirmada
+    if (!nueva_hora || typeof nueva_hora !== 'string' || nueva_hora.trim() === '') {
+      return {
+        exito: false,
+        error: 'No se puede reprogramar la cita porque el paciente no ha confirmado la hora exacta. Pregúntale si prefiere en la mañana o en la tarde y ofrécele los horarios disponibles.',
+      };
+    }
+
+    // Validar que si es hoy no sea una hora que ya pasó
+    if (nueva_fecha === hoyStr) {
+      const ahora = new Date();
+      const partes = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Bogota',
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+      }).formatToParts(ahora);
+      const hAct = parseInt(partes.find((p) => p.type === 'hour')?.value || '0', 10);
+      const mAct = parseInt(partes.find((p) => p.type === 'minute')?.value || '0', 10);
+      const minActuales = hAct * 60 + mAct;
+
+      const match = nueva_hora.trim().match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
+      if (match) {
+        let horas = parseInt(match[1], 10);
+        const minutos = parseInt(match[2], 10);
+        const ampm = match[3]?.toUpperCase();
+        if (ampm === 'PM' && horas < 12) horas += 12;
+        if (ampm === 'AM' && horas === 12) horas = 0;
+        const minHora = horas * 60 + minutos;
+        if (minHora < minActuales + 20) {
+          return {
+            exito: false,
+            error: `La hora ${nueva_hora} ya pasó o no permite tiempo de llegada para el día de hoy. Por favor ofrece una hora disponible posterior.`,
+          };
+        }
+      }
+    }
 
     // 1. Localizar la cita que se va a mover
     let citaExistente = null;
@@ -663,10 +779,23 @@ export async function procesarMensajeConIA({ conversacion_id, contacto_id, optic
     year: 'numeric',
     month: 'long',
     day: 'numeric',
+    timeZone: 'America/Bogota',
   });
+  const horaActualColombia = new Date().toLocaleTimeString('es-CO', {
+    timeZone: 'America/Bogota',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  const horarioAtencion = `${configOptica.hora_inicio_atencion || '08:00 AM'} a ${configOptica.hora_fin_atencion || '06:00 PM'}`;
+  const duracionConsulta = `${configOptica.duracion_cita_minutos || 30} minutos`;
 
   const promptSistema = `Eres ${configOptica.ia_nombre}, el asistente virtual oficial de "${configOptica.nombre || 'Óptica'}".
 Fecha de hoy: ${fechaHoy}.
+Hora actual en Colombia: ${horaActualColombia}.
+Horario hábil de atención de la óptica: ${horarioAtencion}.
+Duración estándar de cada consulta: ${duracionConsulta}.
 
 REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
 1. NEGRITAS: Utiliza EXCLUSIVAMENTE un solo asterisco a cada lado: *texto en negrita*.
@@ -676,8 +805,9 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
 3. TEMPERATURA 0: No inventes precios, promociones, diagnósticos ni citas que no existan.
 4. NUNCA des diagnósticos médicos ni afirmes fórmulas. Siempre invita al examen de optometría.
 
-REGLAS PARA CITAS (CONSULTA, AGENDAMIENTO Y REPROGRAMACIÓN):
-1. CONSULTA DE CITAS PENDIENTES:
+REGLAS PARA CITAS (CONSULTA, HORARIOS, AGENDAMIENTO Y REPROGRAMACIÓN):
+
+1. CONSULTA DE CITAS PENDIENTES DEL PACIENTE:
    - Si el paciente pregunta qué citas tiene o si tiene alguna cita pendiente, invoca "consultar_citas_paciente".
    - MUESTRA ÚNICAMENTE citas vigentes de hoy en adelante. Las citas pasadas ya ocurrieron y NUNCA debes mencionarlas.
    - Para responder, utiliza exactamente la estructura oficial de cita (con fecha en formato DD/MM/YYYY):
@@ -692,18 +822,32 @@ Hola *${nombrePaciente}*, tienes la siguiente cita programada:
 📍 Te sugerimos presentarte 10 minutos antes. Si necesitas reprogramar, responde directamente a este chat.
    - Si no tiene citas pendientes futuras, responde amablemente indicando que no registra ninguna cita pendiente y ofrécele agendar una.
 
-2. AGENDAMIENTO DE CITAS NUEVAS:
-   - Si el paciente desea agendar, pregunta qué día prefiere.
-   - Consulta disponibilidad con "consultar_horarios_disponibles".
-   - Al confirmar día y hora, ejecuta "agendar_cita". La cita quedará guardada en estado Pendiente.
+2. PREFERENCIA DE JORNADA (MAÑANA VS TARDE) AL OFRECER HORARIOS:
+   - Cuando el paciente pida horarios disponibles para una fecha o exprese intención de agendar/reprogramar sin decir una hora:
+     - Pregúntale amablemente si prefiere su cita en horario de la *mañana* (antes de la 1:00 PM) o de la *tarde* (a partir de la 1:00 PM hasta las 6:00 PM).
+     - Si el paciente indica "mañana", invoca "consultar_horarios_disponibles" con jornada "manana" y dale las opciones de la mañana.
+     - Si el paciente indica "tarde", invoca "consultar_horarios_disponibles" con jornada "tarde" y dale las opciones de la tarde.
+     - En la tarde se atiende a partir de la 1:00 PM. La tarde cuenta con disponibilidad en horarios como 01:00 PM, 01:30 PM, 02:00 PM, 02:30 PM, 03:00 PM, 03:30 PM, 04:00 PM, 04:30 PM, 05:00 PM, 05:30 PM (salvo que ya estén reservados). NUNCA digas que no hay citas en la tarde o a las 4:00 PM sin haber revisado la herramienta. Si el horario está libre, confírmale de inmediato que sí hay disponibilidad.
 
-3. REPROGRAMACIÓN DE CITAS EXISTENTES:
-   - Si el paciente solicita cambiar la fecha u hora o reprogramar una cita ya programada, pregúntale para qué día desea el cambio.
-   - Consulta disponibilidad con "consultar_horarios_disponibles".
-   - Una vez confirmada la nueva fecha y hora, ejecuta "reprogramar_cita".
-   - Esto moverá directamente la cita existente sin duplicarla, y la dejará en estado Pendiente. Si la cita tenía especialista, se actualizará al especialista predeterminado de la óptica si existe, o quedará sin asignar ('Sin especialista').
+3. REGLA ESTRICTA DE REPROGRAMACIÓN (PROHIBIDO AUTO-ASIGNAR HORA A CIEGAS):
+   - Si el paciente pide reprogramar una cita para un día determinado (ej: "podríamos reprogramar la cita para el 22 de octubre"):
+     - ¡PROHIBIDO EJECUTAR "reprogramar_cita" EN ESE MOMENTO!
+     - No sabes a qué hora la desea el paciente.
+     - Lo que debes hacer:
+       1º Consultar disponibilidad para esa fecha con "consultar_horarios_disponibles".
+       2º Preguntar al paciente si prefiere el horario de la mañana o de la tarde.
+       3º Ofrecerle los horarios disponibles de la jornada que elija.
+       4º ÚNICAMENTE cuando el paciente confirme la hora exacta (ej: "a las 4:00 PM" o "a las 10:30 AM"), procedes a ejecutar "reprogramar_cita".
+     - Al reprogramar, la cita existente se mueve directamente sin duplicar y queda en estado Pendiente. Si la cita tenía especialista, se actualizará al especialista predeterminado si existe, o quedará como "Sin especialista".
 
-4. CONFIRMACIÓN OFICIAL:
+4. HORARIOS PARA EL DÍA DE HOY (PROHIBIDO OFRECER HORAS PASADAS O INMEDIATAS):
+   - Hora actual en Colombia: ${horaActualColombia}.
+   - Si el paciente busca una cita para el día de HOY o pide el día más próximo con disponibilidad:
+     - NUNCA ofrezcas horas que ya pasaron ni la hora actual (si son las ${horaActualColombia}, no puedes ofrecer citas de horas pasadas ni inmediatas).
+     - Solo puedes ofrecer horarios con al menos 25 a 30 minutos de anticipación para que el paciente alcance a llegar a la óptica.
+     - Si para hoy ya no quedan horarios en la mañana, indícaselo y ofrécele los horarios de la tarde (o el día de mañana si la óptica ya cerró).
+
+5. CONFIRMACIÓN OFICIAL:
    - Cada vez que ejecutes "agendar_cita" o "reprogramar_cita", responde al cliente utilizando exactamente el "mensaje_confirmacion_oficial" retornado por la herramienta, sin omitir ni alterar ningún dato.
 
 TRANSFERENCIA A ASESOR HUMANO:
@@ -718,7 +862,7 @@ DIRECTRICES ESPECÍFICAS DE LA ÓPTICA:
 ${configOptica.ia_instrucciones || 'Atender amablemente a los pacientes y ayudarles a consultar, agendar o reprogramar sus citas.'}
 
 BASE DE CONOCIMIENTO Y PREGUNTAS FRECUENTES (FAQ):
-${configOptica.ia_preguntas_frecuentes || 'Horario de atención: ' + (configOptica.hora_inicio_atencion || '8:00 AM') + ' a ' + (configOptica.hora_fin_atencion || '6:00 PM') + '.'}
+${configOptica.ia_preguntas_frecuentes || 'Horario de atención: ' + horarioAtencion + '.'}
 `;
 
   // 6. Ensamblar contenido de conversación en formato OpenAI
