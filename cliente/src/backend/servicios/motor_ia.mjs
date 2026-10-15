@@ -32,7 +32,7 @@ export async function obtenerConfiguracionIA(opticaId) {
       ia_instrucciones: '',
       ia_preguntas_frecuentes: '',
       ia_api_key: '',
-      ia_modelo: 'deepseek/deepseek-chat',
+      ia_modelo: 'openrouter/free',
     };
   }
 
@@ -45,7 +45,7 @@ export async function obtenerConfiguracionIA(opticaId) {
     ia_instrucciones: row.ia_instrucciones || '',
     ia_preguntas_frecuentes: row.ia_preguntas_frecuentes || '',
     ia_api_key: row.ia_api_key || '',
-    ia_modelo: row.ia_modelo || 'deepseek/deepseek-chat',
+    ia_modelo: row.ia_modelo || 'openrouter/free',
   };
 }
 
@@ -81,7 +81,7 @@ export async function guardarConfiguracionIA(opticaId, datos) {
       ia_instrucciones || '',
       ia_preguntas_frecuentes || '',
       ia_api_key || '',
-      ia_modelo || 'deepseek/deepseek-chat',
+      ia_modelo || 'openrouter/free',
       idOpticaNumerico,
     ]
   );
@@ -342,9 +342,9 @@ export async function procesarMensajeConIA({ conversacion_id, contacto_id, optic
     return { respondido: false, motivo: 'ia_pausada_en_chat' };
   }
 
-  const apiKey = configOptica.ia_api_key || process.env.GEMINI_API_KEY;
+  const apiKey = configOptica.ia_api_key || process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    console.warn(`[Motor IA] Óptica ${optica_id} tiene la IA activa pero no hay clave GEMINI_API_KEY configurada.`);
+    console.warn(`[Motor IA] Óptica ${optica_id} tiene la IA activa pero no hay clave OPENROUTER_API_KEY configurada.`);
     return { respondido: false, motivo: 'sin_clave_api' };
   }
 
@@ -433,7 +433,7 @@ ${configOptica.ia_preguntas_frecuentes || 'Horario de atención: ' + (configOpti
     });
   }
 
-  const modeloOpenRouter = configOptica.ia_modelo || 'deepseek/deepseek-chat';
+  const modeloOpenRouter = configOptica.ia_modelo || 'openrouter/free';
 
   try {
     let llamadasRestantes = 3;

@@ -803,7 +803,7 @@ async function procesarPeticion(
       }
 
       try {
-        const mod = modelo || config.ia_modelo || 'deepseek/deepseek-chat';
+        const mod = modelo || config.ia_modelo || 'openrouter/free';
         const urlApi = 'https://openrouter.ai/api/v1/chat/completions';
         const promptSistema = `Eres ${config.ia_nombre || 'Asistente Óptico'}, asistente virtual oficial de "${config.nombre || 'Óptica'}".
 Tono: ${tono || config.ia_tono || 'cercano'}.

@@ -98,7 +98,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
   const [iaNombre, setIaNombre] = useState('Sofía - Asistente Óptico');
   const [iaTono, setIaTono] = useState('cercano');
   const [iaApiKey, setIaApiKey] = useState('');
-  const [iaModelo, setIaModelo] = useState('deepseek/deepseek-chat');
+  const [iaModelo, setIaModelo] = useState('openrouter/free');
   const [iaInstrucciones, setIaInstrucciones] = useState('');
   const [iaPreguntasFrecuentes, setIaPreguntasFrecuentes] = useState('');
   const [mostrarApiKey, setMostrarApiKey] = useState(false);
@@ -223,7 +223,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
         setIaNombre(res.configuracion.ia_nombre || 'Sofía - Asistente Óptico');
         setIaTono(res.configuracion.ia_tono || 'cercano');
         setIaApiKey(res.configuracion.ia_api_key || '');
-        setIaModelo(res.configuracion.ia_modelo || 'deepseek/deepseek-chat');
+        setIaModelo(res.configuracion.ia_modelo || 'openrouter/free');
         setIaInstrucciones(res.configuracion.ia_instrucciones || '');
         setIaPreguntasFrecuentes(res.configuracion.ia_preguntas_frecuentes || '');
       }
@@ -1897,20 +1897,20 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                   </label>
                   <SelectorDesplegable
                     valor={[
+                      'openrouter/free',
                       'deepseek/deepseek-chat',
                       'deepseek/deepseek-r1',
                       'meta-llama/llama-3.3-70b-instruct',
-                      'meta-llama/llama-3.3-70b-instruct:free',
                       'google/gemini-2.5-flash',
                       'openai/gpt-4o-mini',
                     ].includes(iaModelo) ? iaModelo : 'personalizado'}
                     alCambiar={(val) => {
                       if (val === 'personalizado') {
                         if ([
+                          'openrouter/free',
                           'deepseek/deepseek-chat',
                           'deepseek/deepseek-r1',
                           'meta-llama/llama-3.3-70b-instruct',
-                          'meta-llama/llama-3.3-70b-instruct:free',
                           'google/gemini-2.5-flash',
                           'openai/gpt-4o-mini',
                         ].includes(iaModelo)) {
@@ -1921,10 +1921,10 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                       }
                     }}
                     opciones={[
+                      { valor: 'openrouter/free', etiqueta: 'OpenRouter Free (100% Gratuito - Sin recargar créditos)' },
                       { valor: 'deepseek/deepseek-chat', etiqueta: 'DeepSeek V3 (Recomendado, ultra económico e inteligente)' },
                       { valor: 'deepseek/deepseek-r1', etiqueta: 'DeepSeek R1 (Razonamiento profundo)' },
                       { valor: 'meta-llama/llama-3.3-70b-instruct', etiqueta: 'Meta Llama 3.3 70B (Potente y equilibrado)' },
-                      { valor: 'meta-llama/llama-3.3-70b-instruct:free', etiqueta: 'Meta Llama 3.3 70B Free (100% Gratuito OpenRouter)' },
                       { valor: 'google/gemini-2.5-flash', etiqueta: 'Gemini 2.5 Flash (Google vía OpenRouter)' },
                       { valor: 'openai/gpt-4o-mini', etiqueta: 'OpenAI GPT-4o Mini (Rápido y económico)' },
                       { valor: 'personalizado', etiqueta: '✏️ Especificar otro modelo manualmente...' },
@@ -1933,10 +1933,10 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                     anchoMinimo="100%"
                   />
                   {![
+                    'openrouter/free',
                     'deepseek/deepseek-chat',
                     'deepseek/deepseek-r1',
                     'meta-llama/llama-3.3-70b-instruct',
-                    'meta-llama/llama-3.3-70b-instruct:free',
                     'google/gemini-2.5-flash',
                     'openai/gpt-4o-mini',
                   ].includes(iaModelo) && (
