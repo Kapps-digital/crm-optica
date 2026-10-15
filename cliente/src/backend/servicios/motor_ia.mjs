@@ -32,7 +32,7 @@ export async function obtenerConfiguracionIA(opticaId) {
       ia_instrucciones: '',
       ia_preguntas_frecuentes: '',
       ia_api_key: '',
-      ia_modelo: 'gemini-2.0-flash',
+      ia_modelo: 'gemini-3.8-flash',
     };
   }
 
@@ -45,7 +45,7 @@ export async function obtenerConfiguracionIA(opticaId) {
     ia_instrucciones: row.ia_instrucciones || '',
     ia_preguntas_frecuentes: row.ia_preguntas_frecuentes || '',
     ia_api_key: row.ia_api_key || '',
-    ia_modelo: row.ia_modelo || 'gemini-2.0-flash',
+    ia_modelo: row.ia_modelo || 'gemini-3.8-flash',
   };
 }
 
@@ -81,7 +81,7 @@ export async function guardarConfiguracionIA(opticaId, datos) {
       ia_instrucciones || '',
       ia_preguntas_frecuentes || '',
       ia_api_key || '',
-      ia_modelo || 'gemini-2.0-flash',
+      ia_modelo || 'gemini-3.8-flash',
       idOpticaNumerico,
     ]
   );
@@ -420,7 +420,7 @@ ${configOptica.ia_preguntas_frecuentes || 'Horario de atención: ' + (configOpti
     });
   }
 
-  const modeloGemini = configOptica.ia_modelo || 'gemini-2.0-flash';
+  const modeloGemini = configOptica.ia_modelo || 'gemini-3.8-flash';
   const urlApi = `${URL_GEMINI_BASE}/${encodeURIComponent(modeloGemini)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
   try {

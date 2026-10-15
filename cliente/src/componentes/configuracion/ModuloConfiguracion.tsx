@@ -98,7 +98,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
   const [iaNombre, setIaNombre] = useState('Sofía - Asistente Óptico');
   const [iaTono, setIaTono] = useState('cercano');
   const [iaApiKey, setIaApiKey] = useState('');
-  const [iaModelo, setIaModelo] = useState('gemini-2.0-flash');
+  const [iaModelo, setIaModelo] = useState('gemini-3.8-flash');
   const [iaInstrucciones, setIaInstrucciones] = useState('');
   const [iaPreguntasFrecuentes, setIaPreguntasFrecuentes] = useState('');
   const [mostrarApiKey, setMostrarApiKey] = useState(false);
@@ -223,7 +223,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
         setIaNombre(res.configuracion.ia_nombre || 'Sofía - Asistente Óptico');
         setIaTono(res.configuracion.ia_tono || 'cercano');
         setIaApiKey(res.configuracion.ia_api_key || '');
-        setIaModelo(res.configuracion.ia_modelo || 'gemini-2.0-flash');
+        setIaModelo(res.configuracion.ia_modelo || 'gemini-3.8-flash');
         setIaInstrucciones(res.configuracion.ia_instrucciones || '');
         setIaPreguntasFrecuentes(res.configuracion.ia_preguntas_frecuentes || '');
       }
@@ -1899,8 +1899,8 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                     valor={iaModelo}
                     alCambiar={setIaModelo}
                     opciones={[
-                      { valor: 'gemini-2.0-flash', etiqueta: 'Gemini 2.0 Flash (Más rápido, última generación)' },
-                      { valor: 'gemini-1.5-flash', etiqueta: 'Gemini 1.5 Flash (Equilibrado y estable)' },
+                      { valor: 'gemini-3.8-flash', etiqueta: 'Gemini 3.8 Flash (Recomendado, máxima velocidad)' },
+                      { valor: 'gemini-3.5-flash-lite', etiqueta: 'Gemini 3.5 Flash Lite (Ultra liviano y rápido)' },
                     ]}
                     tamano="compacto"
                     anchoMinimo="100%"

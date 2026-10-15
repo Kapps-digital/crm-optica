@@ -803,7 +803,7 @@ async function procesarPeticion(
       }
 
       try {
-        const mod = modelo || config.ia_modelo || 'gemini-2.0-flash';
+        const mod = modelo || config.ia_modelo || 'gemini-3.8-flash';
         const urlApi = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(mod)}:generateContent?key=${encodeURIComponent(claveApi)}`;
         const promptSistema = `Eres ${config.ia_nombre || 'Asistente Óptico'}, asistente virtual oficial de "${config.nombre || 'Óptica'}".
 Tono: ${tono || config.ia_tono || 'cercano'}.
