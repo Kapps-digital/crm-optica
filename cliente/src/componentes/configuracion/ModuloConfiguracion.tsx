@@ -177,6 +177,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
           const opticaMapeada = {
             ...res.optica,
             id: Number(res.optica.id),
+            ia_activa: res.optica.ia_activa !== undefined ? Boolean(res.optica.ia_activa) : true,
           };
           setOpticaData(opticaMapeada);
           setFormPerfil({
@@ -541,6 +542,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
         ...resDatos.optica,
         id: Number(resDatos.optica.id),
         ...(nuevoLogoUrl ? { logo_url: nuevoLogoUrl } : {}),
+        ia_activa: resDatos.optica?.ia_activa !== undefined ? Boolean(resDatos.optica.ia_activa) : (opticaData?.ia_activa ?? true),
       };
 
       setOpticaData(opticaActualizada);
@@ -701,6 +703,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
       const opticaActualizada = {
         ...res.optica,
         id: Number(res.optica.id),
+        ia_activa: res.optica?.ia_activa !== undefined ? Boolean(res.optica.ia_activa) : (opticaData?.ia_activa ?? true),
       };
 
       setOpticaData(opticaActualizada);
@@ -749,6 +752,14 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
 
       if (res.exito) {
         if (typeof window !== 'undefined') {
+          const opticaGuardada = localStorage.getItem('crm_optica');
+          if (opticaGuardada) {
+            try {
+              const parsed = JSON.parse(opticaGuardada);
+              parsed.ia_activa = nuevoEstado;
+              localStorage.setItem('crm_optica', JSON.stringify(parsed));
+            } catch {}
+          }
           window.dispatchEvent(new Event('crm_cambio_ia_global'));
         }
         setMensajeExito(
@@ -786,6 +797,14 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
 
       if (res.exito) {
         if (typeof window !== 'undefined') {
+          const opticaGuardada = localStorage.getItem('crm_optica');
+          if (opticaGuardada) {
+            try {
+              const parsed = JSON.parse(opticaGuardada);
+              parsed.ia_activa = iaActiva;
+              localStorage.setItem('crm_optica', JSON.stringify(parsed));
+            } catch {}
+          }
           window.dispatchEvent(new Event('crm_cambio_ia_global'));
         }
         setMensajeExito(

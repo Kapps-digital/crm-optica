@@ -198,7 +198,8 @@ async function procesarPeticion(
           id, nombre, slug, logo_url, color_primario, color_secundario, telefono,
           duracion_cita_minutos, control_meses_defecto, especialista_defecto,
           registro_profesional_defecto, motivo_cita_defecto, notificacion_auto_citas_whatsapp,
-          hora_inicio_atencion, hora_fin_atencion
+          hora_inicio_atencion, hora_fin_atencion,
+          COALESCE(ia_activa, true) AS ia_activa
         FROM opticas WHERE id = ? AND activo = true
       `).get(optica_id);
 
@@ -227,17 +228,25 @@ async function procesarPeticion(
           notificacion_auto_citas_whatsapp: opticaDb.notificacion_auto_citas_whatsapp !== false,
           hora_inicio_atencion: opticaDb.hora_inicio_atencion || '08:00',
           hora_fin_atencion: opticaDb.hora_fin_atencion || '18:00',
-          ia_activa: Boolean(opticaDb.ia_activa),
+          ia_activa: Boolean(opticaDb.ia_activa ?? true),
         } : null,
       });
     }
 
     if (metodo === 'GET' && rutaStr === 'opticas') {
       const opticas = await base_datos.prepare(`
-        SELECT id, nombre, slug, logo_url, color_primario, color_secundario, telefono, activo 
+        SELECT id, nombre, slug, logo_url, color_primario, color_secundario, telefono, activo,
+               COALESCE(ia_activa, true) AS ia_activa
         FROM opticas WHERE activo = true ORDER BY id ASC
       `).all();
-      return NextResponse.json({ exito: true, opticas: opticas.map((o: any) => ({ ...o, id: Number(o.id) })) });
+      return NextResponse.json({
+        exito: true,
+        opticas: opticas.map((o: any) => ({
+          ...o,
+          id: Number(o.id),
+          ia_activa: Boolean(o.ia_activa ?? true),
+        })),
+      });
     }
 
     // 3. CONVERSACIONES Y MENSAJES

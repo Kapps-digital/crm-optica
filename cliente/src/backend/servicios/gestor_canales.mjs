@@ -116,11 +116,15 @@ export async function obtener_canales_optica(optica_id = 1) {
         id_cuenta_zernio, canal_whatsapp_conectado, activo,
         duracion_cita_minutos, control_meses_defecto, especialista_defecto, 
         registro_profesional_defecto, motivo_cita_defecto, notificacion_auto_citas_whatsapp,
-        hora_inicio_atencion, hora_fin_atencion
+        hora_inicio_atencion, hora_fin_atencion,
+        COALESCE(ia_activa, true) AS ia_activa
        FROM "CRM_Opticas".opticas WHERE id = $1`,
       [optica_id]
     );
-    const optica = resOptica.rows[0] || null;
+    const optica = resOptica.rows[0] ? {
+      ...resOptica.rows[0],
+      ia_activa: Boolean(resOptica.rows[0].ia_activa ?? true),
+    } : null;
 
     // 2. Consultar cuentas en Zernio API en tiempo real
     let cuentasZernio = [];

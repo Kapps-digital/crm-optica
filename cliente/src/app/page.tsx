@@ -52,6 +52,7 @@ const CATALOGO_OPTICAS_BASE: Optica[] = [
     color_secundario: '#0369a1',
     telefono: '+57 313 2531694',
     activo: true,
+    ia_activa: true,
   },
   {
     id: 2,
@@ -62,6 +63,7 @@ const CATALOGO_OPTICAS_BASE: Optica[] = [
     color_secundario: '#047857',
     telefono: '+57 300 9876543',
     activo: true,
+    ia_activa: true,
   },
 ];
 
@@ -188,9 +190,21 @@ export default function PaginaPrincipal() {
       CATALOGO_OPTICAS_BASE.find((o) => Number(o.id) === idInicial) ||
       optSesion ||
       CATALOGO_OPTICAS_BASE[0];
-    setOpticaActual(opticaInicial);
-    aplicarTemaOptica(opticaInicial);
+    const opticaNormalizada: Optica = {
+      ...opticaInicial,
+      ia_activa: opticaInicial.ia_activa !== false,
+    };
+    setOpticaActual(opticaNormalizada);
+    aplicarTemaOptica(opticaNormalizada);
     setAutenticado(true);
+
+    // Consulta de respaldo de configuración de IA directa para sincronización perfecta
+    obtenerConfiguracionIAApi().then((resIA) => {
+      if (resIA.exito && resIA.configuracion) {
+        const activa = Boolean(resIA.configuracion.ia_activa);
+        setOpticaActual((prev) => (prev ? { ...prev, ia_activa: activa } : prev));
+      }
+    }).catch(() => {});
 
     obtenerPerfilUsuario().then(async (res) => {
       if (res.exito) {
@@ -202,6 +216,7 @@ export default function PaginaPrincipal() {
           const opticaBd: Optica = {
             ...res.optica,
             id: Number(res.optica.id),
+            ia_activa: res.optica.ia_activa !== false,
           };
           setOpticaActual(opticaBd);
           aplicarTemaOptica(opticaBd);
@@ -215,9 +230,13 @@ export default function PaginaPrincipal() {
           const idActiva = obtenerIdOpticaActiva() || idInicial;
           const encontrada = opts.find((o) => Number(o.id) === Number(idActiva));
           if (encontrada) {
-            setOpticaActual(encontrada);
-            aplicarTemaOptica(encontrada);
-            guardarOpticaSesion(encontrada);
+            const optEncontradaNorm: Optica = {
+              ...encontrada,
+              ia_activa: encontrada.ia_activa !== false,
+            };
+            setOpticaActual(optEncontradaNorm);
+            aplicarTemaOptica(optEncontradaNorm);
+            guardarOpticaSesion(optEncontradaNorm);
           }
         }
       }
@@ -229,7 +248,10 @@ export default function PaginaPrincipal() {
     const alActualizarOpticaGlobal = () => {
       const optGuardada = obtenerOpticaSesion();
       if (optGuardada) {
-        setOpticaActual(optGuardada);
+        setOpticaActual((prev) => ({
+          ...optGuardada,
+          ia_activa: optGuardada.ia_activa !== undefined ? Boolean(optGuardada.ia_activa) : (prev?.ia_activa !== false),
+        }));
         aplicarTemaOptica(optGuardada);
       }
     };
@@ -239,7 +261,12 @@ export default function PaginaPrincipal() {
         const res = await obtenerConfiguracionIAApi();
         if (res.exito && res.configuracion) {
           const nuevaActiva = Boolean(res.configuracion.ia_activa);
-          setOpticaActual((prev) => (prev ? { ...prev, ia_activa: nuevaActiva } : prev));
+          setOpticaActual((prev) => {
+            if (!prev) return prev;
+            const act = { ...prev, ia_activa: nuevaActiva };
+            guardarOpticaSesion(act);
+            return act;
+          });
         }
       } catch (e) {
         console.error('Error al sincronizar IA global:', e);
@@ -966,7 +993,7 @@ export default function PaginaPrincipal() {
               alAbrirFicha={() => setFichaAbierta(true)}
               paciente={pacienteActivo}
               alRegistrarPaciente={() => setModalRegistrarPacienteChatAbierto(true)}
-              iaGlobalActiva={Boolean(opticaActual?.ia_activa)}
+              iaGlobalActiva={opticaActual?.ia_activa !== false}
               alResolverUrgencia={async (id) => {
                 await recargarConversaciones();
                 if (conversacionActiva && Number(conversacionActiva.id) === Number(id)) {
