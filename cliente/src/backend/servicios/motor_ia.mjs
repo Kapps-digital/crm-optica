@@ -148,6 +148,49 @@ export async function alternarEstadoIAChat(conversacionId, activo) {
 }
 
 /**
+ * Obtiene los motivos de citas configurados para la óptica (dinámicos desde BD o catálogo oficial)
+ */
+export async function obtenerMotivosDisponiblesOpticaBD(opticaId) {
+  try {
+    const res = await pool.query(
+      `SELECT motivos_citas_json, motivo_cita_defecto FROM "CRM_Opticas".opticas WHERE id = $1`,
+      [opticaId]
+    );
+    const fila = res.rows[0];
+    let lista = null;
+    if (fila?.motivos_citas_json) {
+      try {
+        const p = typeof fila.motivos_citas_json === 'string'
+          ? JSON.parse(fila.motivos_citas_json)
+          : fila.motivos_citas_json;
+        if (Array.isArray(p) && p.length > 0) lista = p;
+      } catch {}
+    }
+    if (!lista || lista.length === 0) {
+      lista = [
+        'Examen Visual y Control Anual',
+        'Primera Vez - Examen Computarizado',
+        'Adaptación de Lentes de Contacto',
+        'Control de Miopía y Astigmatismo',
+        'Revisión de Montura y Graduación',
+        'Molestia Ocular / Urgencia Visual',
+      ];
+    }
+    return lista;
+  } catch (e) {
+    console.warn('[Motor IA] Aviso al obtener motivos de citas:', e.message);
+    return [
+      'Examen Visual y Control Anual',
+      'Primera Vez - Examen Computarizado',
+      'Adaptación de Lentes de Contacto',
+      'Control de Miopía y Astigmatismo',
+      'Revisión de Montura y Graduación',
+      'Molestia Ocular / Urgencia Visual',
+    ];
+  }
+}
+
+/**
  * Genera ranuras de horario disponibles para una fecha específica respetando jornada y horario hábil
  */
 export async function obtenerHorariosDisponibles(opticaId, fechaStr, jornada = 'todas') {
@@ -374,7 +417,7 @@ const HERRAMIENTAS_OPENAI = [
     type: 'function',
     function: {
       name: 'agendar_cita',
-      description: 'Agenda y confirma una nueva cita en el CRM una vez que el paciente ha confirmado la fecha y hora. La cita siempre queda en estado Pendiente.',
+      description: 'Agenda y confirma una nueva cita en el CRM una vez que el paciente ha confirmado la fecha, la hora Y el motivo de la consulta. ¡ATENCIÓN!: NUNCA ejecutes esta herramienta sin haber preguntado y confirmado previamente el motivo de la cita con el paciente ofreciéndole las opciones disponibles de la clínica.',
       parameters: {
         type: 'object',
         properties: {
@@ -388,10 +431,10 @@ const HERRAMIENTAS_OPENAI = [
           },
           motivo: {
             type: 'string',
-            description: 'Motivo de la cita (ejemplo: "Examen de optometría", "Control de lentes", etc.).',
+            description: 'Motivo de la cita elegido o confirmado por el paciente (ejemplo: "Examen Visual y Control Anual", "Primera Vez - Examen Computarizado", "Adaptación de Lentes de Contacto", etc.). OBLIGATORIO.',
           },
         },
-        required: ['fecha', 'hora'],
+        required: ['fecha', 'hora', 'motivo'],
       },
     },
   },
@@ -424,12 +467,29 @@ const HERRAMIENTAS_OPENAI = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'transferir_a_asesor',
+      description: 'Transfiere de inmediato el chat a un asesor humano cuando el paciente lo solicite expresamente ("quiero hablar con un asesor", "pásame con una persona") o cuando se presente una duda médica o situación que la IA no pueda responder. Marca el chat con alerta urgente en el CRM.',
+      parameters: {
+        type: 'object',
+        properties: {
+          motivo: {
+            type: 'string',
+            description: 'Motivo de la transferencia a asesor humano.',
+          },
+        },
+        required: ['motivo'],
+      },
+    },
+  },
 ];
 
 /**
  * Ejecuta una herramienta llamada por el modelo de IA y retorna el resultado
  */
-async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId }) {
+async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId, conversacionId }) {
   if (nombre === 'consultar_citas_paciente') {
     const hoyStr = obtenerFechaHoyColombia();
     const res = await pool.query(
@@ -492,6 +552,14 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId })
   if (nombre === 'agendar_cita') {
     const { fecha, hora, motivo } = argumentos;
     const hoyStr = obtenerFechaHoyColombia();
+
+    // Validar motivo obligatorio confirmado por el paciente
+    if (!motivo || typeof motivo !== 'string' || motivo.trim() === '') {
+      return {
+        exito: false,
+        error: 'No se puede agendar la cita porque no has confirmado el motivo con el paciente. Pregúntale amablemente cuál es el motivo de su visita ofreciéndole las opciones de la clínica antes de agendar.',
+      };
+    }
 
     // Validar que si es para hoy no sea una hora que ya pasó
     if (fecha === hoyStr && hora) {
@@ -731,6 +799,26 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId })
     };
   }
 
+  if (nombre === 'transferir_a_asesor') {
+    const { motivo: motivoTransferencia } = argumentos || {};
+    if (conversacionId) {
+      await pool.query(
+        `UPDATE "CRM_Opticas".conversaciones 
+         SET requiere_asesor_humano = TRUE,
+             ia_pausada_por_humano = TRUE,
+             actualizado_en = NOW()
+         WHERE id = $1`,
+        [conversacionId]
+      );
+    }
+    return {
+      exito: true,
+      accion: 'transferido_a_humano',
+      motivo: motivoTransferencia || 'Solicitud de atención humana',
+      mensaje: 'El caso ha sido marcado con alerta urgente y transferido a un asesor humano en el CRM.',
+    };
+  }
+
   return { error: `Herramienta desconocida: ${nombre}` };
 }
 
@@ -820,6 +908,8 @@ export async function procesarMensajeConIA({ conversacion_id, contacto_id, optic
 
   let promptSistemaFinal = '';
   const plantillaMd = cargarPlantillaInstrucciones();
+  const motivosDisponibles = await obtenerMotivosDisponiblesOpticaBD(optica_id);
+  const motivosTexto = motivosDisponibles.map((m, idx) => `${idx + 1}. *${m}*`).join('\n');
 
   if (plantillaMd) {
     promptSistemaFinal = plantillaMd
@@ -831,6 +921,7 @@ export async function procesarMensajeConIA({ conversacion_id, contacto_id, optic
       .replace(/\{\{duracion_consulta\}\}/g, duracionConsulta)
       .replace(/\{\{ia_tono\}\}/g, configOptica.ia_tono || 'amable y profesional')
       .replace(/\{\{nombre_paciente\}\}/g, nombrePaciente)
+      .replace(/\{\{motivos_cita_disponibles\}\}/g, motivosTexto)
       .replace(/\{\{citas_vigentes_texto\}\}/g, citasTexto)
       .replace(/\{\{ia_instrucciones\}\}/g, configOptica.ia_instrucciones || 'Atender con calidez.')
       .replace(/\{\{ia_preguntas_frecuentes\}\}/g, configOptica.ia_preguntas_frecuentes || 'Horario: ' + horarioAtencion);
@@ -943,6 +1034,7 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
             argumentos: fnArgs,
             opticaId: optica_id,
             contactoId: idContacto,
+            conversacionId: conversacion_id,
           });
 
           // Si la herramienta retornó un mensaje oficial de cita estructurado, retenerlo
@@ -983,19 +1075,23 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
     const resEnvio = await enviar_mensaje({
       conversacion_id,
       texto: textoParaWhatsApp,
+      enviado_por_ia: true,
     });
 
-    // 8. Si la respuesta contiene indicación de transferencia a asesor humano, pausar IA en este chat
+    // 8. Si la respuesta contiene indicación de transferencia a asesor humano, marcar como urgente y pausar IA
     const textoMinus = textoParaWhatsApp.toLowerCase();
     if (
       textoMinus.includes('asesor') ||
       textoMinus.includes('comunico con') ||
       textoMinus.includes('transfiero') ||
-      textoMinus.includes('equipo humano')
+      textoMinus.includes('equipo humano') ||
+      textoMinus.includes('humano')
     ) {
       await pool.query(
         `UPDATE "CRM_Opticas".conversaciones 
-         SET ia_pausada_por_humano = TRUE, actualizado_en = NOW() 
+         SET requiere_asesor_humano = TRUE,
+             ia_pausada_por_humano = TRUE,
+             actualizado_en = NOW() 
          WHERE id = $1`,
         [conversacion_id]
       );

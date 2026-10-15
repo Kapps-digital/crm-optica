@@ -1158,5 +1158,32 @@ export async function probarAgenteIAApi(datos: {
   }
 }
 
+export async function resolverUrgenciaAsesorHumano(
+  conversacion_id: number
+): Promise<{ exito: boolean; error?: string }> {
+  try {
+    const res = await fetch(`/api/conversaciones/${conversacion_id}/resolver-urgencia`, {
+      method: 'POST',
+      headers: crearEncabezados(),
+    });
+    return await res.json();
+  } catch (error) {
+    registrarErrorApi('resolverUrgenciaAsesorHumano', error);
+    return { exito: false, error: 'Error al resolver urgencia' };
+  }
+}
 
-
+export async function obtenerMotivosCitasApi(): Promise<string[]> {
+  try {
+    const res = await fetch(`/api/configuracion/motivos-citas?_t=${Date.now()}`, {
+      headers: crearEncabezados(),
+      cache: 'no-store',
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.motivos || [];
+  } catch (error) {
+    registrarErrorApi('obtenerMotivosCitasApi', error);
+    return [];
+  }
+}

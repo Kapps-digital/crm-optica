@@ -37,6 +37,7 @@ export async function enviar_mensaje({
   idioma_plantilla = 'es',
   parametros_plantilla = [],
   componentes_plantilla = [],
+  enviado_por_ia = false,
 }) {
   try {
     let conv = null;
@@ -168,28 +169,42 @@ export async function enviar_mensaje({
     if (conv_final_id) {
       const insercion = await base_datos.prepare(`
         INSERT INTO mensajes (
-          conversacion_id, id_mensaje_plataforma, id_mensaje_zernio, direccion, texto, tipo_contenido, estado_entrega, creado_en
-        ) VALUES (?, ?, ?, 'saliente', ?, ?, 'enviado', now())
+          conversacion_id, id_mensaje_plataforma, id_mensaje_zernio, direccion, texto, tipo_contenido, estado_entrega, enviado_por_ia, creado_en
+        ) VALUES (?, ?, ?, 'saliente', ?, ?, 'enviado', ?, now())
         ON CONFLICT (id_mensaje_plataforma) DO UPDATE SET
           estado_entrega = EXCLUDED.estado_entrega,
           texto = EXCLUDED.texto,
-          tipo_contenido = EXCLUDED.tipo_contenido
+          tipo_contenido = EXCLUDED.tipo_contenido,
+          enviado_por_ia = EXCLUDED.enviado_por_ia
       `).run(
         conv_final_id,
         id_mensaje_zernio,
         id_mensaje_zernio,
         texto || `[Plantilla: ${nombre_plantilla}]`,
-        nombre_plantilla ? 'plantilla' : 'texto'
+        nombre_plantilla ? 'plantilla' : 'texto',
+        Boolean(enviado_por_ia)
       );
 
-      // Actualizar fecha de la conversación y marcar como leída al enviar respuesta
-      await base_datos.prepare(`
-        UPDATE conversaciones 
-        SET actualizado_en = now(),
-            mensajes_no_leidos = 0,
-            ultimo_leido_en = now()
-        WHERE id = ?
-      `).run(conv_final_id);
+      // Actualizar fecha de la conversación, marcar como leída y registrar si atendió IA o Humano
+      if (enviado_por_ia) {
+        await base_datos.prepare(`
+          UPDATE conversaciones 
+          SET actualizado_en = now(),
+              mensajes_no_leidos = 0,
+              ultimo_leido_en = now(),
+              atendido_por_ia = true
+          WHERE id = ?
+        `).run(conv_final_id);
+      } else {
+        await base_datos.prepare(`
+          UPDATE conversaciones 
+          SET actualizado_en = now(),
+              mensajes_no_leidos = 0,
+              ultimo_leido_en = now(),
+              requiere_asesor_humano = false
+          WHERE id = ?
+        `).run(conv_final_id);
+      }
 
       const idInsertado = insercion?.lastInsertRowid;
       const mensaje_guardado = idInsertado

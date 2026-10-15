@@ -10,15 +10,9 @@ import { SelectorHoraPopover } from '../comunes/SelectorHoraPopover';
 import type { Contacto, Conversacion } from '@/tipos/crm';
 import { obtenerOpticaSesion } from '@/servicios/api_crm';
 import { formatearTelefono, obtenerNombrePaciente, estaEnVentana24Horas } from '@/utilidades/formato';
+import { MOTIVOS_CITAS_PREDETERMINADOS, obtenerMotivosDisponiblesOptica } from '@/constantes/motivos_citas';
 
-export const OPCIONES_MOTIVO_CITA = [
-  'Examen Visual y Control Anual',
-  'Primera Vez - Examen Computarizado',
-  'Adaptación de Lentes de Contacto',
-  'Control de Miopía y Astigmatismo',
-  'Revisión de Montura y Graduación',
-  'Molestia Ocular / Urgencia Visual',
-];
+export const OPCIONES_MOTIVO_CITA = MOTIVOS_CITAS_PREDETERMINADOS;
 
 export interface DatosNuevaCita {
   contacto_id: number;
@@ -108,14 +102,18 @@ export const ModalAgendarCita: React.FC<PropiedadesModalAgendarCita> = ({
     setMontado(true);
   }, []);
 
+  const optSesion = obtenerOpticaSesion();
+  const motivosDisponibles = useMemo(() => {
+    return obtenerMotivosDisponiblesOptica(optSesion?.motivos_citas_json);
+  }, [optSesion?.motivos_citas_json]);
+
   // Reiniciar estado limpio cada vez que se abre el modal o cambia el paciente
   useEffect(() => {
     if (abierto) {
-      const optSesion = obtenerOpticaSesion();
       setFechaCita(fechaPreseleccionada || '');
       setHoraCita('');
       const motivoDefecto = (optSesion?.motivo_cita_defecto || '').trim();
-      setMotivo(OPCIONES_MOTIVO_CITA.includes(motivoDefecto) ? motivoDefecto : '');
+      setMotivo(motivosDisponibles.includes(motivoDefecto) ? motivoDefecto : '');
       setEspecialista(optSesion?.especialista_defecto || '');
       setObservaciones('');
 
@@ -193,7 +191,7 @@ export const ModalAgendarCita: React.FC<PropiedadesModalAgendarCita> = ({
     fechaCita.trim() !== '' &&
     horaCita.trim() !== '' &&
     motivo.trim() !== '' &&
-    OPCIONES_MOTIVO_CITA.includes(motivo.trim());
+    motivosDisponibles.includes(motivo.trim());
 
   const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -391,7 +389,7 @@ export const ModalAgendarCita: React.FC<PropiedadesModalAgendarCita> = ({
                     setMotivo(val);
                     if (errorValidacion) setErrorValidacion(null);
                   }}
-                  opciones={OPCIONES_MOTIVO_CITA.map((m) => ({ valor: m, etiqueta: m }))}
+                  opciones={motivosDisponibles.map((m) => ({ valor: m, etiqueta: m }))}
                   placeholder="Seleccionar motivo de la cita..."
                   anchoMinimo="100%"
                 />

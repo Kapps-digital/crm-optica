@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X,
@@ -18,6 +18,8 @@ import { SelectorFecha } from '../comunes/SelectorFecha';
 import { SelectorHoraPopover } from '../comunes/SelectorHoraPopover';
 import type { Cita, EstadoCita } from '@/tipos/crm';
 import { formatearTelefono, obtenerNombrePaciente } from '@/utilidades/formato';
+import { obtenerOpticaSesion } from '@/servicios/api_crm';
+import { obtenerMotivosDisponiblesOptica } from '@/constantes/motivos_citas';
 import { OPCIONES_MOTIVO_CITA } from './ModalAgendarCita';
 
 export interface DatosReprogramarCita {
@@ -90,11 +92,16 @@ export const ModalReprogramarCita: React.FC<PropiedadesModalReprogramarCita> = (
 
   if (!abierto || !cita || !montado || cita.estado === 'completada') return null;
 
+  const optSesion = obtenerOpticaSesion();
+  const motivosDisponibles = useMemo(() => {
+    return obtenerMotivosDisponiblesOptica(optSesion?.motivos_citas_json);
+  }, [optSesion?.motivos_citas_json]);
+
   const formularioCompleto =
     fechaCita.trim() !== '' &&
     horaCita.trim() !== '' &&
     motivo.trim() !== '' &&
-    OPCIONES_MOTIVO_CITA.includes(motivo.trim());
+    motivosDisponibles.includes(motivo.trim());
 
   const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -243,7 +250,7 @@ export const ModalReprogramarCita: React.FC<PropiedadesModalReprogramarCita> = (
                 <SelectorDesplegable
                   valor={motivo}
                   alCambiar={(val) => setMotivo(val)}
-                  opciones={OPCIONES_MOTIVO_CITA.map((m) => ({ valor: m, etiqueta: m }))}
+                  opciones={motivosDisponibles.map((m: string) => ({ valor: m, etiqueta: m }))}
                   placeholder="Seleccionar motivo..."
                   anchoMinimo="100%"
                 />

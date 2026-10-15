@@ -29,7 +29,7 @@ import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import type { Conversacion, Mensaje, Contacto, PlantillaWhatsApp, BotonPlantilla } from '@/tipos/crm';
 import { formatearTelefono } from '@/utilidades/formato';
 import { formatearTextoWhatsApp } from '@/utilidades/formato_whatsapp';
-import { obtenerPlantillasYCuota, alternarIAChatApi } from '@/servicios/api_crm';
+import { obtenerPlantillasYCuota, alternarIAChatApi, resolverUrgenciaAsesorHumano } from '@/servicios/api_crm';
 import { ModalAlertaVentana24h } from '../comunes/ModalAlertaVentana24h';
 
 interface PropiedadesVentanaChat {
@@ -42,6 +42,8 @@ interface PropiedadesVentanaChat {
   alAbrirFicha: () => void;
   paciente?: Contacto | null;
   alRegistrarPaciente?: () => void;
+  iaGlobalActiva?: boolean;
+  alResolverUrgencia?: (conversacionId: number) => Promise<void> | void;
 }
 
 function formatearSeparadorFecha(fechaStr?: string | null): string {
@@ -453,6 +455,8 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
   alAbrirFicha,
   paciente = null,
   alRegistrarPaciente,
+  iaGlobalActiva = true,
+  alResolverUrgencia,
 }) => {
   const [textoMensaje, setTextoMensaje] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -463,6 +467,7 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
   const [preparandoChat, setPreparandoChat] = useState(false);
   const [iaChatActiva, setIaChatActiva] = useState(true);
   const [cambiandoEstadoIA, setCambiandoEstadoIA] = useState(false);
+  const [resolviendoUrgencia, setResolviendoUrgencia] = useState(false);
   const contenedorMensajesRef = useRef<HTMLDivElement>(null);
   const idConversacionPrevia = useRef<number | null>(null);
   const longitudMensajesPrevia = useRef<number>(0);
@@ -549,8 +554,27 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
     }
   }, [conversacion?.id, conversacion?.ia_activa, conversacion?.ia_pausada_por_humano]);
 
+  const manejarResolverUrgencia = async () => {
+    if (!conversacion?.id || resolviendoUrgencia) return;
+    setResolviendoUrgencia(true);
+    try {
+      await resolverUrgenciaAsesorHumano(conversacion.id);
+      if (alResolverUrgencia) {
+        await alResolverUrgencia(conversacion.id);
+      }
+    } catch (e) {
+      console.error('Error al resolver urgencia:', e);
+    } finally {
+      setResolviendoUrgencia(false);
+    }
+  };
+
   const manejarToggleIA = async () => {
     if (!conversacion?.id || cambiandoEstadoIA) return;
+    if (iaGlobalActiva === false) {
+      alert('El Agente IA está apagado globalmente en la sección de Configuración. Debes activarlo allí primero.');
+      return;
+    }
     const nuevoEstado = !iaChatActiva;
     setCambiandoEstadoIA(true);
     try {
@@ -717,39 +741,71 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
 
           {/* Botón de Control Toggle del Agente IA en este chat */}
           {conversacion && (
-            <EtiquetaTooltip
-              texto={
-                iaChatActiva
-                  ? 'Agente IA respondiendo este chat automáticamente. Haz clic para pausar y tomar control humano.'
-                  : 'Control humano activo (IA pausada en este chat). Haz clic para reactivar las respuestas del Agente IA.'
-              }
-              posicion="abajo"
-            >
-              <button
-                id="btn-chat-toggle-ia"
-                type="button"
-                onClick={manejarToggleIA}
-                disabled={cambiandoEstadoIA}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  padding: '0.35rem 0.68rem',
-                  borderRadius: '16px',
-                  border: iaChatActiva ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid var(--borde-tarjeta)',
-                  background: iaChatActiva ? 'rgba(16, 185, 129, 0.12)' : 'var(--fondo-tarjeta)',
-                  color: iaChatActiva ? '#10b981' : 'var(--texto-atenuado)',
-                  fontSize: '0.73rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  boxShadow: 'var(--sombra-sm)',
-                }}
+            iaGlobalActiva === false ? (
+              <EtiquetaTooltip
+                texto="El Agente IA está apagado globalmente en Configuración. Actívalo en Configuración para poder usarlo en chats individuales."
+                posicion="abajo"
               >
-                <Bot style={{ width: '13px', height: '13px', color: iaChatActiva ? '#10b981' : 'var(--texto-atenuado)' }} />
-                <span>{iaChatActiva ? 'IA Activa' : 'Control Humano'}</span>
-              </button>
-            </EtiquetaTooltip>
+                <button
+                  id="btn-chat-toggle-ia"
+                  type="button"
+                  disabled={true}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    padding: '0.35rem 0.68rem',
+                    borderRadius: '16px',
+                    border: '1px dashed var(--borde-tarjeta, #cbd5e1)',
+                    background: 'var(--fondo-tarjeta, rgba(0, 0, 0, 0.02))',
+                    color: 'var(--texto-atenuado, #94a3b8)',
+                    fontSize: '0.73rem',
+                    fontWeight: 600,
+                    cursor: 'not-allowed',
+                    opacity: 0.6,
+                    transition: 'all 0.15s ease',
+                    boxShadow: 'none',
+                  }}
+                >
+                  <Bot style={{ width: '13px', height: '13px', color: 'var(--texto-atenuado)' }} />
+                  <span>IA Apagada (Global)</span>
+                </button>
+              </EtiquetaTooltip>
+            ) : (
+              <EtiquetaTooltip
+                texto={
+                  iaChatActiva
+                    ? 'Agente IA respondiendo este chat automáticamente. Haz clic para pausar y tomar control humano.'
+                    : 'Control humano activo (IA pausada en este chat). Haz clic para reactivar las respuestas del Agente IA.'
+                }
+                posicion="abajo"
+              >
+                <button
+                  id="btn-chat-toggle-ia"
+                  type="button"
+                  onClick={manejarToggleIA}
+                  disabled={cambiandoEstadoIA}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    padding: '0.35rem 0.68rem',
+                    borderRadius: '16px',
+                    border: iaChatActiva ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid var(--borde-tarjeta)',
+                    background: iaChatActiva ? 'rgba(16, 185, 129, 0.12)' : 'var(--fondo-tarjeta)',
+                    color: iaChatActiva ? '#10b981' : 'var(--texto-atenuado)',
+                    fontSize: '0.73rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    boxShadow: 'var(--sombra-sm)',
+                  }}
+                >
+                  <Bot style={{ width: '13px', height: '13px', color: iaChatActiva ? '#10b981' : 'var(--texto-atenuado)' }} />
+                  <span>{iaChatActiva ? 'IA Activa' : 'Control Humano'}</span>
+                </button>
+              </EtiquetaTooltip>
+            )
           )}
 
           {/* Botón para Registrar como Paciente al lado izquierdo de Ver Ficha Clínica */}
@@ -810,6 +866,71 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
             onClick={() => setModalAlerta24hAbierto(true)}
           >
             Reactivar con Plantilla
+          </button>
+        </div>
+      )}
+
+      {/* Banner de Urgencia / Requiere Asesor Humano */}
+      {conversacion?.requiere_asesor_humano && (
+        <div
+          id="banner-requiere-asesor"
+          style={{
+            background: 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)',
+            color: '#ffffff',
+            padding: '0.65rem 1rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.75rem',
+            boxShadow: '0 2px 8px rgba(239, 68, 68, 0.25)',
+            flexShrink: 0,
+            zIndex: 2,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <div
+              style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <AlertTriangle style={{ width: '16px', height: '16px', color: '#ffffff' }} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2 }}>
+                Requiere Atención de Asesor Humano
+              </div>
+              <div style={{ fontSize: '0.73rem', opacity: 0.92, marginTop: '2px' }}>
+                El paciente solicitó hablar con un asesor o la IA transfirió la conversación.
+              </div>
+            </div>
+          </div>
+          <button
+            id="btn-resolver-urgencia-chat"
+            type="button"
+            onClick={manejarResolverUrgencia}
+            disabled={resolviendoUrgencia}
+            style={{
+              background: '#ffffff',
+              color: '#dc2626',
+              border: 'none',
+              padding: '0.35rem 0.8rem',
+              borderRadius: '16px',
+              fontSize: '0.74rem',
+              fontWeight: 700,
+              cursor: resolviendoUrgencia ? 'wait' : 'pointer',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            {resolviendoUrgencia ? 'Marcando...' : 'Marcar como Atendido'}
           </button>
         </div>
       )}
@@ -966,6 +1087,11 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
 
                         {/* 4. Hora y Checkmarks */}
                         <div className="burbuja-hora">
+                          {esSaliente && Boolean(m.enviado_por_ia) && (
+                            <span title="Mensaje generado y enviado automáticamente por el Agente IA" style={{ display: 'inline-flex', alignItems: 'center', marginRight: '3px' }}>
+                              <Bot size={11} style={{ opacity: 0.95, color: '#67e8f9' }} />
+                            </span>
+                          )}
                           <span>{hora}</span>
                           {esSaliente && (
                             <IndicadorEstadoEntrega
@@ -1169,6 +1295,11 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
                             : undefined
                         }
                       >
+                        {esSaliente && Boolean(m.enviado_por_ia) && (
+                          <span title="Mensaje generado y enviado automáticamente por el Agente IA" style={{ display: 'inline-flex', alignItems: 'center', marginRight: '3px' }}>
+                            <Bot size={11} style={{ opacity: 0.95, color: (!tieneTexto && tieneAdjunto) ? '#a5f3fc' : '#67e8f9' }} />
+                          </span>
+                        )}
                         <span>{hora}</span>
                         {esSaliente && (
                           <IndicadorEstadoEntrega

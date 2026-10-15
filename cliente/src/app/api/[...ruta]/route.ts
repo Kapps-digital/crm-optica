@@ -49,6 +49,7 @@ import {
   obtenerConfiguracionIA,
   guardarConfiguracionIA,
   alternarEstadoIAChat,
+  obtenerMotivosDisponiblesOpticaBD,
 } from '@/backend/servicios/motor_ia.mjs';
 
 const base_datos = bdModulo as any;
@@ -246,6 +247,8 @@ async function procesarPeticion(
           c.ultimo_mensaje_entrante_en, c.ultimo_leido_en, c.estado,
           COALESCE(c.ia_activa, true) AS ia_activa,
           COALESCE(c.ia_pausada_por_humano, false) AS ia_pausada_por_humano,
+          COALESCE(c.requiere_asesor_humano, false) AS requiere_asesor_humano,
+          COALESCE(c.atendido_por_ia, false) AS atendido_por_ia,
           COALESCE(c.mensajes_no_leidos, 0) AS mensajes_no_leidos,
           co.nombre_completo AS contacto_nombre, co.telefono AS contacto_telefono,
           co.business_scoped_user_id AS contacto_bsuid,
@@ -306,6 +309,8 @@ async function procesarPeticion(
           no_leido: cantidad_no_leidos > 0,
           ventana_24h_activa: esta_en_ventana_24_horas(conv.ultimo_mensaje_entrante_en),
           sin_contestar: conv.ultimo_mensaje_direccion === 'entrante',
+          requiere_asesor_humano: Boolean(conv.requiere_asesor_humano),
+          atendido_por_ia: Boolean(conv.atendido_por_ia),
         };
       });
 
@@ -366,10 +371,24 @@ async function procesarPeticion(
           tipo_contenido: tipoContenido,
           plantilla: plantillaInfo,
           reacciones: reaccionesNormalizadas,
+          enviado_por_ia: Boolean(m.enviado_por_ia),
         };
       });
 
       return NextResponse.json({ exito: true, mensajes: mensajesEnriquecidos }, { headers: ENCABEZADOS_NO_CACHE });
+    }
+
+    // Resolver atención de asesor humano: conversaciones/:id/resolver-urgencia
+    if (metodo === 'POST' && segmentosRuta[0] === 'conversaciones' && segmentosRuta[2] === 'resolver-urgencia') {
+      const conversacion_id = segmentosRuta[1];
+      await base_datos.prepare('UPDATE conversaciones SET requiere_asesor_humano = false, actualizado_en = now() WHERE id = ?').run(conversacion_id);
+      return NextResponse.json({ exito: true, requiere_asesor_humano: false }, { headers: ENCABEZADOS_NO_CACHE });
+    }
+
+    // Motivos dinámicos de citas de la óptica
+    if (metodo === 'GET' && rutaStr === 'configuracion/motivos-citas') {
+      const motivos = await obtenerMotivosDisponiblesOpticaBD(optica_id);
+      return NextResponse.json({ exito: true, motivos }, { headers: ENCABEZADOS_NO_CACHE });
     }
 
     // Marcar leído: conversaciones/:id/marcar-leido
@@ -419,15 +438,18 @@ async function procesarPeticion(
         }
       }
 
+      // Los mensajes manuales enviados desde la interfaz son enviados por humanos
+      body.enviado_por_ia = false;
+
       const resultado = await enviar_mensaje(body);
       if (!resultado.exito) {
         return NextResponse.json(resultado, { status: 400 });
       }
 
-      // Si el asesor humano envió un mensaje manual, pausar la IA en este chat para evitar colisión
+      // Si el asesor humano envió un mensaje manual, pausar la IA y resolver la alerta de urgencia
       if (body.conversacion_id) {
         try {
-          await base_datos.prepare('UPDATE conversaciones SET ia_pausada_por_humano = TRUE WHERE id = ?').run(body.conversacion_id);
+          await base_datos.prepare('UPDATE conversaciones SET ia_pausada_por_humano = TRUE, requiere_asesor_humano = FALSE WHERE id = ?').run(body.conversacion_id);
         } catch {}
       }
 

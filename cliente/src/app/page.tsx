@@ -37,6 +37,7 @@ import {
   registrarFormulaOptica,
   registrarCita,
   obtenerEstadoCanalesApi,
+  obtenerConfiguracionIAApi,
 } from '@/servicios/api_crm';
 import type { Contacto, Conversacion, Mensaje, FormulaOptica, Usuario, Optica, Segmento } from '@/tipos/crm';
 import { formatearTelefono, estaEnVentana24Horas } from '@/utilidades/formato';
@@ -220,8 +221,25 @@ export default function PaginaPrincipal() {
         aplicarTemaOptica(optGuardada);
       }
     };
+
+    const alCambiarIAGlobal = async () => {
+      try {
+        const res = await obtenerConfiguracionIAApi();
+        if (res.exito && res.configuracion) {
+          const nuevaActiva = Boolean(res.configuracion.ia_activa);
+          setOpticaActual((prev) => (prev ? { ...prev, ia_activa: nuevaActiva } : prev));
+        }
+      } catch (e) {
+        console.error('Error al sincronizar IA global:', e);
+      }
+    };
+
     window.addEventListener('crm_cambio_optica', alActualizarOpticaGlobal);
-    return () => window.removeEventListener('crm_cambio_optica', alActualizarOpticaGlobal);
+    window.addEventListener('crm_cambio_ia_global', alCambiarIAGlobal);
+    return () => {
+      window.removeEventListener('crm_cambio_optica', alActualizarOpticaGlobal);
+      window.removeEventListener('crm_cambio_ia_global', alCambiarIAGlobal);
+    };
   }, []);
 
   const manejarCambioOptica = async (id: number | string) => {
@@ -854,6 +872,13 @@ export default function PaginaPrincipal() {
               alAbrirFicha={() => setFichaAbierta(true)}
               paciente={pacienteActivo}
               alRegistrarPaciente={() => setModalRegistrarPacienteChatAbierto(true)}
+              iaGlobalActiva={Boolean(opticaActual?.ia_activa)}
+              alResolverUrgencia={async (id) => {
+                await recargarConversaciones();
+                if (conversacionActiva && Number(conversacionActiva.id) === Number(id)) {
+                  setConversacionActiva((prev) => (prev ? { ...prev, requiere_asesor_humano: false } : null));
+                }
+              }}
             />
 
             {/* 3. Ficha Optométrica Lateral */}
