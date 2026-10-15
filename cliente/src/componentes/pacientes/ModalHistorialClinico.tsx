@@ -803,7 +803,7 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                               {cita.motivo || 'Consulta General'}
                             </td>
                             <td style={{ padding: '0.65rem 0.85rem', color: 'var(--texto-secundario)' }}>
-                              {cita.especialista || 'Por asignar'}
+                              {cita.especialista || 'Sin especialista'}
                             </td>
                             <td style={{ padding: '0.65rem 0.85rem', textAlign: 'center' }}>
                               <span

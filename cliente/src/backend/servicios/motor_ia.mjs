@@ -231,7 +231,7 @@ export function construirMensajeCitaWhatsApp({
 }) {
   const encabezado = (nombreOptica || 'Óptica').trim();
   const fechaVisual = formatearFechaDDMMYYYY(fecha);
-  const espTexto = especialista && String(especialista).trim() !== '' ? String(especialista).trim() : 'Por asignar';
+  const espTexto = especialista && String(especialista).trim() !== '' ? String(especialista).trim() : 'Sin especialista';
   const motivoTexto = motivo && String(motivo).trim() !== '' ? String(motivo).trim() : 'Examen de optometría';
   const pacienteTexto = (nombrePaciente || 'Paciente').trim();
 
@@ -383,7 +383,7 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId })
       fecha: formatearFechaDDMMYYYY(c.fecha_cita),
       hora: c.hora_cita,
       motivo: c.motivo || 'Examen de optometría',
-      especialista: c.especialista || 'Por asignar',
+      especialista: c.especialista || 'Sin especialista',
       estado: c.estado,
     }));
 
@@ -471,7 +471,7 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId })
       fecha,
       hora,
       motivo: motivoFinal,
-      especialista: espFinal || 'Por asignar',
+      especialista: espFinal || 'Sin especialista',
       estado: 'pendiente',
       mensaje_confirmacion_oficial: mensajeOficial,
     };
@@ -537,7 +537,7 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId })
 
     // 3. Determinar especialista:
     // Si la óptica tiene Especialista Principal configurado en parámetros clínicos, se usa ese.
-    // De lo contrario se deja en blanco (null / Por asignar).
+    // De lo contrario se deja en blanco (null / Sin especialista).
     const resOptica = await pool.query(
       `SELECT nombre, especialista_defecto, motivo_cita_defecto FROM "CRM_Opticas".opticas WHERE id = $1`,
       [opticaId]
@@ -582,7 +582,7 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId })
       nueva_fecha,
       nueva_hora,
       motivo: motivoFinal,
-      especialista: espFinal || 'Por asignar',
+      especialista: espFinal || 'Sin especialista',
       estado: 'pendiente',
       mensaje_confirmacion_oficial: mensajeOficial,
     };
@@ -645,7 +645,7 @@ export async function procesarMensajeConIA({ conversacion_id, contacto_id, optic
     [idContacto, optica_id, hoyStr]
   );
   const citasTexto = resCitas.rows.length > 0
-    ? resCitas.rows.map((c) => `- ${formatearFechaDDMMYYYY(c.fecha_cita)} a las ${c.hora_cita} (${c.motivo || 'Examen visual'}, Especialista: ${c.especialista || 'Por asignar'}, Estado: ${c.estado})`).join('\n')
+    ? resCitas.rows.map((c) => `- ${formatearFechaDDMMYYYY(c.fecha_cita)} a las ${c.hora_cita} (${c.motivo || 'Examen visual'}, Especialista: ${c.especialista || 'Sin especialista'}, Estado: ${c.estado})`).join('\n')
     : 'No registra citas pendientes programadas de hoy en adelante.';
 
   // 4. Obtener historial reciente del chat (últimos 6 mensajes)
@@ -687,7 +687,7 @@ Hola *${nombrePaciente}*, tienes la siguiente cita programada:
 📅 *Fecha:* DD/MM/YYYY
 ⏰ *Hora:* HH:MM AM/PM
 🎯 *Motivo:* [Motivo]
-👨‍⚕️ *Especialista:* [Especialista o 'Por asignar']
+👨‍⚕️ *Especialista:* [Especialista o 'Sin especialista']
 
 📍 Te sugerimos presentarte 10 minutos antes. Si necesitas reprogramar, responde directamente a este chat.
    - Si no tiene citas pendientes futuras, responde amablemente indicando que no registra ninguna cita pendiente y ofrécele agendar una.
@@ -701,7 +701,7 @@ Hola *${nombrePaciente}*, tienes la siguiente cita programada:
    - Si el paciente solicita cambiar la fecha u hora o reprogramar una cita ya programada, pregúntale para qué día desea el cambio.
    - Consulta disponibilidad con "consultar_horarios_disponibles".
    - Una vez confirmada la nueva fecha y hora, ejecuta "reprogramar_cita".
-   - Esto moverá directamente la cita existente sin duplicarla, y la dejará en estado Pendiente. Si la cita tenía especialista, se actualizará al especialista predeterminado de la óptica si existe, o quedará sin asignar ('Por asignar').
+   - Esto moverá directamente la cita existente sin duplicarla, y la dejará en estado Pendiente. Si la cita tenía especialista, se actualizará al especialista predeterminado de la óptica si existe, o quedará sin asignar ('Sin especialista').
 
 4. CONFIRMACIÓN OFICIAL:
    - Cada vez que ejecutes "agendar_cita" o "reprogramar_cita", responde al cliente utilizando exactamente el "mensaje_confirmacion_oficial" retornado por la herramienta, sin omitir ni alterar ningún dato.

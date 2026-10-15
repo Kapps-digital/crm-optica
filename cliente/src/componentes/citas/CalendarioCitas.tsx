@@ -432,7 +432,7 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
           `📅 *Fecha:* ${fechaFormateada}`,
           `⏰ *Hora:* ${datos.hora_cita}`,
           `🎯 *Motivo:* ${datos.motivo}`,
-          `👨‍⚕️ *Especialista:* ${datos.especialista || 'Por asignar'}`,
+          `👨‍⚕️ *Especialista:* ${datos.especialista || 'Sin especialista'}`,
           ``,
           `📍 Te sugerimos presentarte 10 minutos antes. Si necesitas reprogramar, responde directamente a este chat.`,
         ].join('\n');
