@@ -729,6 +729,44 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
     }
   };
 
+  const manejarToggleIAGlobal = async () => {
+    const nuevoEstado = !iaActiva;
+    setIaActiva(nuevoEstado);
+    setGuardandoIA(true);
+    setMensajeError(null);
+    setMensajeExito(null);
+
+    try {
+      const res = await guardarConfiguracionIAApi({
+        ia_activa: nuevoEstado,
+        ia_nombre: iaNombre,
+        ia_tono: iaTono,
+        ia_api_key: iaApiKey,
+        ia_modelo: iaModelo,
+        ia_instrucciones: iaInstrucciones,
+        ia_preguntas_frecuentes: iaPreguntasFrecuentes,
+      });
+
+      if (res.exito) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('crm_cambio_ia_global'));
+        }
+        setMensajeExito(
+          nuevoEstado
+            ? '¡Agente de IA activado globalmente en todos los chats!'
+            : 'Agente de IA desactivado globalmente en todos los chats.'
+        );
+        setTimeout(() => setMensajeExito(null), 4000);
+      } else {
+        setMensajeError(res.error || 'Error al cambiar estado global de IA');
+      }
+    } catch (err: any) {
+      setMensajeError(err.message || 'Error de red al actualizar IA');
+    } finally {
+      setGuardandoIA(false);
+    }
+  };
+
   const manejarGuardarIA = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setGuardandoIA(true);
@@ -747,7 +785,14 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
       });
 
       if (res.exito) {
-        setMensajeExito('¡Configuración del Agente de IA guardada exitosamente!');
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('crm_cambio_ia_global'));
+        }
+        setMensajeExito(
+          iaActiva
+            ? '¡Configuración del Agente de IA guardada y activada en todos los chats!'
+            : '¡Configuración del Agente de IA guardada y desactivada en todos los chats!'
+        );
         setTimeout(() => setMensajeExito(null), 4000);
       } else {
         setMensajeError(res.error || 'Error al guardar la configuración de IA');
@@ -1781,10 +1826,12 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                {/* Switch de Activación */}
+                {/* Switch de Activación Global */}
                 <button
                   type="button"
-                  onClick={() => setIaActiva(!iaActiva)}
+                  onClick={manejarToggleIAGlobal}
+                  disabled={guardandoIA}
+                  title={iaActiva ? 'Desactivar Agente de IA en todos los chats' : 'Activar Agente de IA en todos los chats'}
                   style={{
                     padding: '0.45rem 0.95rem',
                     borderRadius: '20px',
@@ -1801,7 +1848,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                   }}
                 >
                   <Power style={{ width: '14px', height: '14px' }} />
-                  <span>{iaActiva ? 'Agente Activo' : 'Agente Inactivo'}</span>
+                  <span>{iaActiva ? 'Agente Activo (Global)' : 'Agente Inactivo (Global)'}</span>
                 </button>
 
                 <button

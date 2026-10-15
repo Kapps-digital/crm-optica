@@ -67,17 +67,26 @@ export async function obtener_o_crear_conversacion({ contacto_id, canal, id_cuen
     return conversacion.id;
   }
 
+  // Obtener estado ia_activa de la óptica para heredar el valor correcto al crear la conversación
+  const contactoInfo = await base_datos.prepare('SELECT optica_id FROM contactos WHERE id = ?').get(contacto_id);
+  const idOptica = contactoInfo?.optica_id || 1;
+  const opticaConfig = await base_datos.prepare('SELECT ia_activa FROM opticas WHERE id = ?').get(idOptica);
+  const iaActivaOptica = opticaConfig ? Boolean(opticaConfig.ia_activa) : true;
+
   const insercion = await base_datos.prepare(`
     INSERT INTO conversaciones (
-      contacto_id, canal, id_cuenta_zernio, id_conversacion_zernio, ultimo_mensaje_entrante_en, mensajes_no_leidos
-    ) VALUES (?, ?, ?, ?, ?, ?)
+      contacto_id, canal, id_cuenta_zernio, id_conversacion_zernio, ultimo_mensaje_entrante_en, mensajes_no_leidos, optica_id, ia_activa, ia_pausada_por_humano
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     contacto_id,
     canal || 'whatsapp',
     id_cuenta_zernio || '',
     id_conversacion_zernio,
     es_entrante ? fecha_efectiva : null,
-    es_entrante ? 1 : 0
+    es_entrante ? 1 : 0,
+    idOptica,
+    iaActivaOptica,
+    !iaActivaOptica
   );
 
   return Number(insercion.lastInsertRowid);

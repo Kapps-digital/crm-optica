@@ -64,6 +64,8 @@ export async function guardarConfiguracionIA(opticaId, datos) {
     ia_modelo,
   } = datos;
 
+  const estadoActivo = Boolean(ia_activa);
+
   await pool.query(
     `UPDATE "CRM_Opticas".opticas
      SET ia_activa = $1,
@@ -75,7 +77,7 @@ export async function guardarConfiguracionIA(opticaId, datos) {
          ia_modelo = $7
      WHERE id = $8`,
     [
-      Boolean(ia_activa),
+      estadoActivo,
       (ia_nombre || 'Asistente Óptico').trim(),
       (ia_tono || 'cercano').trim(),
       ia_instrucciones || '',
@@ -86,7 +88,19 @@ export async function guardarConfiguracionIA(opticaId, datos) {
     ]
   );
 
-  return { exito: true };
+  // Sincronización masiva con todas las conversaciones de esta óptica:
+  // Si se activa globalmente, se activa en todos los chats y se despausa.
+  // Si se desactiva globalmente, se desactiva en todos los chats de inmediato.
+  await pool.query(
+    `UPDATE "CRM_Opticas".conversaciones
+     SET ia_activa = $1,
+         ia_pausada_por_humano = $2,
+         actualizado_en = NOW()
+     WHERE optica_id = $3`,
+    [estadoActivo, !estadoActivo, idOpticaNumerico]
+  );
+
+  return { exito: true, ia_activa: estadoActivo };
 }
 
 /**

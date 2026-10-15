@@ -303,6 +303,24 @@ export default function PaginaPrincipal() {
     }
   }, [vistaActiva]);
 
+  // Sincronización instantánea de activación/desactivación masiva de IA en todos los chats
+  useEffect(() => {
+    const alCambiarIAGlobal = async () => {
+      await recargarConversaciones();
+      if (conversacionActivaRef.current) {
+        const lista = await obtenerConversaciones();
+        if (Array.isArray(lista)) {
+          const act = lista.find((c) => c.id === conversacionActivaRef.current);
+          if (act) {
+            setConversacionActiva(act);
+          }
+        }
+      }
+    };
+    window.addEventListener('crm_cambio_ia_global', alCambiarIAGlobal);
+    return () => window.removeEventListener('crm_cambio_ia_global', alCambiarIAGlobal);
+  }, [recargarConversaciones]);
+
   const manejarSincronizarChats = useCallback(async () => {
     setSincronizandoChats(true);
     try {
