@@ -1777,33 +1777,33 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                 background: 'var(--fondo-tarjeta)',
                 border: '1px solid var(--borde-tarjeta)',
                 borderRadius: 'var(--radio-lg)',
-                padding: '1.25rem 1.5rem',
+                padding: '1.1rem 1.4rem',
                 boxShadow: 'var(--sombra-sm)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                flexWrap: 'wrap',
                 gap: '1rem',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', minWidth: 0 }}>
                 <div
                   style={{
-                    width: '42px',
-                    height: '42px',
+                    width: '40px',
+                    height: '40px',
                     borderRadius: '10px',
                     background: iaActiva ? 'rgba(16, 185, 129, 0.15)' : 'rgba(2, 132, 199, 0.1)',
                     color: iaActiva ? '#10b981' : 'var(--color-primario)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    flexShrink: 0,
                   }}
                 >
-                  <Bot style={{ width: '24px', height: '24px' }} />
+                  <Bot style={{ width: '22px', height: '22px' }} />
                 </div>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <h3 style={{ fontSize: '0.96rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
                       Agente de Inteligencia Artificial (WhatsApp)
                     </h3>
                     <span
@@ -1814,19 +1814,20 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                         borderRadius: '12px',
                         background: iaActiva ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 116, 139, 0.15)',
                         color: iaActiva ? '#10b981' : 'var(--texto-atenuado)',
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       {iaActiva ? 'En línea y respondiendo' : 'Pausado globalmente'}
                     </span>
                   </div>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--texto-atenuado)', margin: '0.15rem 0 0 0' }}>
+                  <p style={{ fontSize: '0.74rem', color: 'var(--texto-atenuado)', margin: '0.15rem 0 0 0' }}>
                     Atiende automáticamente a tus clientes en WhatsApp, resuelve preguntas frecuentes y agenda citas en el CRM.
                   </p>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                {/* Switch de Activación Global */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexShrink: 0 }}>
+                {/* Switch de Activación */}
                 <button
                   type="button"
                   onClick={manejarToggleIAGlobal}
@@ -1844,11 +1845,12 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '0.45rem',
+                    whiteSpace: 'nowrap',
                     transition: 'all 0.15s ease',
                   }}
                 >
                   <Power style={{ width: '14px', height: '14px' }} />
-                  <span>{iaActiva ? 'Agente Activo (Global)' : 'Agente Inactivo (Global)'}</span>
+                  <span>{iaActiva ? 'Agente Activo' : 'Agente Inactivo'}</span>
                 </button>
 
                 <button
@@ -1862,6 +1864,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '0.45rem',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   <Save style={{ width: '14px', height: '14px' }} />
