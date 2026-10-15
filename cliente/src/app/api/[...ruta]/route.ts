@@ -826,18 +826,31 @@ async function procesarPeticion(
     if (metodo === 'POST' && rutaStr === 'configuracion/ia/probar') {
       const { mensaje_prueba, prompt_personalizado, faq_personalizado, tono, api_key_prueba, modelo } = body;
       const config = await obtenerConfiguracionIA(optica_id);
-      const claveApi = api_key_prueba || config.ia_api_key || process.env.OPENROUTER_API_KEY;
+      const mod = modelo || config.ia_modelo || 'gemini-3.5-flash';
+      let claveApi = api_key_prueba || config.ia_api_key;
+
+      const esGemini = Boolean(
+        (claveApi && (claveApi.startsWith('AQ.') || claveApi.startsWith('AIza'))) ||
+        (mod && mod.toLowerCase().includes('gemini') && !mod.toLowerCase().includes('openrouter')) ||
+        (process.env.GEMINI_API_KEY && claveApi === process.env.GEMINI_API_KEY)
+      );
+
+      if (!claveApi) {
+        if (esGemini || (mod && mod.toLowerCase().includes('gemini'))) {
+          claveApi = process.env.GEMINI_API_KEY;
+        } else {
+          claveApi = process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY;
+        }
+      }
 
       if (!claveApi) {
         return NextResponse.json({
           exito: false,
-          error: 'No hay ninguna clave de API de OpenRouter configurada. Ingresa tu clave para realizar pruebas.',
+          error: 'No hay ninguna clave de API configurada. Ingresa tu clave de Google Gemini o OpenRouter para realizar pruebas.',
         }, { status: 400 });
       }
 
       try {
-        const mod = modelo || config.ia_modelo || 'openrouter/free';
-        const urlApi = 'https://openrouter.ai/api/v1/chat/completions';
         const promptSistema = `Eres ${config.ia_nombre || 'Asistente Óptico'}, asistente virtual oficial de "${config.nombre || 'Óptica'}".
 Tono: ${tono || config.ia_tono || 'cercano'}.
 Reglas: Temperatura 0. No inventes precios ni diagnósticos. Si no sabes, ofrece contactar con un asesor humano.
@@ -845,6 +858,48 @@ Instrucciones del negocio: ${prompt_personalizado || config.ia_instrucciones || 
 Preguntas Frecuentes y Políticas: ${faq_personalizado || config.ia_preguntas_frecuentes || 'Horario regular de atención.'}
 Paciente de prueba: Juan Pérez (Sin citas previas)`;
 
+        if (esGemini || (claveApi && (claveApi.startsWith('AQ.') || claveApi.startsWith('AIza')))) {
+          const modelosPrueba = [
+            mod,
+            'gemini-3.5-flash',
+            'gemini-flash-latest',
+            'gemini-3.1-flash-lite',
+          ].filter((v, i, a) => v && a.indexOf(v) === i);
+
+          let exitoGemini = false;
+          let ultimoError = '';
+          let textoRespuesta = '';
+
+          for (const m of modelosPrueba) {
+            const urlGemini = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${claveApi}`;
+            const resp = await fetch(urlGemini, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ role: 'user', parts: [{ text: mensaje_prueba || 'Hola, ¿qué horario de atención tienen?' }] }],
+                systemInstruction: { parts: [{ text: promptSistema }] },
+                generationConfig: { temperature: 0.0, maxOutputTokens: 400 },
+              }),
+            });
+
+            if (resp.ok) {
+              const data = await resp.json();
+              textoRespuesta = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('').trim() || 'Sin respuesta generada.';
+              exitoGemini = true;
+              break;
+            } else {
+              ultimoError = await resp.text();
+            }
+          }
+
+          if (exitoGemini) {
+            return NextResponse.json({ exito: true, respuesta: textoRespuesta });
+          } else {
+            return NextResponse.json({ exito: false, error: `Error de Google Gemini: ${ultimoError}` }, { status: 400 });
+          }
+        }
+
+        const urlApi = 'https://openrouter.ai/api/v1/chat/completions';
         const resp = await fetch(urlApi, {
           method: 'POST',
           headers: {

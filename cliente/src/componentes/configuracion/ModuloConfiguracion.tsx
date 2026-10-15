@@ -1943,10 +1943,13 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                 {/* Modelo de IA */}
                 <div className="modal-campo-grupo">
                   <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
-                    Motor de Inteligencia Artificial (OpenRouter)
+                    Motor de Inteligencia Artificial (Google Gemini u OpenRouter)
                   </label>
                   <SelectorDesplegable
                     valor={[
+                      'gemini-3.5-flash',
+                      'gemini-3.1-flash-lite',
+                      'gemini-flash-latest',
                       'openrouter/free',
                       'deepseek/deepseek-chat',
                       'deepseek/deepseek-r1',
@@ -1957,6 +1960,9 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                     alCambiar={(val) => {
                       if (val === 'personalizado') {
                         if ([
+                          'gemini-3.5-flash',
+                          'gemini-3.1-flash-lite',
+                          'gemini-flash-latest',
                           'openrouter/free',
                           'deepseek/deepseek-chat',
                           'deepseek/deepseek-r1',
@@ -1964,25 +1970,30 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                           'google/gemini-2.5-flash',
                           'openai/gpt-4o-mini',
                         ].includes(iaModelo)) {
-                          setIaModelo('mistralai/mistral-large-2411');
+                          setIaModelo('gemini-3.5-flash');
                         }
                       } else {
                         setIaModelo(val);
                       }
                     }}
                     opciones={[
-                      { valor: 'openrouter/free', etiqueta: 'OpenRouter Free (100% Gratuito - Sin recargar créditos)' },
-                      { valor: 'deepseek/deepseek-chat', etiqueta: 'DeepSeek V3 (Recomendado, ultra económico e inteligente)' },
-                      { valor: 'deepseek/deepseek-r1', etiqueta: 'DeepSeek R1 (Razonamiento profundo)' },
-                      { valor: 'meta-llama/llama-3.3-70b-instruct', etiqueta: 'Meta Llama 3.3 70B (Potente y equilibrado)' },
-                      { valor: 'google/gemini-2.5-flash', etiqueta: 'Gemini 2.5 Flash (Google vía OpenRouter)' },
-                      { valor: 'openai/gpt-4o-mini', etiqueta: 'OpenAI GPT-4o Mini (Rápido y económico)' },
+                      { valor: 'gemini-3.5-flash', etiqueta: '⚡ Google Gemini 2.0 / 3.5 Flash (Oficial Google AI Studio - 1,500 req/día gratis)' },
+                      { valor: 'gemini-3.1-flash-lite', etiqueta: '⚡ Google Gemini Flash Lite (Oficial Google AI Studio - Ultra rápido)' },
+                      { valor: 'gemini-flash-latest', etiqueta: '⚡ Google Gemini Flash Latest (Oficial Google AI Studio)' },
+                      { valor: 'openrouter/free', etiqueta: 'OpenRouter Free (Gratuito limitado a 50 msgs/día)' },
+                      { valor: 'deepseek/deepseek-chat', etiqueta: 'DeepSeek V3 (Vía OpenRouter)' },
+                      { valor: 'deepseek/deepseek-r1', etiqueta: 'DeepSeek R1 (Vía OpenRouter)' },
+                      { valor: 'meta-llama/llama-3.3-70b-instruct', etiqueta: 'Meta Llama 3.3 70B (Vía OpenRouter)' },
+                      { valor: 'openai/gpt-4o-mini', etiqueta: 'OpenAI GPT-4o Mini (Vía OpenRouter)' },
                       { valor: 'personalizado', etiqueta: '✏️ Especificar otro modelo manualmente...' },
                     ]}
                     tamano="compacto"
                     anchoMinimo="100%"
                   />
                   {![
+                    'gemini-3.5-flash',
+                    'gemini-3.1-flash-lite',
+                    'gemini-flash-latest',
                     'openrouter/free',
                     'deepseek/deepseek-chat',
                     'deepseek/deepseek-r1',
@@ -1994,30 +2005,40 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                       type="text"
                       value={iaModelo}
                       onChange={(e) => setIaModelo(e.target.value)}
-                      placeholder="Identificador en OpenRouter (ejemplo: anthropic/claude-3.5-haiku)"
+                      placeholder="Identificador del modelo (ejemplo: gemini-3.5-flash o anthropic/claude-3.5-haiku)"
                       className="modal-input"
                       style={{ fontSize: '0.74rem', marginTop: '0.35rem' }}
                     />
                   )}
                   <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem' }}>
-                    Pasarela OpenRouter multi-modelo con temperatura 0.0 determinista.
+                    Soporte nativo para Google Gemini Oficial (Google AI Studio) y pasarela OpenRouter.
                   </span>
                 </div>
 
-                {/* Clave de API OpenRouter */}
+                {/* Clave de API */}
                 <div className="modal-campo-grupo">
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.3rem' }}>
                     <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
-                      Clave de API OpenRouter (Requerida)
+                      Clave de API (Google AI Studio u OpenRouter)
                     </label>
-                    <a
-                      href="https://openrouter.ai/keys"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ fontSize: '0.68rem', color: 'var(--color-primario)', textDecoration: 'none', fontWeight: 600 }}
-                    >
-                      Obtener clave en OpenRouter ↗
-                    </a>
+                    <div style={{ display: 'flex', gap: '0.6rem' }}>
+                      <a
+                        href="https://aistudio.google.com/app/apikey"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontSize: '0.68rem', color: 'var(--color-primario)', textDecoration: 'none', fontWeight: 600 }}
+                      >
+                        Obtener clave en Google AI Studio ↗
+                      </a>
+                      <a
+                        href="https://openrouter.ai/keys"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', textDecoration: 'none', fontWeight: 500 }}
+                      >
+                        OpenRouter ↗
+                      </a>
+                    </div>
                   </div>
                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                     <Key
@@ -2034,7 +2055,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                       type={mostrarApiKey ? 'text' : 'password'}
                       value={iaApiKey}
                       onChange={(e) => setIaApiKey(e.target.value)}
-                      placeholder="sk-or-v1-..."
+                      placeholder="AQ... o AIza... (Google AI Studio) o sk-or-v1-... (OpenRouter)"
                       className="modal-input"
                       style={{ paddingLeft: '2.1rem', paddingRight: '2.2rem', fontSize: '0.78rem' }}
                     />
@@ -2057,7 +2078,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                     </button>
                   </div>
                   <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem' }}>
-                    Introduce tu clave de OpenRouter (formato sk-or-v1-...).
+                    Para Google Gemini introduce tu clave de Google AI Studio (AQ... o AIza...). Para OpenRouter introduce tu clave sk-or-v1-...
                   </span>
                 </div>
               </div>

@@ -823,7 +823,254 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId, c
 }
 
 /**
- * Procesa un mensaje entrante de un paciente y genera una respuesta con Gemini
+ * Detecta si una clave o modelo corresponde a Google Gemini oficial
+ */
+export function esProveedorGemini(apiKey, modelo) {
+  const clave = String(apiKey || '').trim();
+  const mod = String(modelo || '').trim().toLowerCase();
+  if (clave.startsWith('AQ.') || clave.startsWith('AIza')) return true;
+  if (mod.includes('gemini') && !mod.includes('openrouter')) return true;
+  if (process.env.GEMINI_API_KEY && clave === process.env.GEMINI_API_KEY) return true;
+  return false;
+}
+
+/**
+ * Normaliza nombres de modelo para Google Gemini Oficial.
+ * Prioriza gemini-3.1-flash-lite ya que es el modelo activo en Google AI Studio
+ * con soporte nativo 100% estable de Function Calling en v1beta.
+ */
+export function normalizarModeloGemini(modelo) {
+  const m = String(modelo || '').trim().toLowerCase();
+  if (
+    m === 'gemini-2.0-flash' ||
+    m === 'gemini-2.5-flash' ||
+    m === 'gemini-3.5-flash' ||
+    m === 'gemini-flash-latest' ||
+    m === 'gemini-flash-lite' ||
+    m === 'gemini-3.1-flash-lite'
+  ) {
+    return 'gemini-3.1-flash-lite';
+  }
+  if (m.startsWith('models/')) {
+    return m.replace(/^models\//, '');
+  }
+  if (m) return m;
+  return 'gemini-3.1-flash-lite';
+}
+
+/**
+ * Convierte un esquema de parámetros OpenAI a esquema de Google Gemini
+ */
+export function convertirSchemaAGemini(schema) {
+  if (!schema) return { type: 'OBJECT', properties: {} };
+  const res = {
+    type: (schema.type || 'object').toUpperCase(),
+    description: schema.description,
+  };
+  if (schema.properties) {
+    res.properties = {};
+    for (const [clave, prop] of Object.entries(schema.properties)) {
+      res.properties[clave] = {
+        type: (prop.type || 'string').toUpperCase(),
+        description: prop.description,
+      };
+      if (prop.items) {
+        res.properties[clave].items = {
+          type: (prop.items.type || 'string').toUpperCase(),
+        };
+      }
+    }
+  }
+  if (Array.isArray(schema.required) && schema.required.length > 0) {
+    res.required = schema.required;
+  }
+  return res;
+}
+
+/**
+ * Ejecuta la conversación y el ciclo de herramientas con la API oficial de Google Gemini
+ */
+async function ejecutarLlamadaGemini({
+  apiKey,
+  modelo,
+  promptSistema,
+  historialReverso,
+  textoMensaje,
+  esConsultaDisponibilidad,
+  opticaId,
+  contactoId,
+  conversacionId,
+}) {
+  const herramientasGemini = [
+    {
+      functionDeclarations: HERRAMIENTAS_OPENAI.map((h) => ({
+        name: h.function.name,
+        description: h.function.description,
+        parameters: convertirSchemaAGemini(h.function.parameters),
+      })),
+    },
+  ];
+
+  // Construir historial en formato de Gemini (roles: 'user' y 'model')
+  const contents = [];
+  for (const m of historialReverso) {
+    contents.push({
+      role: m.direccion === 'saliente' ? 'model' : 'user',
+      parts: [{ text: m.texto }],
+    });
+  }
+
+  // Refuerzo anti-memoria si el paciente consulta disponibilidad
+  if (esConsultaDisponibilidad) {
+    contents.push({
+      role: 'user',
+      parts: [{
+        text: `[ALERTA DE SISTEMA: El paciente está consultando disponibilidad de horarios en este momento. DEBES llamar obligatoriamente a la herramienta "consultar_horarios_disponibles" para obtener los turnos reales vigentes de la clínica.]`,
+      }],
+    });
+  }
+
+  // Asegurar que el mensaje actual del usuario esté al final
+  if (contents.length === 0 || contents[contents.length - 1].role !== 'user') {
+    contents.push({
+      role: 'user',
+      parts: [{ text: textoMensaje }],
+    });
+  }
+
+  // Regla estricta de Gemini API: el primer mensaje de contents debe tener rol 'user'
+  while (contents.length > 0 && contents[0].role !== 'user') {
+    contents.shift();
+  }
+  if (contents.length === 0) {
+    contents.push({
+      role: 'user',
+      parts: [{ text: textoMensaje }],
+    });
+  }
+
+  // Lista de modelos ordenados con fallback automático
+  const modelosAProbar = [
+    normalizarModeloGemini(modelo),
+    'gemini-3.5-flash',
+    'gemini-flash-latest',
+    'gemini-3.1-flash-lite',
+  ].filter((v, i, a) => v && a.indexOf(v) === i);
+
+  let modeloElegido = modelosAProbar[0];
+  let llamadasRestantes = 4;
+  let respuestaFinalTexto = '';
+  let ultimoMensajeConfirmacionOficial = null;
+
+  while (llamadasRestantes > 0) {
+    llamadasRestantes--;
+
+    let datosJson = null;
+    let exitoPeticion = false;
+
+    for (const mod of modelosAProbar) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${mod}:generateContent?key=${apiKey}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents,
+            systemInstruction: {
+              parts: [{ text: promptSistema }],
+            },
+            tools: herramientasGemini,
+            generationConfig: {
+              temperature: 0.0,
+              maxOutputTokens: 600,
+            },
+          }),
+        });
+
+        if (res.ok) {
+          datosJson = await res.json();
+          modeloElegido = mod;
+          exitoPeticion = true;
+          break;
+        } else {
+          const errTxt = await res.text();
+          console.warn(`[Motor IA - Gemini] Modelo ${mod} devolvió ${res.status}:`, errTxt.slice(0, 150));
+        }
+      } catch (err) {
+        console.warn(`[Motor IA - Gemini] Excepción al llamar a ${mod}:`, err.message);
+      }
+    }
+
+    if (!exitoPeticion || !datosJson) {
+      return {
+        exito: false,
+        error: 'No se obtuvo respuesta de los modelos oficiales de Google Gemini.',
+      };
+    }
+
+    const candidato = datosJson.candidates?.[0];
+    const contenidoCandidato = candidato?.content;
+    if (!contenidoCandidato) {
+      break;
+    }
+
+    const partesFunctionCall = contenidoCandidato.parts?.filter((p) => p.functionCall) || [];
+
+    if (partesFunctionCall.length > 0) {
+      contents.push(contenidoCandidato);
+
+      for (const parteCall of partesFunctionCall) {
+        const fnCall = parteCall.functionCall;
+        const fnName = fnCall.name;
+        const fnArgs = fnCall.args || {};
+
+        console.log(`[Motor IA - Gemini (${modeloElegido})] Ejecutando herramienta ${fnName}:`, fnArgs);
+
+        const resultadoHerramienta = await ejecutarHerramienta({
+          nombre: fnName,
+          argumentos: fnArgs,
+          opticaId,
+          contactoId,
+          conversacionId,
+        });
+
+        if (resultadoHerramienta?.mensaje_confirmacion_oficial) {
+          ultimoMensajeConfirmacionOficial = resultadoHerramienta.mensaje_confirmacion_oficial;
+        }
+
+        contents.push({
+          role: 'function',
+          parts: [
+            {
+              functionResponse: {
+                name: fnName,
+                response: resultadoHerramienta,
+              },
+            },
+          ],
+        });
+      }
+
+      continue;
+    }
+
+    const partesTexto = contenidoCandidato.parts?.map((p) => p.text || '').join('').trim();
+    if (partesTexto) {
+      respuestaFinalTexto = partesTexto;
+      break;
+    }
+  }
+
+  return {
+    exito: true,
+    respuestaTexto: respuestaFinalTexto,
+    ultimoMensajeConfirmacionOficial,
+    modeloUsado: modeloElegido,
+  };
+}
+
+/**
+ * Procesa un mensaje entrante de un paciente y genera una respuesta con Gemini o OpenRouter
  */
 export async function procesarMensajeConIA({ conversacion_id, contacto_id, optica_id, texto_mensaje }) {
   if (!texto_mensaje || typeof texto_mensaje !== 'string' || texto_mensaje.trim() === '') {
@@ -849,9 +1096,17 @@ export async function procesarMensajeConIA({ conversacion_id, contacto_id, optic
     return { respondido: false, motivo: 'ia_pausada_en_chat' };
   }
 
-  const apiKey = configOptica.ia_api_key || process.env.OPENROUTER_API_KEY;
+  let apiKey = configOptica.ia_api_key;
   if (!apiKey) {
-    console.warn(`[Motor IA] Óptica ${optica_id} tiene la IA activa pero no hay clave OPENROUTER_API_KEY configurada.`);
+    if (esProveedorGemini(process.env.GEMINI_API_KEY, configOptica.ia_modelo)) {
+      apiKey = process.env.GEMINI_API_KEY;
+    } else {
+      apiKey = process.env.GEMINI_API_KEY || process.env.OPENROUTER_API_KEY;
+    }
+  }
+
+  if (!apiKey) {
+    console.warn(`[Motor IA] Óptica ${optica_id} tiene la IA activa pero no hay clave de API configurada.`);
     return { respondido: false, motivo: 'sin_clave_api' };
   }
 
@@ -941,121 +1196,140 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
 `;
   }
 
-  // 6. Ensamblar contenido de conversación en formato OpenAI
-  const messages = [
-    { role: 'system', content: promptSistemaFinal },
-  ];
-
-  for (const m of historialReverso) {
-    messages.push({
-      role: m.direccion === 'saliente' ? 'assistant' : 'user',
-      content: m.texto,
-    });
-  }
-
-  // Si el usuario pregunta por disponibilidad o pide horarios, inyectar orden estricta anti-memoria
   const esConsultaDisponibilidad = /horario|disponib|citas?|cu[aá]ndo|agenda|de nuevo|libres?/i.test(texto_mensaje);
-  if (esConsultaDisponibilidad) {
-    messages.push({
-      role: 'system',
-      content: `ALERTA CRÍTICA: El paciente consulta disponibilidad u horarios en este momento. NUNCA respondas con listas de mensajes antiguos del chat ni digas "ya te mostré los horarios". DEBES invocar OBLIGATORIAMENTE la herramienta "consultar_horarios_disponibles" para obtener los horarios vigentes actualizados.`,
-    });
-  }
-
-  // Asegurar que el mensaje actual esté presente al final
-  if (messages.length === 1 || messages[messages.length - 1].role !== 'user') {
-    messages.push({
-      role: 'user',
-      content: texto_mensaje,
-    });
-  }
-
-  const modeloOpenRouter = configOptica.ia_modelo || 'openrouter/free';
+  const esGemini = esProveedorGemini(apiKey, configOptica.ia_modelo);
 
   try {
-    let llamadasRestantes = 3;
     let respuestaFinalTexto = '';
     let ultimoMensajeConfirmacionOficial = null;
 
-    while (llamadasRestantes > 0) {
-      llamadasRestantes--;
-
-      const respApi = await fetch(URL_OPENROUTER_COMPLETIONS, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          'HTTP-Referer': 'https://crmoptica.com',
-          'X-Title': 'CRM Optica',
-        },
-        body: JSON.stringify({
-          model: modeloOpenRouter,
-          messages,
-          tools: HERRAMIENTAS_OPENAI,
-          tool_choice: 'auto',
-          temperature: 0.0,
-          max_tokens: 600,
-        }),
+    if (esGemini) {
+      console.log(`[Motor IA] Procesando con Google Gemini Oficial (modelo: ${configOptica.ia_modelo || 'gemini-3.5-flash'})`);
+      const resGemini = await ejecutarLlamadaGemini({
+        apiKey,
+        modelo: configOptica.ia_modelo || 'gemini-3.5-flash',
+        promptSistema: promptSistemaFinal,
+        historialReverso,
+        textoMensaje: texto_mensaje,
+        esConsultaDisponibilidad,
+        opticaId: optica_id,
+        contactoId: idContacto,
+        conversacionId: conversacion_id,
       });
 
-      if (!respApi.ok) {
-        const errorText = await respApi.text();
-        console.error(`[Motor IA] Error de OpenRouter API (${respApi.status}):`, errorText);
-        return { respondido: false, error: `Error OpenRouter ${respApi.status}` };
+      if (!resGemini.exito) {
+        return { respondido: false, error: resGemini.error };
       }
 
-      const datosJson = await respApi.json();
-      const choice = datosJson.choices?.[0];
-      const mensajeRespuesta = choice?.message;
+      respuestaFinalTexto = resGemini.respuestaTexto || '';
+      ultimoMensajeConfirmacionOficial = resGemini.ultimoMensajeConfirmacionOficial;
+    } else {
+      // 6. Ensamblar contenido de conversación en formato OpenAI / OpenRouter
+      const messages = [
+        { role: 'system', content: promptSistemaFinal },
+      ];
 
-      if (!mensajeRespuesta) {
-        break;
+      for (const m of historialReverso) {
+        messages.push({
+          role: m.direccion === 'saliente' ? 'assistant' : 'user',
+          content: m.texto,
+        });
       }
 
-      // Si el modelo pide ejecutar herramientas (Tool Calling)
-      if (mensajeRespuesta.tool_calls && mensajeRespuesta.tool_calls.length > 0) {
-        messages.push(mensajeRespuesta);
+      if (esConsultaDisponibilidad) {
+        messages.push({
+          role: 'system',
+          content: `ALERTA CRÍTICA: El paciente consulta disponibilidad u horarios en este momento. NUNCA respondas con listas de mensajes antiguos del chat ni digas "ya te mostré los horarios". DEBES invocar OBLIGATORIAMENTE la herramienta "consultar_horarios_disponibles" para obtener los horarios vigentes actualizados.`,
+        });
+      }
 
-        for (const call of mensajeRespuesta.tool_calls) {
-          const fnName = call.function.name;
-          let fnArgs = {};
-          try {
-            fnArgs = typeof call.function.arguments === 'string'
-              ? JSON.parse(call.function.arguments)
-              : (call.function.arguments || {});
-          } catch (e) {
-            console.error(`[Motor IA] Error al parsear argumentos de ${fnName}:`, e);
-          }
+      if (messages.length === 1 || messages[messages.length - 1].role !== 'user') {
+        messages.push({
+          role: 'user',
+          content: texto_mensaje,
+        });
+      }
 
-          console.log(`[Motor IA] Ejecutando herramienta ${fnName} con args:`, fnArgs);
+      const modeloOpenRouter = configOptica.ia_modelo || 'openrouter/free';
+      let llamadasRestantes = 3;
 
-          const resultadoHerramienta = await ejecutarHerramienta({
-            nombre: fnName,
-            argumentos: fnArgs,
-            opticaId: optica_id,
-            contactoId: idContacto,
-            conversacionId: conversacion_id,
-          });
+      while (llamadasRestantes > 0) {
+        llamadasRestantes--;
 
-          // Si la herramienta retornó un mensaje oficial de cita estructurado, retenerlo
-          if (resultadoHerramienta?.mensaje_confirmacion_oficial) {
-            ultimoMensajeConfirmacionOficial = resultadoHerramienta.mensaje_confirmacion_oficial;
-          }
+        const respApi = await fetch(URL_OPENROUTER_COMPLETIONS, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'HTTP-Referer': 'https://crmoptica.com',
+            'X-Title': 'CRM Optica',
+          },
+          body: JSON.stringify({
+            model: modeloOpenRouter,
+            messages,
+            tools: HERRAMIENTAS_OPENAI,
+            tool_choice: 'auto',
+            temperature: 0.0,
+            max_tokens: 600,
+          }),
+        });
 
-          messages.push({
-            role: 'tool',
-            tool_call_id: call.id,
-            content: JSON.stringify(resultadoHerramienta),
-          });
+        if (!respApi.ok) {
+          const errorText = await respApi.text();
+          console.error(`[Motor IA] Error de OpenRouter API (${respApi.status}):`, errorText);
+          return { respondido: false, error: `Error OpenRouter ${respApi.status}` };
         }
 
-        continue;
-      }
+        const datosJson = await respApi.json();
+        const choice = datosJson.choices?.[0];
+        const mensajeRespuesta = choice?.message;
 
-      // Respuesta de texto final
-      if (mensajeRespuesta.content) {
-        respuestaFinalTexto = mensajeRespuesta.content.trim();
-        break;
+        if (!mensajeRespuesta) {
+          break;
+        }
+
+        if (mensajeRespuesta.tool_calls && mensajeRespuesta.tool_calls.length > 0) {
+          messages.push(mensajeRespuesta);
+
+          for (const call of mensajeRespuesta.tool_calls) {
+            const fnName = call.function.name;
+            let fnArgs = {};
+            try {
+              fnArgs = typeof call.function.arguments === 'string'
+                ? JSON.parse(call.function.arguments)
+                : (call.function.arguments || {});
+            } catch (e) {
+              console.error(`[Motor IA] Error al parsear argumentos de ${fnName}:`, e);
+            }
+
+            console.log(`[Motor IA] Ejecutando herramienta ${fnName} con args:`, fnArgs);
+
+            const resultadoHerramienta = await ejecutarHerramienta({
+              nombre: fnName,
+              argumentos: fnArgs,
+              opticaId: optica_id,
+              contactoId: idContacto,
+              conversacionId: conversacion_id,
+            });
+
+            if (resultadoHerramienta?.mensaje_confirmacion_oficial) {
+              ultimoMensajeConfirmacionOficial = resultadoHerramienta.mensaje_confirmacion_oficial;
+            }
+
+            messages.push({
+              role: 'tool',
+              tool_call_id: call.id,
+              content: JSON.stringify(resultadoHerramienta),
+            });
+          }
+
+          continue;
+        }
+
+        if (mensajeRespuesta.content) {
+          respuestaFinalTexto = mensajeRespuesta.content.trim();
+          break;
+        }
       }
     }
 
