@@ -155,6 +155,18 @@ export default function PaginaPrincipal() {
     }, 0);
   }, [conversaciones]);
 
+  // Total de conversaciones que requieren asesor humano urgente
+  const totalRequiereAsesor = useMemo(() => {
+    return conversaciones.filter((c) => Boolean(c.requiere_asesor_humano)).length;
+  }, [conversaciones]);
+
+  // Conteo para el badge: si hay no leídos muestra total de no leídos; si no hay pero sí hay asesor, muestra el total de asesor
+  const conteoBadgeConversaciones = useMemo(() => {
+    if (totalMensajesNoLeidos > 0) return totalMensajesNoLeidos;
+    if (totalRequiereAsesor > 0) return totalRequiereAsesor;
+    return 0;
+  }, [totalMensajesNoLeidos, totalRequiereAsesor]);
+
   // Verificación de autenticación y carga de datos de la óptica
   useEffect(() => {
     const token = obtenerTokenAutenticacion();
@@ -746,7 +758,8 @@ export default function PaginaPrincipal() {
         alCambiarVista={(v) => setVistaActiva(v)}
         temaOscuro={temaOscuro}
         alAlternarTema={alternarTema}
-        conteoChats={totalMensajesNoLeidos}
+        conteoChats={conteoBadgeConversaciones}
+        requiereAsesorChats={totalRequiereAsesor > 0}
         conteoPacientes={null}
         optica={opticaActual}
         usuario={usuarioActual}

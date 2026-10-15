@@ -31,6 +31,7 @@ interface PropiedadesPanelLateral {
   temaOscuro: boolean;
   alAlternarTema: () => void;
   conteoChats?: number | null;
+  requiereAsesorChats?: boolean;
   conteoPacientes?: number | null;
   optica?: Optica | null;
   usuario?: Usuario | null;
@@ -44,18 +45,25 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
   temaOscuro,
   alAlternarTema,
   conteoChats = 0,
+  requiereAsesorChats = false,
   conteoPacientes = null,
   optica,
   usuario,
 }) => {
   const elementos = [
-    { id: 'mensajeria', etiqueta: 'Conversaciones', icono: MessageSquare, conteo: conteoChats },
-    { id: 'pacientes', etiqueta: 'Pacientes & Contactos', icono: Users, conteo: null },
-    { id: 'citas', etiqueta: 'Calendario de Citas', icono: CalendarDays, conteo: null },
-    { id: 'campanas', etiqueta: 'Auto-Segmentación', icono: Target, conteo: null },
-    { id: 'plantillas', etiqueta: 'Plantillas', icono: FileText, conteo: null },
-    { id: 'analitica', etiqueta: 'Analítica & Reportes', icono: BarChart3, conteo: null },
-    { id: 'configuracion', etiqueta: 'Configuración', icono: Settings, conteo: null },
+    {
+      id: 'mensajeria',
+      etiqueta: 'Conversaciones',
+      icono: MessageSquare,
+      conteo: conteoChats,
+      esUrgente: Boolean(requiereAsesorChats),
+    },
+    { id: 'pacientes', etiqueta: 'Pacientes & Contactos', icono: Users, conteo: null, esUrgente: false },
+    { id: 'citas', etiqueta: 'Calendario de Citas', icono: CalendarDays, conteo: null, esUrgente: false },
+    { id: 'campanas', etiqueta: 'Auto-Segmentación', icono: Target, conteo: null, esUrgente: false },
+    { id: 'plantillas', etiqueta: 'Plantillas', icono: FileText, conteo: null, esUrgente: false },
+    { id: 'analitica', etiqueta: 'Analítica & Reportes', icono: BarChart3, conteo: null, esUrgente: false },
+    { id: 'configuracion', etiqueta: 'Configuración', icono: Settings, conteo: null, esUrgente: false },
   ];
 
   const [errorCargaLogo, setErrorCargaLogo] = React.useState(false);
@@ -218,9 +226,14 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
 
                 {typeof item.conteo === 'number' && item.conteo > 0 && (
                   colapsado ? (
-                    <span className="panel-item-punto-notificacion" />
+                    <span className={`panel-item-punto-notificacion ${item.esUrgente ? 'punto-urgente-rojo' : ''}`} />
                   ) : (
-                    <span className="panel-item-badge-conteo">{item.conteo}</span>
+                    <span
+                      className={`panel-item-badge-conteo ${item.esUrgente ? 'badge-urgente-rojo' : ''}`}
+                      title={item.esUrgente ? '¡Atención! Conversaciones que requieren asesor humano' : undefined}
+                    >
+                      {item.conteo}
+                    </span>
                   )
                 )}
               </button>
