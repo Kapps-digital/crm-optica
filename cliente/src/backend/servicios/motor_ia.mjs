@@ -3,11 +3,11 @@ import { enviar_mensaje } from './gestor_mensajeria.mjs';
 
 /**
  * Motor del Agente de Inteligencia Artificial para CRM Óptica.
- * Procesa mensajes de clientes mediante Gemini con temperatura 0.0,
- * inyección de contexto de seguridad y Function Calling para agendar citas.
+ * Procesa mensajes de clientes mediante OpenRouter (DeepSeek, Llama, Gemini, etc.)
+ * con temperatura 0.0, inyección de contexto de seguridad y Function Calling para agendar citas.
  */
 
-const URL_GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+const URL_OPENROUTER_COMPLETIONS = 'https://openrouter.ai/api/v1/chat/completions';
 
 /**
  * Obtiene la configuración de IA de una óptica
@@ -32,7 +32,7 @@ export async function obtenerConfiguracionIA(opticaId) {
       ia_instrucciones: '',
       ia_preguntas_frecuentes: '',
       ia_api_key: '',
-      ia_modelo: 'gemini-3.8-flash',
+      ia_modelo: 'deepseek/deepseek-chat',
     };
   }
 
@@ -45,7 +45,7 @@ export async function obtenerConfiguracionIA(opticaId) {
     ia_instrucciones: row.ia_instrucciones || '',
     ia_preguntas_frecuentes: row.ia_preguntas_frecuentes || '',
     ia_api_key: row.ia_api_key || '',
-    ia_modelo: row.ia_modelo || 'gemini-3.8-flash',
+    ia_modelo: row.ia_modelo || 'deepseek/deepseek-chat',
   };
 }
 
@@ -81,7 +81,7 @@ export async function guardarConfiguracionIA(opticaId, datos) {
       ia_instrucciones || '',
       ia_preguntas_frecuentes || '',
       ia_api_key || '',
-      ia_modelo || 'gemini-3.8-flash',
+      ia_modelo || 'deepseek/deepseek-chat',
       idOpticaNumerico,
     ]
   );
@@ -168,51 +168,61 @@ async function obtenerHorariosDisponibles(opticaId, fechaStr) {
 }
 
 /**
- * Declaraciones de herramientas (Function Calling) para Gemini
+ * Declaraciones de herramientas (Function Calling) en formato OpenAI / OpenRouter
  */
-const HERRAMIENTAS_GEMINI = [
+const HERRAMIENTAS_OPENAI = [
   {
-    name: 'consultar_citas_paciente',
-    description: 'Consulta las citas programadas o vigentes de este paciente.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {},
+    type: 'function',
+    function: {
+      name: 'consultar_citas_paciente',
+      description: 'Consulta las citas programadas o vigentes de este paciente.',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
     },
   },
   {
-    name: 'consultar_horarios_disponibles',
-    description: 'Consulta los horarios disponibles para agendar una cita en una fecha determinada.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        fecha: {
-          type: 'STRING',
-          description: 'Fecha deseada en formato YYYY-MM-DD (ejemplo: "2026-10-16").',
+    type: 'function',
+    function: {
+      name: 'consultar_horarios_disponibles',
+      description: 'Consulta los horarios disponibles para agendar una cita en una fecha determinada.',
+      parameters: {
+        type: 'object',
+        properties: {
+          fecha: {
+            type: 'string',
+            description: 'Fecha deseada en formato YYYY-MM-DD (ejemplo: "2026-10-16").',
+          },
         },
+        required: ['fecha'],
       },
-      required: ['fecha'],
     },
   },
   {
-    name: 'agendar_cita',
-    description: 'Agenda y confirma una cita en el CRM una vez que el paciente ha confirmado expresamente la fecha, hora y motivo.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        fecha: {
-          type: 'STRING',
-          description: 'Fecha confirmada en formato YYYY-MM-DD.',
+    type: 'function',
+    function: {
+      name: 'agendar_cita',
+      description: 'Agenda y confirma una cita en el CRM una vez que el paciente ha confirmado expresamente la fecha, hora y motivo.',
+      parameters: {
+        type: 'object',
+        properties: {
+          fecha: {
+            type: 'string',
+            description: 'Fecha confirmada en formato YYYY-MM-DD.',
+          },
+          hora: {
+            type: 'string',
+            description: 'Hora confirmada (ejemplo: "10:30 AM" o "15:00").',
+          },
+          motivo: {
+            type: 'string',
+            description: 'Motivo de la cita (ejemplo: "Examen de optometría", "Control de lentes", etc.).',
+          },
         },
-        hora: {
-          type: 'STRING',
-          description: 'Hora confirmada (ejemplo: "10:30 AM" o "15:00").',
-        },
-        motivo: {
-          type: 'STRING',
-          description: 'Motivo de la cita (ejemplo: "Examen de optometría", "Control de lentes", etc.).',
-        },
+        required: ['fecha', 'hora'],
       },
-      required: ['fecha', 'hora'],
     },
   },
 ];
@@ -403,25 +413,27 @@ BASE DE CONOCIMIENTO Y PREGUNTAS FRECUENTES (FAQ):
 ${configOptica.ia_preguntas_frecuentes || 'Horario de atención: ' + (configOptica.hora_inicio_atencion || '8:00 AM') + ' a ' + (configOptica.hora_fin_atencion || '6:00 PM') + '.'}
 `;
 
-  // 6. Ensamblar contenido de conversación para Gemini
-  const contents = [];
+  // 6. Ensamblar contenido de conversación en formato OpenAI
+  const messages = [
+    { role: 'system', content: promptSistema },
+  ];
+
   for (const m of historialReverso) {
-    contents.push({
-      role: m.direccion === 'saliente' ? 'model' : 'user',
-      parts: [{ text: m.texto }],
+    messages.push({
+      role: m.direccion === 'saliente' ? 'assistant' : 'user',
+      content: m.texto,
     });
   }
 
   // Asegurar que el mensaje actual esté presente al final
-  if (contents.length === 0 || contents[contents.length - 1].role !== 'user') {
-    contents.push({
+  if (messages.length === 1 || messages[messages.length - 1].role !== 'user') {
+    messages.push({
       role: 'user',
-      parts: [{ text: texto_mensaje }],
+      content: texto_mensaje,
     });
   }
 
-  const modeloGemini = configOptica.ia_modelo || 'gemini-3.8-flash';
-  const urlApi = `${URL_GEMINI_BASE}/${encodeURIComponent(modeloGemini)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const modeloOpenRouter = configOptica.ia_modelo || 'deepseek/deepseek-chat';
 
   try {
     let llamadasRestantes = 3;
@@ -430,79 +442,77 @@ ${configOptica.ia_preguntas_frecuentes || 'Horario de atención: ' + (configOpti
     while (llamadasRestantes > 0) {
       llamadasRestantes--;
 
-      const cuerpoPeticion = {
-        systemInstruction: {
-          parts: [{ text: promptSistema }],
-        },
-        contents,
-        tools: [
-          {
-            functionDeclarations: HERRAMIENTAS_GEMINI,
-          },
-        ],
-        generationConfig: {
-          temperature: 0.0,
-          maxOutputTokens: 600,
-        },
-      };
-
-      const respApi = await fetch(urlApi, {
+      const respApi = await fetch(URL_OPENROUTER_COMPLETIONS, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cuerpoPeticion),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://crmoptica.com',
+          'X-Title': 'CRM Optica',
+        },
+        body: JSON.stringify({
+          model: modeloOpenRouter,
+          messages,
+          tools: HERRAMIENTAS_OPENAI,
+          tool_choice: 'auto',
+          temperature: 0.0,
+          max_tokens: 600,
+        }),
       });
 
       if (!respApi.ok) {
         const errorText = await respApi.text();
-        console.error(`[Motor IA] Error de Gemini API (${respApi.status}):`, errorText);
-        return { respondido: false, error: `Error Gemini ${respApi.status}` };
+        console.error(`[Motor IA] Error de OpenRouter API (${respApi.status}):`, errorText);
+        return { respondido: false, error: `Error OpenRouter ${respApi.status}` };
       }
 
       const datosJson = await respApi.json();
-      const candidato = datosJson.candidates?.[0];
-      const parteRespuesta = candidato?.content?.parts?.[0];
+      const choice = datosJson.choices?.[0];
+      const mensajeRespuesta = choice?.message;
 
-      if (!parteRespuesta) {
+      if (!mensajeRespuesta) {
         break;
       }
 
-      // Si Gemini pide ejecutar una función (Tool Calling)
-      if (parteRespuesta.functionCall) {
-        const { name, args } = parteRespuesta.functionCall;
-        console.log(`[Motor IA] Ejecutando herramienta ${name} con args:`, args);
+      // Si el modelo pide ejecutar herramientas (Tool Calling)
+      if (mensajeRespuesta.tool_calls && mensajeRespuesta.tool_calls.length > 0) {
+        // Añadir el mensaje del modelo con sus tool_calls
+        messages.push(mensajeRespuesta);
 
-        const resultadoHerramienta = await ejecutarHerramienta({
-          nombre: name,
-          argumentos: args,
-          opticaId: optica_id,
-          contactoId: idContacto,
-        });
+        for (const call of mensajeRespuesta.tool_calls) {
+          const fnName = call.function.name;
+          let fnArgs = {};
+          try {
+            fnArgs = typeof call.function.arguments === 'string'
+              ? JSON.parse(call.function.arguments)
+              : (call.function.arguments || {});
+          } catch (e) {
+            console.error(`[Motor IA] Error al parsear argumentos de ${fnName}:`, e);
+          }
 
-        // Añadir la llamada del modelo al historial
-        contents.push({
-          role: 'model',
-          parts: [{ functionCall: parteRespuesta.functionCall }],
-        });
+          console.log(`[Motor IA] Ejecutando herramienta ${fnName} con args:`, fnArgs);
 
-        // Añadir el resultado de la función para que Gemini elabore la respuesta al cliente
-        contents.push({
-          role: 'user',
-          parts: [
-            {
-              functionResponse: {
-                name,
-                response: resultadoHerramienta,
-              },
-            },
-          ],
-        });
+          const resultadoHerramienta = await ejecutarHerramienta({
+            nombre: fnName,
+            argumentos: fnArgs,
+            opticaId: optica_id,
+            contactoId: idContacto,
+          });
+
+          // Añadir el mensaje de resultado de la herramienta
+          messages.push({
+            role: 'tool',
+            tool_call_id: call.id,
+            content: JSON.stringify(resultadoHerramienta),
+          });
+        }
 
         continue;
       }
 
       // Respuesta de texto final
-      if (parteRespuesta.text) {
-        respuestaFinalTexto = parteRespuesta.text.trim();
+      if (mensajeRespuesta.content) {
+        respuestaFinalTexto = mensajeRespuesta.content.trim();
         break;
       }
     }

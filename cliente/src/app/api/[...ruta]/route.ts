@@ -793,18 +793,18 @@ async function procesarPeticion(
     if (metodo === 'POST' && rutaStr === 'configuracion/ia/probar') {
       const { mensaje_prueba, prompt_personalizado, faq_personalizado, tono, api_key_prueba, modelo } = body;
       const config = await obtenerConfiguracionIA(optica_id);
-      const claveApi = api_key_prueba || config.ia_api_key || process.env.GEMINI_API_KEY;
+      const claveApi = api_key_prueba || config.ia_api_key || process.env.OPENROUTER_API_KEY;
 
       if (!claveApi) {
         return NextResponse.json({
           exito: false,
-          error: 'No hay ninguna clave de API Gemini configurada. Ingresa tu clave para realizar pruebas.',
+          error: 'No hay ninguna clave de API de OpenRouter configurada. Ingresa tu clave para realizar pruebas.',
         }, { status: 400 });
       }
 
       try {
-        const mod = modelo || config.ia_modelo || 'gemini-3.8-flash';
-        const urlApi = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(mod)}:generateContent?key=${encodeURIComponent(claveApi)}`;
+        const mod = modelo || config.ia_modelo || 'deepseek/deepseek-chat';
+        const urlApi = 'https://openrouter.ai/api/v1/chat/completions';
         const promptSistema = `Eres ${config.ia_nombre || 'Asistente Óptico'}, asistente virtual oficial de "${config.nombre || 'Óptica'}".
 Tono: ${tono || config.ia_tono || 'cercano'}.
 Reglas: Temperatura 0. No inventes precios ni diagnósticos. Si no sabes, ofrece contactar con un asesor humano.
@@ -814,21 +814,30 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
 
         const resp = await fetch(urlApi, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${claveApi}`,
+            'HTTP-Referer': 'https://crmoptica.com',
+            'X-Title': 'CRM Optica',
+          },
           body: JSON.stringify({
-            systemInstruction: { parts: [{ text: promptSistema }] },
-            contents: [{ role: 'user', parts: [{ text: mensaje_prueba || 'Hola, ¿qué horario de atención tienen?' }] }],
-            generationConfig: { temperature: 0.0, maxOutputTokens: 400 },
+            model: mod,
+            messages: [
+              { role: 'system', content: promptSistema },
+              { role: 'user', content: mensaje_prueba || 'Hola, ¿qué horario de atención tienen?' },
+            ],
+            temperature: 0.0,
+            max_tokens: 400,
           }),
         });
 
         if (!resp.ok) {
           const errTxt = await resp.text();
-          return NextResponse.json({ exito: false, error: `Error de Gemini (${resp.status}): ${errTxt}` }, { status: 400 });
+          return NextResponse.json({ exito: false, error: `Error de OpenRouter (${resp.status}): ${errTxt}` }, { status: 400 });
         }
 
         const data = await resp.json();
-        const textoRespuesta = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sin respuesta generada.';
+        const textoRespuesta = data.choices?.[0]?.message?.content || 'Sin respuesta generada.';
         return NextResponse.json({ exito: true, respuesta: textoRespuesta });
       } catch (err: any) {
         return NextResponse.json({ exito: false, error: err.message }, { status: 500 });
