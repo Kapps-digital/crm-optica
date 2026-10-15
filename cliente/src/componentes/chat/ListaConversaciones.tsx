@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Search, Phone, AlertCircle, Bot } from 'lucide-react';
+import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import type { Conversacion } from '@/tipos/crm';
 import { formatearTelefono } from '@/utilidades/formato';
 
@@ -145,163 +146,147 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
         }}
       >
         {/* Píldora: Todos */}
-        <button
-          type="button"
-          onClick={() => setFiltroSeleccionado('todos')}
-          title="Ver todas las conversaciones"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.25rem',
-            padding: '0.24rem 0.52rem',
-            borderRadius: '9999px',
-            fontSize: '0.74rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-            border: 'none',
-            background: filtroSeleccionado === 'todos' ? 'var(--color-primario, #0284c7)' : 'var(--fondo-elevado, #f1f5f9)',
-            color: filtroSeleccionado === 'todos' ? '#ffffff' : 'var(--texto-secundario, #475569)',
-            transition: 'all 0.15s ease',
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-          }}
-        >
-          Todos
-        </button>
+        <EtiquetaTooltip texto="Ver todas las conversaciones" posicion="abajo">
+          <button
+            type="button"
+            onClick={() => setFiltroSeleccionado('todos')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              padding: '0.24rem 0.52rem',
+              borderRadius: '9999px',
+              fontSize: '0.74rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              border: 'none',
+              background: filtroSeleccionado === 'todos' ? 'var(--color-primario, #0284c7)' : 'var(--fondo-elevado, #f1f5f9)',
+              color: filtroSeleccionado === 'todos' ? '#ffffff' : 'var(--texto-secundario, #475569)',
+              transition: 'all 0.15s ease',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+            }}
+          >
+            Todos
+          </button>
+        </EtiquetaTooltip>
 
         {/* Píldora: No leídos */}
-        <button
-          type="button"
-          onClick={() => setFiltroSeleccionado('no_leidos')}
-          title="Filtrar mensajes no leídos"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.25rem',
-            padding: '0.24rem 0.52rem',
-            borderRadius: '9999px',
-            fontSize: '0.74rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-            border: 'none',
-            background: filtroSeleccionado === 'no_leidos' ? 'var(--color-primario, #0284c7)' : 'var(--fondo-elevado, #f1f5f9)',
-            color: filtroSeleccionado === 'no_leidos' ? '#ffffff' : 'var(--texto-secundario, #475569)',
-            transition: 'all 0.15s ease',
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-          }}
-        >
-          <span>No leídos</span>
-          {conteos.noLeidos > 0 && (
-            <span
-              style={{
-                background: filtroSeleccionado === 'no_leidos' ? 'rgba(255, 255, 255, 0.28)' : 'var(--color-primario, #0284c7)',
-                color: '#ffffff',
-                fontSize: '0.62rem',
-                fontWeight: 700,
-                padding: '0 4px',
-                borderRadius: '9999px',
-                minWidth: '15px',
-                height: '15px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {conteos.noLeidos}
-            </span>
-          )}
-        </button>
+        <EtiquetaTooltip texto="Filtrar mensajes no leídos" posicion="abajo">
+          <button
+            type="button"
+            onClick={() => setFiltroSeleccionado('no_leidos')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              padding: '0.24rem 0.52rem',
+              borderRadius: '9999px',
+              fontSize: '0.74rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              border: 'none',
+              background: filtroSeleccionado === 'no_leidos' ? 'var(--color-primario, #0284c7)' : 'var(--fondo-elevado, #f1f5f9)',
+              color: filtroSeleccionado === 'no_leidos' ? '#ffffff' : 'var(--texto-secundario, #475569)',
+              transition: 'all 0.15s ease',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+            }}
+          >
+            <span>No leídos</span>
+            {conteos.noLeidos > 0 && (
+              <span
+                style={{
+                  background: filtroSeleccionado === 'no_leidos' ? 'rgba(255, 255, 255, 0.28)' : 'var(--color-primario, #0284c7)',
+                  color: '#ffffff',
+                  fontSize: '0.62rem',
+                  fontWeight: 700,
+                  padding: '0 4px',
+                  borderRadius: '9999px',
+                  minWidth: '15px',
+                  height: '15px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {conteos.noLeidos}
+              </span>
+            )}
+          </button>
+        </EtiquetaTooltip>
 
         {/* Píldora: Asesor */}
-        <button
-          type="button"
-          onClick={() => setFiltroSeleccionado('urgente')}
-          title="Conversaciones que requieren atención de un asesor humano"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.25rem',
-            padding: '0.24rem 0.52rem',
-            borderRadius: '9999px',
-            fontSize: '0.74rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-            border: 'none',
-            background: filtroSeleccionado === 'urgente' ? 'var(--color-primario, #0284c7)' : 'var(--fondo-elevado, #f1f5f9)',
-            color: filtroSeleccionado === 'urgente' ? '#ffffff' : 'var(--texto-secundario, #475569)',
-            transition: 'all 0.15s ease',
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-          }}
-        >
-          <AlertCircle style={{ width: '11px', height: '11px' }} />
-          <span>Asesor</span>
-          {conteos.urgentes > 0 && (
-            <span
-              style={{
-                background: filtroSeleccionado === 'urgente' ? 'rgba(255, 255, 255, 0.28)' : 'var(--color-primario, #0284c7)',
-                color: '#ffffff',
-                fontSize: '0.62rem',
-                fontWeight: 700,
-                padding: '0 4px',
-                borderRadius: '9999px',
-                minWidth: '15px',
-                height: '15px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {conteos.urgentes}
-            </span>
-          )}
-        </button>
+        <EtiquetaTooltip texto="Conversaciones que requieren atención de un asesor humano" posicion="abajo">
+          <button
+            type="button"
+            onClick={() => setFiltroSeleccionado('urgente')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              padding: '0.24rem 0.52rem',
+              borderRadius: '9999px',
+              fontSize: '0.74rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              border: 'none',
+              background: filtroSeleccionado === 'urgente' ? 'var(--color-primario, #0284c7)' : 'var(--fondo-elevado, #f1f5f9)',
+              color: filtroSeleccionado === 'urgente' ? '#ffffff' : 'var(--texto-secundario, #475569)',
+              transition: 'all 0.15s ease',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+            }}
+          >
+            <span>Asesor</span>
+            {conteos.urgentes > 0 && (
+              <span
+                style={{
+                  background: filtroSeleccionado === 'urgente' ? 'rgba(255, 255, 255, 0.28)' : 'var(--color-primario, #0284c7)',
+                  color: '#ffffff',
+                  fontSize: '0.62rem',
+                  fontWeight: 700,
+                  padding: '0 4px',
+                  borderRadius: '9999px',
+                  minWidth: '15px',
+                  height: '15px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {conteos.urgentes}
+              </span>
+            )}
+          </button>
+        </EtiquetaTooltip>
 
         {/* Píldora: IA */}
-        <button
-          type="button"
-          onClick={() => setFiltroSeleccionado('ia')}
-          title="Conversaciones gestionadas por el Agente IA"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.25rem',
-            padding: '0.24rem 0.52rem',
-            borderRadius: '9999px',
-            fontSize: '0.74rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-            border: 'none',
-            background: filtroSeleccionado === 'ia' ? 'var(--color-primario, #0284c7)' : 'var(--fondo-elevado, #f1f5f9)',
-            color: filtroSeleccionado === 'ia' ? '#ffffff' : 'var(--texto-secundario, #475569)',
-            transition: 'all 0.15s ease',
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-          }}
-        >
-          <Bot style={{ width: '11px', height: '11px' }} />
-          <span>IA</span>
-          {conteos.ia > 0 && (
-            <span
-              style={{
-                background: filtroSeleccionado === 'ia' ? 'rgba(255, 255, 255, 0.28)' : 'var(--color-primario, #0284c7)',
-                color: '#ffffff',
-                fontSize: '0.62rem',
-                fontWeight: 700,
-                padding: '0 4px',
-                borderRadius: '9999px',
-                minWidth: '15px',
-                height: '15px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {conteos.ia}
-            </span>
-          )}
-        </button>
+        <EtiquetaTooltip texto="Conversaciones gestionadas por el Agente IA" posicion="abajo">
+          <button
+            type="button"
+            onClick={() => setFiltroSeleccionado('ia')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              padding: '0.24rem 0.52rem',
+              borderRadius: '9999px',
+              fontSize: '0.74rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              border: 'none',
+              background: filtroSeleccionado === 'ia' ? 'var(--color-primario, #0284c7)' : 'var(--fondo-elevado, #f1f5f9)',
+              color: filtroSeleccionado === 'ia' ? '#ffffff' : 'var(--texto-secundario, #475569)',
+              transition: 'all 0.15s ease',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+            }}
+          >
+            <Bot style={{ width: '11px', height: '11px' }} />
+            <span>IA</span>
+          </button>
+        </EtiquetaTooltip>
       </div>
 
       {/* 3. Listado de Conversaciones */}
