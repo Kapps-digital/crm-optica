@@ -121,7 +121,7 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
         </div>
       </div>
 
-      {/* 2. Barra de Filtros estilo WhatsApp (Píldoras con desplazamiento horizontal) */}
+      {/* 2. Barra de Filtros estilo WhatsApp (Píldoras) */}
       <div
         className="barra-filtros-whatsapp"
         onWheel={(e) => {
@@ -132,8 +132,8 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '0.35rem',
-          padding: '0.45rem 0.65rem 0.55rem 0.65rem',
+          gap: '0.28rem',
+          padding: '0.4rem 0.55rem 0.5rem 0.55rem',
           borderBottom: '1px solid var(--borde-tarjeta, rgba(0, 0, 0, 0.06))',
           overflowX: 'auto',
           overflowY: 'hidden',
@@ -152,10 +152,10 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '0.3rem',
-            padding: '0.28rem 0.65rem',
+            gap: '0.25rem',
+            padding: '0.24rem 0.52rem',
             borderRadius: '9999px',
-            fontSize: '0.76rem',
+            fontSize: '0.74rem',
             fontWeight: 600,
             cursor: 'pointer',
             border: 'none',
@@ -177,10 +177,10 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '0.3rem',
-            padding: '0.28rem 0.65rem',
+            gap: '0.25rem',
+            padding: '0.24rem 0.52rem',
             borderRadius: '9999px',
-            fontSize: '0.76rem',
+            fontSize: '0.74rem',
             fontWeight: 600,
             cursor: 'pointer',
             border: 'none',
@@ -197,12 +197,12 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
               style={{
                 background: filtroSeleccionado === 'no_leidos' ? 'rgba(255, 255, 255, 0.28)' : 'var(--color-primario, #0284c7)',
                 color: '#ffffff',
-                fontSize: '0.64rem',
+                fontSize: '0.62rem',
                 fontWeight: 700,
-                padding: '0 5px',
+                padding: '0 4px',
                 borderRadius: '9999px',
-                minWidth: '16px',
-                height: '16px',
+                minWidth: '15px',
+                height: '15px',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -221,10 +221,10 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '0.3rem',
-            padding: '0.28rem 0.65rem',
+            gap: '0.25rem',
+            padding: '0.24rem 0.52rem',
             borderRadius: '9999px',
-            fontSize: '0.76rem',
+            fontSize: '0.74rem',
             fontWeight: 600,
             cursor: 'pointer',
             border: 'none',
@@ -235,19 +235,19 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
             flexShrink: 0,
           }}
         >
-          <AlertCircle style={{ width: '12px', height: '12px' }} />
+          <AlertCircle style={{ width: '11px', height: '11px' }} />
           <span>Asesor</span>
           {conteos.urgentes > 0 && (
             <span
               style={{
                 background: filtroSeleccionado === 'urgente' ? 'rgba(255, 255, 255, 0.28)' : 'var(--color-primario, #0284c7)',
                 color: '#ffffff',
-                fontSize: '0.64rem',
+                fontSize: '0.62rem',
                 fontWeight: 700,
-                padding: '0 5px',
+                padding: '0 4px',
                 borderRadius: '9999px',
-                minWidth: '16px',
-                height: '16px',
+                minWidth: '15px',
+                height: '15px',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -266,10 +266,10 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '0.3rem',
-            padding: '0.28rem 0.65rem',
+            gap: '0.25rem',
+            padding: '0.24rem 0.52rem',
             borderRadius: '9999px',
-            fontSize: '0.76rem',
+            fontSize: '0.74rem',
             fontWeight: 600,
             cursor: 'pointer',
             border: 'none',
@@ -280,19 +280,19 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
             flexShrink: 0,
           }}
         >
-          <Bot style={{ width: '12px', height: '12px' }} />
+          <Bot style={{ width: '11px', height: '11px' }} />
           <span>IA</span>
           {conteos.ia > 0 && (
             <span
               style={{
                 background: filtroSeleccionado === 'ia' ? 'rgba(255, 255, 255, 0.28)' : 'var(--color-primario, #0284c7)',
                 color: '#ffffff',
-                fontSize: '0.64rem',
+                fontSize: '0.62rem',
                 fontWeight: 700,
-                padding: '0 5px',
+                padding: '0 4px',
                 borderRadius: '9999px',
-                minWidth: '16px',
-                height: '16px',
+                minWidth: '15px',
+                height: '15px',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
