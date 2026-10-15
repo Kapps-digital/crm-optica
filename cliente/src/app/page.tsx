@@ -319,6 +319,26 @@ export default function PaginaPrincipal() {
     setConversaciones(listaNormalizada);
     setCargandoChats(false);
 
+    // Si hay conversación activa, sincronizarla con la versión fresca de la BD (resolución de alerta humana, IA pausada, etc.)
+    if (idActiva && listaNormalizada.length > 0) {
+      const convFresca = listaNormalizada.find((c) => Number(c.id) === Number(idActiva));
+      if (convFresca) {
+        setConversacionActiva((prev) => {
+          if (!prev || Number(prev.id) !== Number(idActiva)) return prev;
+          if (
+            prev.requiere_asesor_humano !== convFresca.requiere_asesor_humano ||
+            prev.ia_pausada_por_humano !== convFresca.ia_pausada_por_humano ||
+            prev.ia_activa !== convFresca.ia_activa ||
+            prev.sin_contestar !== convFresca.sin_contestar ||
+            prev.estado !== convFresca.estado
+          ) {
+            return { ...prev, ...convFresca, no_leido: false, mensajes_no_leidos: 0 };
+          }
+          return prev;
+        });
+      }
+    }
+
     // Precargar en segundo plano los mensajes de las conversaciones recientes para que el cambio de chat sea instantáneo (0ms)
     if (listaNormalizada && Array.isArray(listaNormalizada)) {
       listaNormalizada.slice(0, 8).forEach((c) => {
@@ -590,6 +610,37 @@ export default function PaginaPrincipal() {
     // 1. Respuesta visual instantánea sin parpadeo (0ms de retraso percibido)
     setMensajes((prev) => [...prev, mensajeOptimista]);
 
+    // Retirar de inmediato la alerta de atención humana y pausar IA al contestar el asesor humano
+    setConversacionActiva((prev) =>
+      prev && Number(prev.id) === idConv
+        ? {
+            ...prev,
+            requiere_asesor_humano: false,
+            ia_pausada_por_humano: true,
+            sin_contestar: false,
+            ultimo_mensaje_direccion: 'saliente',
+            ultimo_mensaje_texto: texto,
+            ultimo_mensaje_fecha: new Date().toISOString(),
+          }
+        : prev
+    );
+
+    setConversaciones((prev) =>
+      prev.map((c) =>
+        Number(c.id) === idConv
+          ? {
+              ...c,
+              requiere_asesor_humano: false,
+              ia_pausada_por_humano: true,
+              sin_contestar: false,
+              ultimo_mensaje_direccion: 'saliente',
+              ultimo_mensaje_texto: texto,
+              ultimo_mensaje_fecha: new Date().toISOString(),
+            }
+          : c
+      )
+    );
+
     // 2. Envío a través de la API
     const res = await enviarMensajeChat(idConv, texto, false);
     if (res.exito) {
@@ -608,11 +659,26 @@ export default function PaginaPrincipal() {
           return [...lista, ...otrosTemporales];
         });
       }
+      setConversacionActiva((prev) =>
+        prev && Number(prev.id) === idConv
+          ? {
+              ...prev,
+              requiere_asesor_humano: false,
+              ia_pausada_por_humano: true,
+              sin_contestar: false,
+              ultimo_mensaje_direccion: 'saliente',
+              ultimo_mensaje_texto: texto,
+              ultimo_mensaje_fecha: new Date().toISOString(),
+            }
+          : prev
+      );
       setConversaciones((prev) =>
         prev.map((c) =>
           Number(c.id) === idConv
             ? {
                 ...c,
+                requiere_asesor_humano: false,
+                ia_pausada_por_humano: true,
                 sin_contestar: false,
                 ultimo_mensaje_direccion: 'saliente',
                 ultimo_mensaje_texto: texto,
@@ -646,11 +712,26 @@ export default function PaginaPrincipal() {
         setMensajes(lista);
       }
       const nombreMostrar = nombrePlantilla || 'optica_digital';
+      setConversacionActiva((prev) =>
+        prev && Number(prev.id) === Number(conversacionActiva.id)
+          ? {
+              ...prev,
+              requiere_asesor_humano: false,
+              ia_pausada_por_humano: true,
+              sin_contestar: false,
+              ultimo_mensaje_direccion: 'saliente',
+              ultimo_mensaje_texto: `[Template: ${nombreMostrar}]`,
+              ultimo_mensaje_fecha: new Date().toISOString(),
+            }
+          : prev
+      );
       setConversaciones((prev) =>
         prev.map((c) =>
           c.id === conversacionActiva.id
             ? {
                 ...c,
+                requiere_asesor_humano: false,
+                ia_pausada_por_humano: true,
                 sin_contestar: false,
                 ultimo_mensaje_direccion: 'saliente',
                 ultimo_mensaje_texto: `[Template: ${nombreMostrar}]`,

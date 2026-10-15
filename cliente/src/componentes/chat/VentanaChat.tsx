@@ -468,6 +468,13 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
   const [iaChatActiva, setIaChatActiva] = useState(true);
   const [cambiandoEstadoIA, setCambiandoEstadoIA] = useState(false);
   const [resolviendoUrgencia, setResolviendoUrgencia] = useState(false);
+  const [urgenciaAtendidaId, setUrgenciaAtendidaId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!conversacion?.requiere_asesor_humano) {
+      setUrgenciaAtendidaId(null);
+    }
+  }, [conversacion?.id, conversacion?.requiere_asesor_humano]);
   const contenedorMensajesRef = useRef<HTMLDivElement>(null);
   const idConversacionPrevia = useRef<number | null>(null);
   const longitudMensajesPrevia = useRef<number>(0);
@@ -557,6 +564,7 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
   const manejarResolverUrgencia = async () => {
     if (!conversacion?.id || resolviendoUrgencia) return;
     setResolviendoUrgencia(true);
+    setUrgenciaAtendidaId(conversacion.id);
     try {
       await resolverUrgenciaAsesorHumano(conversacion.id);
       if (alResolverUrgencia) {
@@ -564,6 +572,7 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
       }
     } catch (e) {
       console.error('Error al resolver urgencia:', e);
+      setUrgenciaAtendidaId(null);
     } finally {
       setResolviendoUrgencia(false);
     }
@@ -685,6 +694,9 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
     e.preventDefault();
     const texto = textoMensaje.trim();
     if (!texto) return;
+    if (conversacion?.id && conversacion.requiere_asesor_humano) {
+      setUrgenciaAtendidaId(conversacion.id);
+    }
     setTextoMensaje('');
     await alEnviarMensaje(texto);
   };
@@ -866,7 +878,7 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
       )}
 
       {/* Banner de Urgencia / Requiere Asesor Humano */}
-      {conversacion?.requiere_asesor_humano && (
+      {conversacion?.requiere_asesor_humano && urgenciaAtendidaId !== conversacion?.id && (
         <div
           id="banner-requiere-asesor"
           style={{
