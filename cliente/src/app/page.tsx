@@ -348,7 +348,7 @@ export default function PaginaPrincipal() {
   useEffect(() => {
     recargarConversaciones();
     recargarPacientes();
-    const intervalo = setInterval(recargarConversaciones, 2500);
+    const intervalo = setInterval(recargarConversaciones, 1800);
     return () => clearInterval(intervalo);
   }, [recargarConversaciones, recargarPacientes]);
 
@@ -531,7 +531,7 @@ export default function PaginaPrincipal() {
       });
     };
 
-    const intervaloChat = setInterval(refrescarMensajesActivos, 2000);
+    const intervaloChat = setInterval(refrescarMensajesActivos, 1200);
     return () => clearInterval(intervaloChat);
   }, [conversacionActiva]);
 

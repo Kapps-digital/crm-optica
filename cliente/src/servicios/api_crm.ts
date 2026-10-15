@@ -208,8 +208,9 @@ export async function obtenerPerfilUsuario(): Promise<RespuestaLogin> {
 // Conversaciones y Mensajería
 export async function obtenerConversaciones(): Promise<Conversacion[]> {
   try {
-    const res = await fetch('/api/conversaciones', {
+    const res = await fetch(`/api/conversaciones?_t=${Date.now()}`, {
       headers: crearEncabezados(),
+      cache: 'no-store',
     });
     if (!res.ok) {
       if (res.status === 401) cerrarSesion();
@@ -228,6 +229,7 @@ export async function sincronizarConversaciones(): Promise<{ exito: boolean; tot
     const res = await fetch('/api/conversaciones/sincronizar', {
       method: 'POST',
       headers: crearEncabezados(),
+      cache: 'no-store',
     });
     if (!res.ok) return { exito: false };
     return await res.json();
@@ -239,8 +241,9 @@ export async function sincronizarConversaciones(): Promise<{ exito: boolean; tot
 
 export async function obtenerMensajes(conversacionId: number): Promise<Mensaje[]> {
   try {
-    const res = await fetch(`/api/conversaciones/${conversacionId}/mensajes`, {
+    const res = await fetch(`/api/conversaciones/${conversacionId}/mensajes?_t=${Date.now()}`, {
       headers: crearEncabezados(),
+      cache: 'no-store',
     });
     if (!res.ok) return [];
     const data = await res.json();

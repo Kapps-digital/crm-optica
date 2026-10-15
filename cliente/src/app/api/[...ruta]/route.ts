@@ -3,6 +3,17 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import path from 'node:path';
 import fs from 'node:fs';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
+
+export const ENCABEZADOS_NO_CACHE = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+  'Pragma': 'no-cache',
+  'Expires': '0',
+};
+
 import { base_datos as bdModulo } from '@/backend/base_datos/conexion.mjs';
 import { ClienteZernio } from '@/backend/servicios/cliente_zernio.mjs';
 import { enviar_mensaje, esta_en_ventana_24_horas } from '@/backend/servicios/gestor_mensajeria.mjs';
@@ -298,12 +309,12 @@ async function procesarPeticion(
         };
       });
 
-      return NextResponse.json({ exito: true, conversaciones: enriquecidas });
+      return NextResponse.json({ exito: true, conversaciones: enriquecidas }, { headers: ENCABEZADOS_NO_CACHE });
     }
 
     if (rutaStr === 'conversaciones/sincronizar') {
       const resultado = await sincronizar_conversaciones_zernio({ sincronizar_mensajes_profundo: true, max_conversaciones_mensajes: 15 });
-      return NextResponse.json(resultado);
+      return NextResponse.json(resultado, { headers: ENCABEZADOS_NO_CACHE });
     }
 
     // Mensajes de conversación: conversaciones/:id/mensajes
@@ -358,7 +369,7 @@ async function procesarPeticion(
         };
       });
 
-      return NextResponse.json({ exito: true, mensajes: mensajesEnriquecidos });
+      return NextResponse.json({ exito: true, mensajes: mensajesEnriquecidos }, { headers: ENCABEZADOS_NO_CACHE });
     }
 
     // Marcar leído: conversaciones/:id/marcar-leido
