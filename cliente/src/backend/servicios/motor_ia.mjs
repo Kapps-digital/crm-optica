@@ -1,5 +1,32 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { pool, base_datos } from '../base_datos/conexion.mjs';
 import { enviar_mensaje } from './gestor_mensajeria.mjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+/**
+ * Carga la plantilla de instrucciones del Agente desde el archivo Markdown central
+ */
+export function cargarPlantillaInstrucciones() {
+  try {
+    const rutasPosibles = [
+      path.join(__dirname, '..', 'configuracion', 'instrucciones_agente.md'),
+      path.join(process.cwd(), 'cliente', 'src', 'backend', 'configuracion', 'instrucciones_agente.md'),
+      path.join(process.cwd(), 'src', 'backend', 'configuracion', 'instrucciones_agente.md'),
+    ];
+    for (const r of rutasPosibles) {
+      if (fs.existsSync(/*turbopackIgnore: true*/ r)) {
+        return fs.readFileSync(/*turbopackIgnore: true*/ r, 'utf-8');
+      }
+    }
+  } catch (e) {
+    console.warn('[Motor IA] Aviso al cargar instrucciones_agente.md:', e.message);
+  }
+  return null;
+}
 
 /**
  * Motor del Agente de Inteligencia Artificial para CRM Óptica.
@@ -773,7 +800,7 @@ export async function procesarMensajeConIA({ conversacion_id, contacto_id, optic
   );
   const historialReverso = resHistorial.rows.reverse();
 
-  // 5. Construir System Prompt con Guardrails infranqueables
+  // 5. Construir System Prompt desde archivo Markdown central o plantilla
   const fechaHoy = new Date().toLocaleDateString('es-CO', {
     weekday: 'long',
     year: 'numeric',
@@ -791,7 +818,24 @@ export async function procesarMensajeConIA({ conversacion_id, contacto_id, optic
   const horarioAtencion = `${configOptica.hora_inicio_atencion || '08:00 AM'} a ${configOptica.hora_fin_atencion || '06:00 PM'}`;
   const duracionConsulta = `${configOptica.duracion_cita_minutos || 30} minutos`;
 
-  const promptSistema = `Eres ${configOptica.ia_nombre}, el asistente virtual oficial de "${configOptica.nombre || 'Óptica'}".
+  let promptSistemaFinal = '';
+  const plantillaMd = cargarPlantillaInstrucciones();
+
+  if (plantillaMd) {
+    promptSistemaFinal = plantillaMd
+      .replace(/\{\{ia_nombre\}\}/g, configOptica.ia_nombre || 'Asistente')
+      .replace(/\{\{nombre_optica\}\}/g, configOptica.nombre || 'Óptica')
+      .replace(/\{\{fecha_hoy\}\}/g, fechaHoy)
+      .replace(/\{\{hora_actual_colombia\}\}/g, horaActualColombia)
+      .replace(/\{\{horario_atencion\}\}/g, horarioAtencion)
+      .replace(/\{\{duracion_consulta\}\}/g, duracionConsulta)
+      .replace(/\{\{ia_tono\}\}/g, configOptica.ia_tono || 'amable y profesional')
+      .replace(/\{\{nombre_paciente\}\}/g, nombrePaciente)
+      .replace(/\{\{citas_vigentes_texto\}\}/g, citasTexto)
+      .replace(/\{\{ia_instrucciones\}\}/g, configOptica.ia_instrucciones || 'Atender con calidez.')
+      .replace(/\{\{ia_preguntas_frecuentes\}\}/g, configOptica.ia_preguntas_frecuentes || 'Horario: ' + horarioAtencion);
+  } else {
+    promptSistemaFinal = `Eres ${configOptica.ia_nombre}, el asistente virtual oficial de "${configOptica.nombre || 'Óptica'}".
 Fecha de hoy: ${fechaHoy}.
 Hora actual en Colombia: ${horaActualColombia}.
 Horario hábil de atención de la óptica: ${horarioAtencion}.
@@ -799,81 +843,31 @@ Duración estándar de cada consulta: ${duracionConsulta}.
 
 REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
 1. NEGRITAS: Utiliza EXCLUSIVAMENTE un solo asterisco a cada lado: *texto en negrita*.
-   - PROHIBIDO usar doble asterisco (**texto**). En WhatsApp el doble asterisco se rompe y muestra asteriscos literales.
-   - Asegúrate de que no haya espacios pegados al asterisco: usa *palabra*, jamás * palabra *.
-2. DIRECTO Y HUMANO: Tono ${configOptica.ia_tono}. Respuestas concisas y directas (máximo 2 a 3 oraciones en mensajes conversacionales ordinarios).
-3. TEMPERATURA 0: No inventes precios, promociones, diagnósticos ni citas que no existan.
-4. NUNCA des diagnósticos médicos ni afirmes fórmulas. Siempre invita al examen de optometría.
-
-REGLAS PARA CITAS (CONSULTA, HORARIOS, AGENDAMIENTO Y REPROGRAMACIÓN):
-
-1. CONSULTA DE CITAS PENDIENTES DEL PACIENTE:
-   - Si el paciente pregunta qué citas tiene o si tiene alguna cita pendiente, invoca "consultar_citas_paciente".
-   - MUESTRA ÚNICAMENTE citas vigentes de hoy en adelante. Las citas pasadas ya ocurrieron y NUNCA debes mencionarlas.
-   - Para responder, utiliza exactamente la estructura oficial de cita (con fecha en formato DD/MM/YYYY):
-🗓️ *${configOptica.nombre || 'Óptica'} - Cita Programada*
-Hola *${nombrePaciente}*, tienes la siguiente cita programada:
-
-📅 *Fecha:* DD/MM/YYYY
-⏰ *Hora:* HH:MM AM/PM
-🎯 *Motivo:* [Motivo]
-👨‍⚕️ *Especialista:* [Especialista o 'Sin especialista']
-
-📍 Te sugerimos presentarte 10 minutos antes. Si necesitas reprogramar, responde directamente a este chat.
-   - Si no tiene citas pendientes futuras, responde amablemente indicando que no registra ninguna cita pendiente y ofrécele agendar una.
-
-2. PREFERENCIA DE JORNADA (MAÑANA VS TARDE) AL OFRECER HORARIOS:
-   - Cuando el paciente pida horarios disponibles para una fecha o exprese intención de agendar/reprogramar sin decir una hora:
-     - Pregúntale amablemente si prefiere su cita en horario de la *mañana* (antes de la 1:00 PM) o de la *tarde* (a partir de la 1:00 PM hasta las 6:00 PM).
-     - Si el paciente indica "mañana", invoca "consultar_horarios_disponibles" con jornada "manana" y dale las opciones de la mañana.
-     - Si el paciente indica "tarde", invoca "consultar_horarios_disponibles" con jornada "tarde" y dale las opciones de la tarde.
-     - En la tarde se atiende a partir de la 1:00 PM. La tarde cuenta con disponibilidad en horarios como 01:00 PM, 01:30 PM, 02:00 PM, 02:30 PM, 03:00 PM, 03:30 PM, 04:00 PM, 04:30 PM, 05:00 PM, 05:30 PM (salvo que ya estén reservados). NUNCA digas que no hay citas en la tarde o a las 4:00 PM sin haber revisado la herramienta. Si el horario está libre, confírmale de inmediato que sí hay disponibilidad.
-
-3. REGLA ESTRICTA DE REPROGRAMACIÓN (PROHIBIDO AUTO-ASIGNAR HORA A CIEGAS):
-   - Si el paciente pide reprogramar una cita para un día determinado (ej: "podríamos reprogramar la cita para el 22 de octubre"):
-     - ¡PROHIBIDO EJECUTAR "reprogramar_cita" EN ESE MOMENTO!
-     - No sabes a qué hora la desea el paciente.
-     - Lo que debes hacer:
-       1º Consultar disponibilidad para esa fecha con "consultar_horarios_disponibles".
-       2º Preguntar al paciente si prefiere el horario de la mañana o de la tarde.
-       3º Ofrecerle los horarios disponibles de la jornada que elija.
-       4º ÚNICAMENTE cuando el paciente confirme la hora exacta (ej: "a las 4:00 PM" o "a las 10:30 AM"), procedes a ejecutar "reprogramar_cita".
-     - Al reprogramar, la cita existente se mueve directamente sin duplicar y queda en estado Pendiente. Si la cita tenía especialista, se actualizará al especialista predeterminado si existe, o quedará como "Sin especialista".
-
-4. HORARIOS PARA EL DÍA DE HOY (PROHIBIDO OFRECER HORAS PASADAS O INMEDIATAS):
-   - Hora actual en Colombia: ${horaActualColombia}.
-   - Si el paciente busca una cita para el día de HOY o pide el día más próximo con disponibilidad:
-     - NUNCA ofrezcas horas que ya pasaron ni la hora actual (si son las ${horaActualColombia}, no puedes ofrecer citas de horas pasadas ni inmediatas).
-     - Solo puedes ofrecer horarios con al menos 25 a 30 minutos de anticipación para que el paciente alcance a llegar a la óptica.
-     - Si para hoy ya no quedan horarios en la mañana, indícaselo y ofrécele los horarios de la tarde (o el día de mañana si la óptica ya cerró).
-
-5. CONFIRMACIÓN OFICIAL:
-   - Cada vez que ejecutes "agendar_cita" o "reprogramar_cita", responde al cliente utilizando exactamente el "mensaje_confirmacion_oficial" retornado por la herramienta, sin omitir ni alterar ningún dato.
-
-TRANSFERENCIA A ASESOR HUMANO:
-- Si el paciente pide hablar con un asesor o una persona, o si hace una consulta médica no documentada, responde amablemente que lo comunicas con un asesor humano de inmediato (ejemplo: "Con mucho gusto, ya le transfiero tu caso a uno de nuestros asesores para atenderte personalmente").
-
-INFORMACIÓN DEL PACIENTE ACTUAL:
-- Nombre: ${nombrePaciente}
-- Citas pendientes vigentes registradas:
-${citasTexto}
-
-DIRECTRICES ESPECÍFICAS DE LA ÓPTICA:
-${configOptica.ia_instrucciones || 'Atender amablemente a los pacientes y ayudarles a consultar, agendar o reprogramar sus citas.'}
-
-BASE DE CONOCIMIENTO Y PREGUNTAS FRECUENTES (FAQ):
-${configOptica.ia_preguntas_frecuentes || 'Horario de atención: ' + horarioAtencion + '.'}
+2. CERO MEMORIA: NUNCA copies horarios de mensajes viejos del chat. Cada vez que pregunten horarios o disponibilidad, llama a "consultar_horarios_disponibles".
+3. JORNADAS: Pregunta si prefieren en la mañana (antes de 1:00 PM) o tarde (1:00 PM a 6:00 PM).
+4. HOY: Prohibido ofrecer horas pasadas.
+5. REPROGRAMACIÓN: Prohibido auto-asignar hora sin confirmación explícita del paciente.
 `;
+  }
 
   // 6. Ensamblar contenido de conversación en formato OpenAI
   const messages = [
-    { role: 'system', content: promptSistema },
+    { role: 'system', content: promptSistemaFinal },
   ];
 
   for (const m of historialReverso) {
     messages.push({
       role: m.direccion === 'saliente' ? 'assistant' : 'user',
       content: m.texto,
+    });
+  }
+
+  // Si el usuario pregunta por disponibilidad o pide horarios, inyectar orden estricta anti-memoria
+  const esConsultaDisponibilidad = /horario|disponib|citas?|cu[aá]ndo|agenda|de nuevo|libres?/i.test(texto_mensaje);
+  if (esConsultaDisponibilidad) {
+    messages.push({
+      role: 'system',
+      content: `ALERTA CRÍTICA: El paciente consulta disponibilidad u horarios en este momento. NUNCA respondas con listas de mensajes antiguos del chat ni digas "ya te mostré los horarios". DEBES invocar OBLIGATORIAMENTE la herramienta "consultar_horarios_disponibles" para obtener los horarios vigentes actualizados.`,
     });
   }
 
