@@ -301,8 +301,9 @@ function ElementoImagenChat({
       const nuevoReintento = reintentos + 1;
       setReintentos(nuevoReintento);
       setTimeout(() => {
-        const sep = url.includes('?') ? '&' : '?';
-        setUrlActual(`${resolverUrlMediaProxy(url)}${sep}_t=${Date.now()}`);
+        const resuelta = resolverUrlMediaProxy(url);
+        const sep = resuelta.includes('?') ? '&' : '?';
+        setUrlActual(`${resuelta}${sep}_t=${Date.now()}`);
       }, 1000);
     } else {
       setCargando(false);
@@ -317,8 +318,9 @@ function ElementoImagenChat({
     setExpirado(false);
     setCargando(true);
     setReintentos(0);
-    const sep = url.includes('?') ? '&' : '?';
-    setUrlActual(`${resolverUrlMediaProxy(url)}${sep}_t=${Date.now()}`);
+    const resuelta = resolverUrlMediaProxy(url);
+    const sep = resuelta.includes('?') ? '&' : '?';
+    setUrlActual(`${resuelta}${sep}_t=${Date.now()}`);
   };
 
   if (expirado) {

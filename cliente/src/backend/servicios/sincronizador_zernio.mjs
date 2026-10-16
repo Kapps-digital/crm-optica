@@ -69,7 +69,10 @@ export async function sincronizar_mensajes_conversacion(id_conversacion_zernio, 
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb)
     ON CONFLICT (id_mensaje_plataforma) DO UPDATE 
     SET reacciones = COALESCE(EXCLUDED.reacciones, mensajes.reacciones),
-        estado_entrega = EXCLUDED.estado_entrega
+        estado_entrega = EXCLUDED.estado_entrega,
+        url_adjunto = COALESCE(mensajes.url_adjunto, EXCLUDED.url_adjunto),
+        tipo_contenido = CASE WHEN (mensajes.tipo_contenido IS NULL OR mensajes.tipo_contenido = 'texto' OR mensajes.tipo_contenido = 'adjunto') AND EXCLUDED.tipo_contenido NOT IN ('texto', 'adjunto') THEN EXCLUDED.tipo_contenido ELSE COALESCE(mensajes.tipo_contenido, EXCLUDED.tipo_contenido) END,
+        texto = CASE WHEN (mensajes.texto IS NULL OR mensajes.texto = '' OR mensajes.texto = '[Unsupported message]') AND EXCLUDED.texto != '' THEN EXCLUDED.texto ELSE mensajes.texto END
   `);
 
   let insertados = 0;
@@ -81,8 +84,10 @@ export async function sincronizar_mensajes_conversacion(id_conversacion_zernio, 
     const id_plataforma = m.id || m.platformMessageId;
     const direccion = m.direction === 'outgoing' ? 'saliente' : 'entrante';
     const texto = m.message || m.text || '';
-    const url_adjunto = m.attachments?.[0]?.url || m.mediaUrl || null;
-    const tipo_contenido = m.attachments?.length > 0 ? (m.attachments[0].type || 'adjunto') : 'texto';
+    const url_raw = m.attachments?.[0]?.url || m.mediaUrl || null;
+    const url_adjunto = url_raw ? (url_raw.startsWith('http') ? url_raw : `https://zernio.com${url_raw.startsWith('/') ? '' : '/'}${url_raw}`) : null;
+    const tipo_adjunto = m.attachments?.[0]?.type;
+    const tipo_contenido = tipo_adjunto || m.type || (url_adjunto ? 'adjunto' : 'texto');
     const estado_entrega = m.deliveryStatus || (direccion === 'saliente' ? 'enviado' : 'recibido');
     const creado_en = formatear_fecha(m.createdAt || m.sentAt);
 
@@ -113,13 +118,15 @@ export async function sincronizar_mensajes_conversacion(id_conversacion_zernio, 
         }
       }
 
-      // Si el mensaje ya existía y trae reacciones, asegurar actualización de la columna reacciones
-      if (reacciones_array.length > 0) {
+      // Si el mensaje ya existía y trae reacciones o adjunto, asegurar actualización de columnas
+      if (reacciones_array.length > 0 || url_adjunto) {
         await base_datos.prepare(`
           UPDATE mensajes 
-          SET reacciones = ?::jsonb 
-          WHERE (id_mensaje_plataforma = ? OR id_mensaje_zernio = ?)
-        `).run(reacciones_json, id_plataforma, m.id || null);
+          SET reacciones = CASE WHEN ? != '[]' THEN ?::jsonb ELSE reacciones END,
+              url_adjunto = COALESCE(url_adjunto, ?),
+              tipo_contenido = CASE WHEN (tipo_contenido IS NULL OR tipo_contenido = 'texto') AND ? != 'texto' THEN ? ELSE tipo_contenido END
+          WHERE (id_mensaje_plataforma = ? OR (id_mensaje_zernio IS NOT NULL AND id_mensaje_zernio = ?))
+        `).run(reacciones_json, reacciones_json, url_adjunto, tipo_contenido, tipo_contenido, id_plataforma, m.id || null);
       }
     } catch {
       // Ignorar errores de clave única
