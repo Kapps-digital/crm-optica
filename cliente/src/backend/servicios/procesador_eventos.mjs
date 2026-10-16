@@ -67,9 +67,18 @@ export async function obtener_o_crear_conversacion({ contacto_id, canal, id_cuen
     return conversacion.id;
   }
 
-  // Obtener estado ia_activa de la óptica para heredar el valor correcto al crear la conversación
-  const contactoInfo = await base_datos.prepare('SELECT optica_id FROM contactos WHERE id = ?').get(contacto_id);
-  const idOptica = contactoInfo?.optica_id || 1;
+  // Obtener óptica correspondiente desde lineas_canales según la cuenta conectada o contacto
+  let idOptica = null;
+  if (id_cuenta_zernio) {
+    const linea = await base_datos.prepare('SELECT optica_id FROM lineas_canales WHERE id_cuenta_zernio = ? LIMIT 1').get(id_cuenta_zernio);
+    if (linea?.optica_id) idOptica = Number(linea.optica_id);
+  }
+  if (!idOptica) {
+    const contactoInfo = await base_datos.prepare('SELECT optica_id FROM contactos WHERE id = ?').get(contacto_id);
+    if (contactoInfo?.optica_id) idOptica = Number(contactoInfo.optica_id);
+  }
+  if (!idOptica) idOptica = 1;
+
   const opticaConfig = await base_datos.prepare('SELECT ia_activa FROM opticas WHERE id = ?').get(idOptica);
   const iaActivaOptica = opticaConfig ? Boolean(opticaConfig.ia_activa) : true;
 
@@ -154,8 +163,9 @@ export async function procesar_evento_webhook(payload) {
       const tipo_contenido = mensaje_datos.type || (url_adjunto ? 'adjunto' : 'texto');
 
       // Inserción con deduplicación por ID de plataforma
+      let mensajeIdLocal = null;
       try {
-        await base_datos.prepare(`
+        const insercion = await base_datos.prepare(`
           INSERT INTO mensajes (
             conversacion_id, id_mensaje_plataforma, id_mensaje_zernio, direccion,
             texto, tipo_contenido, url_adjunto, estado_entrega, atribucion_anuncio, creado_en
@@ -171,12 +181,18 @@ export async function procesar_evento_webhook(payload) {
           Object.keys(atribucion).length > 0 ? JSON.stringify(atribucion) : null,
           fecha_mensaje
         );
+        mensajeIdLocal = insercion.lastInsertRowid;
       } catch (error) {
         if (error.code === '23505' || error.message?.includes('duplicate key') || error.message?.includes('UNIQUE constraint')) {
           // Mensaje ya registrado previamente; se ignora de forma segura
           break;
         }
         throw error;
+      }
+
+      if (!mensajeIdLocal) {
+        const msgPrevio = await base_datos.prepare('SELECT id FROM mensajes WHERE id_mensaje_plataforma = ?').get(id_plataforma);
+        mensajeIdLocal = msgPrevio?.id;
       }
 
       // Disparar procesamiento del Agente de IA si es texto y no reacción
@@ -187,6 +203,7 @@ export async function procesar_evento_webhook(payload) {
           const { procesarMensajeConIA } = await import('./motor_ia.mjs');
           await procesarMensajeConIA({
             conversacion_id,
+            mensaje_id: mensajeIdLocal,
             contacto_id: convInfo?.contacto_id || contacto_id,
             optica_id: opticaId,
             texto_mensaje: texto,

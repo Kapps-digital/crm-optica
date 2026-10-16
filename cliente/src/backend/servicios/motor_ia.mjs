@@ -985,6 +985,7 @@ async function ejecutarLlamadaGemini({
   // Lista de modelos ordenados con fallback automático ante errores 503 o 404
   const modelosAProbar = [
     normalizarModeloGemini(modelo),
+    'gemini-2.5-flash',
     'gemini-3.5-flash',
     'gemini-3.1-flash-lite',
     'gemini-flash-latest',
@@ -1072,7 +1073,7 @@ async function ejecutarLlamadaGemini({
         }
 
         contents.push({
-          role: 'function',
+          role: 'user',
           parts: [
             {
               functionResponse: {
@@ -1105,12 +1106,65 @@ async function ejecutarLlamadaGemini({
 /**
  * Procesa un mensaje entrante de un paciente y genera una respuesta con Gemini o OpenRouter
  */
-export async function procesarMensajeConIA({ conversacion_id, contacto_id, optica_id, texto_mensaje }) {
+export async function procesarMensajeConIA({ conversacion_id, mensaje_id, contacto_id, optica_id, texto_mensaje }) {
   if (!texto_mensaje || typeof texto_mensaje !== 'string' || texto_mensaje.trim() === '') {
     return { respondido: false, motivo: 'mensaje_vacio' };
   }
 
-  // 1. Validar si la IA está activa globalmente y para este chat
+  // 1. Debounce de ráfagas de mensajes:
+  // Si el paciente envía varios mensajes cortos seguidos (ej: "quisiera", "saber", "que citas tengo pendiente"),
+  // esperamos 3.5 segundos para que termine de escribir. Si entra otro mensaje posterior, este hilo aborta.
+  if (mensaje_id) {
+    await new Promise((resolve) => setTimeout(resolve, 3500));
+
+    try {
+      const resUltimoMsg = await pool.query(
+        `SELECT id FROM "CRM_Opticas".mensajes 
+         WHERE conversacion_id = $1 AND direccion = 'entrante' 
+         ORDER BY id DESC LIMIT 1`,
+        [conversacion_id]
+      );
+      const idMasReciente = resUltimoMsg.rows[0]?.id;
+      if (idMasReciente && Number(idMasReciente) > Number(mensaje_id)) {
+        console.log(`[Motor IA] Mensaje ${mensaje_id} superado por mensaje más reciente ${idMasReciente} en conversación ${conversacion_id}. Omitiendo respuesta para consolidar ráfaga.`);
+        return { respondido: false, motivo: 'rafaga_superada' };
+      }
+    } catch (e) {
+      console.warn('[Motor IA] Aviso al verificar último mensaje:', e.message);
+    }
+  }
+
+  // 2. Consolidar todos los mensajes entrantes de la ráfaga desde la última respuesta saliente
+  let textoFinalParaIA = texto_mensaje;
+  try {
+    const resUltimoSaliente = await pool.query(
+      `SELECT id FROM "CRM_Opticas".mensajes 
+       WHERE conversacion_id = $1 AND direccion = 'saliente' 
+       ORDER BY id DESC LIMIT 1`,
+      [conversacion_id]
+    );
+    const idUltimoSaliente = resUltimoSaliente.rows[0]?.id || 0;
+
+    const resRafaga = await pool.query(
+      `SELECT texto FROM "CRM_Opticas".mensajes 
+       WHERE conversacion_id = $1 AND direccion = 'entrante' AND id > $2 
+         AND texto IS NOT NULL AND texto != '' AND texto != '[Unsupported message]'
+       ORDER BY id ASC`,
+      [conversacion_id, idUltimoSaliente]
+    );
+
+    if (resRafaga.rows.length > 0) {
+      const fragmentos = resRafaga.rows.map((r) => r.texto.trim()).filter(Boolean);
+      if (fragmentos.length > 1) {
+        textoFinalParaIA = fragmentos.join(' ');
+        console.log(`[Motor IA] Ráfaga consolidada (${fragmentos.length} mensajes): "${textoFinalParaIA}"`);
+      }
+    }
+  } catch (e) {
+    console.warn('[Motor IA] Aviso al consolidar ráfaga:', e.message);
+  }
+
+  // 3. Validar si la IA está activa globalmente y para este chat
   const configOptica = await obtenerConfiguracionIA(optica_id);
   if (!configOptica.ia_activa) {
     return { respondido: false, motivo: 'ia_inactiva_optica' };
@@ -1146,7 +1200,10 @@ export async function procesarMensajeConIA({ conversacion_id, contacto_id, optic
     return { respondido: false, motivo: 'sin_clave_api' };
   }
 
-  // 2. Obtener datos del paciente
+  // Nombre comercial oficial dinámico de la óptica (sin nombres genéricos)
+  const nombreOpticaReal = (configOptica.nombre || 'Tu Visión Óptica').trim();
+
+  // 4. Obtener datos del paciente
   const idContacto = contacto_id || conv.contacto_id;
   const resContacto = await pool.query(
     `SELECT nombre_completo, telefono FROM "CRM_Opticas".contactos WHERE id = $1`,
@@ -1155,7 +1212,7 @@ export async function procesarMensajeConIA({ conversacion_id, contacto_id, optic
   const paciente = resContacto.rows[0] || {};
   const nombrePaciente = paciente.nombre_completo || 'Paciente';
 
-  // 3. Obtener citas pendientes vigentes del paciente (solo de hoy en adelante)
+  // 5. Obtener citas pendientes vigentes del paciente (solo de hoy en adelante)
   const hoyStr = obtenerFechaHoyColombia();
   const resCitas = await pool.query(
     `SELECT fecha_cita, hora_cita, motivo, especialista, estado 
@@ -1170,7 +1227,7 @@ export async function procesarMensajeConIA({ conversacion_id, contacto_id, optic
     ? resCitas.rows.map((c) => `- ${formatearFechaDDMMYYYY(c.fecha_cita)} a las ${c.hora_cita} (${c.motivo || 'Examen visual'}, Especialista: ${c.especialista || 'Sin especialista'}, Estado: ${c.estado})`).join('\n')
     : 'No registra citas pendientes programadas de hoy en adelante.';
 
-  // 4. Obtener historial reciente del chat (últimos 6 mensajes)
+  // 6. Obtener historial reciente del chat (últimos 6 mensajes)
   const resHistorial = await pool.query(
     `SELECT direccion, texto FROM "CRM_Opticas".mensajes 
      WHERE conversacion_id = $1 AND texto IS NOT NULL AND texto != '' AND texto != '[Unsupported message]'
@@ -1179,7 +1236,7 @@ export async function procesarMensajeConIA({ conversacion_id, contacto_id, optic
   );
   const historialReverso = resHistorial.rows.reverse();
 
-  // 5. Construir System Prompt desde archivo Markdown central o plantilla
+  // 7. Construir System Prompt desde archivo Markdown central o plantilla
   const fechaHoy = new Date().toLocaleDateString('es-CO', {
     weekday: 'long',
     year: 'numeric',
@@ -1205,7 +1262,7 @@ export async function procesarMensajeConIA({ conversacion_id, contacto_id, optic
   if (plantillaMd) {
     promptSistemaFinal = plantillaMd
       .replace(/\{\{ia_nombre\}\}/g, configOptica.ia_nombre || 'Asistente')
-      .replace(/\{\{nombre_optica\}\}/g, configOptica.nombre || 'Óptica')
+      .replace(/\{\{nombre_optica\}\}/g, nombreOpticaReal)
       .replace(/\{\{fecha_hoy\}\}/g, fechaHoy)
       .replace(/\{\{hora_actual_colombia\}\}/g, horaActualColombia)
       .replace(/\{\{horario_atencion\}\}/g, horarioAtencion)
@@ -1217,22 +1274,23 @@ export async function procesarMensajeConIA({ conversacion_id, contacto_id, optic
       .replace(/\{\{ia_instrucciones\}\}/g, configOptica.ia_instrucciones || 'Atender con calidez.')
       .replace(/\{\{ia_preguntas_frecuentes\}\}/g, configOptica.ia_preguntas_frecuentes || 'Horario: ' + horarioAtencion);
   } else {
-    promptSistemaFinal = `Eres ${configOptica.ia_nombre}, el asistente virtual oficial de "${configOptica.nombre || 'Óptica'}".
+    promptSistemaFinal = `Eres ${configOptica.ia_nombre}, el asistente virtual oficial de "${nombreOpticaReal}".
 Fecha de hoy: ${fechaHoy}.
 Hora actual en Colombia: ${horaActualColombia}.
 Horario hábil de atención de la óptica: ${horarioAtencion}.
 Duración estándar de cada consulta: ${duracionConsulta}.
 
 REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
-1. NEGRITAS: Utiliza EXCLUSIVAMENTE un solo asterisco a cada lado: *texto en negrita*.
-2. CERO MEMORIA: NUNCA copies horarios de mensajes viejos del chat. Cada vez que pregunten horarios o disponibilidad, llama a "consultar_horarios_disponibles".
-3. JORNADAS: Pregunta si prefieren en la mañana (antes de 1:00 PM) o tarde (1:00 PM a 6:00 PM).
-4. HOY: Prohibido ofrecer horas pasadas.
-5. REPROGRAMACIÓN: Prohibido auto-asignar hora sin confirmación explícita del paciente.
+1. IDENTIDAD INSTITUCIONAL: El nombre oficial y exclusivo de esta óptica es "${nombreOpticaReal}". Utiliza siempre este nombre oficial en tus saludos o menciones. NUNCA uses nombres genéricos como "la óptica" ni inventes nombres de otras empresas.
+2. NEGRITAS: Utiliza EXCLUSIVAMENTE un solo asterisco a cada lado: *texto en negrita*.
+3. CERO MEMORIA: NUNCA copies horarios de mensajes viejos del chat. Cada vez que pregunten horarios o disponibilidad, llama a "consultar_horarios_disponibles".
+4. JORNADAS: Pregunta si prefieren en la mañana (antes de 1:00 PM) o tarde (1:00 PM a 6:00 PM).
+5. HOY: Prohibido ofrecer horas pasadas.
+6. REPROGRAMACIÓN: Prohibido auto-asignar hora sin confirmación explícita del paciente.
 `;
   }
 
-  const esConsultaDisponibilidad = /horario|disponib|citas?|cu[aá]ndo|agenda|de nuevo|libres?/i.test(texto_mensaje);
+  const esConsultaDisponibilidad = /horario|disponib|citas?|cu[aá]ndo|agenda|de nuevo|libres?/i.test(textoFinalParaIA);
   const esGemini = esProveedorGemini(apiKey, configOptica.ia_modelo);
   const modeloGeminiNormalizado = normalizarModeloGemini(configOptica.ia_modelo);
 
@@ -1247,7 +1305,7 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
         modelo: modeloGeminiNormalizado,
         promptSistema: promptSistemaFinal,
         historialReverso,
-        textoMensaje: texto_mensaje,
+        textoMensaje: textoFinalParaIA,
         esConsultaDisponibilidad,
         opticaId: optica_id,
         contactoId: idContacto,
@@ -1283,7 +1341,7 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
       if (messages.length === 1 || messages[messages.length - 1].role !== 'user') {
         messages.push({
           role: 'user',
-          content: texto_mensaje,
+          content: textoFinalParaIA,
         });
       }
 
