@@ -273,17 +273,70 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '0 0.7rem',
+              padding: '0 0.65rem',
               fontSize: '0.52rem',
               fontWeight: 700,
               zIndex: 10,
             }}
           >
             <span>9:41</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.48rem' }}>
-              <span style={{ fontSize: '0.50rem', letterSpacing: '-0.02em' }}>📶</span>
-              <span>5G</span>
-              <span>100%</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.24rem' }}>
+              {/* 4 Barras de señal celular blancas reales */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  gap: '1.2px',
+                  height: '8.5px',
+                }}
+              >
+                <div style={{ width: '1.8px', height: '2.5px', backgroundColor: '#ffffff', borderRadius: '0.5px' }} />
+                <div style={{ width: '1.8px', height: '4.5px', backgroundColor: '#ffffff', borderRadius: '0.5px' }} />
+                <div style={{ width: '1.8px', height: '6.5px', backgroundColor: '#ffffff', borderRadius: '0.5px' }} />
+                <div style={{ width: '1.8px', height: '8.5px', backgroundColor: '#ffffff', borderRadius: '0.5px' }} />
+              </div>
+
+              {/* Red 5G en blanco */}
+              <span style={{ fontSize: '0.48rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
+                5G
+              </span>
+
+              {/* Porcentaje en blanco */}
+              <span style={{ fontSize: '0.48rem', fontWeight: 700, color: '#ffffff' }}>
+                100%
+              </span>
+
+              {/* Icono de batería iOS blanco */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8px' }}>
+                <div
+                  style={{
+                    width: '13px',
+                    height: '6.5px',
+                    border: '1px solid #ffffff',
+                    borderRadius: '1.8px',
+                    padding: '0.6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      backgroundColor: '#ffffff',
+                      borderRadius: '0.8px',
+                    }}
+                  />
+                </div>
+                <div
+                  style={{
+                    width: '0.9px',
+                    height: '2.5px',
+                    backgroundColor: '#ffffff',
+                    borderRadius: '0 0.6px 0.6px 0',
+                  }}
+                />
+              </div>
             </div>
           </div>
 
@@ -500,25 +553,6 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
                         <span style={{ fontSize: '0.46rem', opacity: 0.9 }}>Promoción Óptica</span>
                       </div>
                     )}
-
-                    {/* Chevron superior derecho (Oficial WhatsApp) */}
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: '4px',
-                        right: '4px',
-                        width: '15px',
-                        height: '15px',
-                        borderRadius: '50%',
-                        backgroundColor: 'rgba(0, 0, 0, 0.28)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 3,
-                      }}
-                    >
-                      <ChevronDown size={10} color="#ffffff" strokeWidth={2.5} />
-                    </div>
                   </div>
                 )}
 
