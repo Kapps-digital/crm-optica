@@ -505,9 +505,15 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
   }, []);
 
   // Procesar mensajes para asociar reacciones y eliminar burbujas [reaction] sueltas
+  // Blindaje estricto: Filtrar ÚNICAMENTE mensajes que pertenezcan a la conversación activa actual
   const mensajesProcesados = useMemo(() => {
-    return procesarMensajesConReacciones(mensajes);
-  }, [mensajes]);
+    if (!conversacion?.id) return [];
+    const idConvActual = Number(conversacion.id);
+    const mensajesDeEstaConv = mensajes.filter(
+      (m) => !m.conversacion_id || Number(m.conversacion_id) === idConvActual
+    );
+    return procesarMensajesConReacciones(mensajesDeEstaConv);
+  }, [mensajes, conversacion?.id]);
 
   // Observador de cambios de tamaño: cuando las imágenes terminan de cargar, decodificarse o expandirse,
   // reajusta inmediatamente la posición al fondo si el usuario debe estar en el último mensaje

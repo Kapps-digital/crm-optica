@@ -436,7 +436,10 @@ export default function PaginaPrincipal() {
   }, [vistaActiva, recargarPacientes]);
 
   const manejarSeleccionarConversacion = async (conv: Conversacion) => {
-    conversacionActivaRef.current = conv.id;
+    if (!conv) return;
+    const idNuevo = Number(conv.id);
+    conversacionActivaRef.current = idNuevo;
+    idChatEnCarga.current = idNuevo;
 
     // Limpiar siempre no leídos en estado local y notificar al backend
     setConversaciones((prev) =>
@@ -450,14 +453,21 @@ export default function PaginaPrincipal() {
 
     const convLimpia = { ...conv, no_leido: false, mensajes_no_leidos: 0 };
     setConversacionActiva(convLimpia);
-    idChatEnCarga.current = conv.id;
 
-    // Si ya están en caché, renderizarlos de inmediato (0 ms)
-    if (conv.id && cacheMensajes.current[conv.id]) {
-      setMensajes(cacheMensajes.current[conv.id]);
-      setCargandoMensajesChat(false);
+    // Si ya están en caché verificada para este chat específico, renderizarlos de inmediato
+    const cachePrevia = idNuevo && cacheMensajes.current[idNuevo] ? cacheMensajes.current[idNuevo] : null;
+    if (cachePrevia && Array.isArray(cachePrevia) && cachePrevia.length > 0) {
+      const perteneceAChat = cachePrevia.every((m) => !m.conversacion_id || Number(m.conversacion_id) === idNuevo);
+      if (perteneceAChat) {
+        setMensajes(cachePrevia);
+        setCargandoMensajesChat(false);
+      } else {
+        delete cacheMensajes.current[idNuevo];
+        setMensajes([]);
+        setCargandoMensajesChat(true);
+      }
     } else {
-      // Limpiar de inmediato los mensajes del chat anterior para que no se queden pegados
+      // Limpiar de inmediato los mensajes del chat anterior para que NUNCA se vean mientras carga el nuevo
       setMensajes([]);
       setCargandoMensajesChat(Boolean(conv.id));
     }
@@ -475,10 +485,14 @@ export default function PaginaPrincipal() {
         conv.contacto_id ? obtenerDetalleContacto(conv.contacto_id) : Promise.resolve(null),
       ]);
 
-      // Evitar condición de carrera si el usuario dio clic en otro chat rápidamente
-      if (idChatEnCarga.current === conv.id) {
-        cacheMensajes.current[conv.id] = listaMensajes;
-        setMensajes(listaMensajes);
+      // Evitar condición de carrera: confirmar que el usuario sigue en este mismo chat
+      if (Number(conversacionActivaRef.current) === idNuevo && Number(idChatEnCarga.current) === idNuevo) {
+        const listaFiltrada = Array.isArray(listaMensajes)
+          ? listaMensajes.filter((m) => !m.conversacion_id || Number(m.conversacion_id) === idNuevo)
+          : [];
+
+        cacheMensajes.current[idNuevo] = listaFiltrada;
+        setMensajes(listaFiltrada);
 
         if (detalle) {
           setPacienteActivo(detalle.contacto);
@@ -502,7 +516,7 @@ export default function PaginaPrincipal() {
     } catch (error) {
       console.error('Error al cargar mensajes del chat:', error);
     } finally {
-      if (idChatEnCarga.current === conv.id) {
+      if (Number(idChatEnCarga.current) === idNuevo) {
         setCargandoMensajesChat(false);
       }
     }
@@ -575,42 +589,66 @@ export default function PaginaPrincipal() {
     [conversaciones, pacientes]
   );
 
-  // Sondeo en tiempo real de mensajes del chat abierto cada 3.5 segundos con preservación de mensajes en vuelo
+  // Sondeo en tiempo real de mensajes del chat abierto cada 1.5 segundos con preservación de mensajes en vuelo
   useEffect(() => {
-    if (!conversacionActiva) return;
+    if (!conversacionActiva?.id) return;
+    const idConvActual = Number(conversacionActiva.id);
+    let activo = true;
 
     const refrescarMensajesActivos = async () => {
-      const lista = await obtenerMensajes(conversacionActiva.id);
-      setMensajes((prev) => {
-        // Preservar mensajes temporales/optimistas que todavía estén en vuelo hacia Zernio
-        const temporalesEnVuelo = prev.filter(
-          (m) =>
-            m.id_mensaje_plataforma?.startsWith('temp_') &&
-            !lista.some(
-              (real) =>
-                real.direccion === 'saliente' &&
-                real.texto === m.texto &&
-                Math.abs(new Date(real.creado_en).getTime() - new Date(m.creado_en).getTime()) < 30000
-            )
-        );
-
-        const listaCombinada = [...lista, ...temporalesEnVuelo];
-        cacheMensajes.current[conversacionActiva.id] = listaCombinada;
-
-        if (
-          listaCombinada.length === prev.length &&
-          listaCombinada.every((m, idx) => m.id === prev[idx]?.id && m.estado_entrega === prev[idx]?.estado_entrega)
-        ) {
-          return prev;
+      try {
+        const lista = await obtenerMensajes(idConvActual);
+        // Descartar si el componente cambió de conversación mientras la red respondía
+        if (!activo || Number(conversacionActivaRef.current) !== idConvActual) {
+          return;
         }
 
-        return listaCombinada;
-      });
+        setMensajes((prev) => {
+          if (Number(conversacionActivaRef.current) !== idConvActual) {
+            return prev;
+          }
+
+          // Filtrar estrictamente solo mensajes de esta conversación
+          const listaFiltrada = Array.isArray(lista)
+            ? lista.filter((m) => !m.conversacion_id || Number(m.conversacion_id) === idConvActual)
+            : [];
+
+          // Preservar mensajes temporales/optimistas que todavía estén en vuelo hacia Zernio
+          const temporalesEnVuelo = prev.filter(
+            (m) =>
+              Number(m.conversacion_id) === idConvActual &&
+              m.id_mensaje_plataforma?.startsWith('temp_') &&
+              !listaFiltrada.some(
+                (real) =>
+                  real.direccion === 'saliente' &&
+                  real.texto === m.texto &&
+                  Math.abs(new Date(real.creado_en).getTime() - new Date(m.creado_en).getTime()) < 30000
+              )
+          );
+
+          const listaCombinada = [...listaFiltrada, ...temporalesEnVuelo];
+          cacheMensajes.current[idConvActual] = listaCombinada;
+
+          if (
+            listaCombinada.length === prev.length &&
+            listaCombinada.every((m, idx) => m.id === prev[idx]?.id && m.estado_entrega === prev[idx]?.estado_entrega)
+          ) {
+            return prev;
+          }
+
+          return listaCombinada;
+        });
+      } catch {
+        // Silencioso ante errores intermitentes de red en sondeo
+      }
     };
 
-    const intervaloChat = setInterval(refrescarMensajesActivos, 1200);
-    return () => clearInterval(intervaloChat);
-  }, [conversacionActiva]);
+    const intervaloChat = setInterval(refrescarMensajesActivos, 1500);
+    return () => {
+      activo = false;
+      clearInterval(intervaloChat);
+    };
+  }, [conversacionActiva?.id]);
 
   const manejarEnviarMensaje = async (texto: string, convExplicita?: Conversacion) => {
     const conv = convExplicita || conversacionActiva;
