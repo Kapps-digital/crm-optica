@@ -113,7 +113,7 @@ export async function obtener_canales_optica(optica_id = 1) {
     const resOptica = await pool.query(
       `SELECT 
         id, nombre, slug, logo_url, color_primario, color_secundario, telefono, 
-        id_cuenta_zernio, canal_whatsapp_conectado, activo,
+        activo,
         duracion_cita_minutos, control_meses_defecto, especialista_defecto, 
         registro_profesional_defecto, motivo_cita_defecto, notificacion_auto_citas_whatsapp,
         hora_inicio_atencion, hora_fin_atencion,
@@ -126,7 +126,18 @@ export async function obtener_canales_optica(optica_id = 1) {
       ia_activa: Boolean(resOptica.rows[0].ia_activa ?? true),
     } : null;
 
-    // 2. Consultar cuentas en Zernio API en tiempo real
+    // 2. Consultar línea guardada en BD
+    const resLinea = await pool.query(
+      `SELECT numero, etiqueta, estado, id_cuenta_zernio 
+       FROM "CRM_Opticas".lineas_canales 
+       WHERE optica_id = $1 AND canal = 'whatsapp' 
+       ORDER BY id DESC LIMIT 1`,
+      [optica_id]
+    );
+    const lineaGuardada = resLinea.rows[0];
+    const idCuenta = lineaGuardada?.id_cuenta_zernio;
+
+    // 3. Consultar cuentas en Zernio API en tiempo real
     let cuentasZernio = [];
     try {
       const resZernio = await cliente_zernio.obtener_cuentas();
@@ -139,18 +150,10 @@ export async function obtener_canales_optica(optica_id = 1) {
 
     let cuentaWhatsApp = null;
 
-    if (optica?.id_cuenta_zernio) {
-      const idCuenta = optica.id_cuenta_zernio;
+    if (idCuenta) {
       const cuentaWpZernio = cuentasZernio.find(
         (c) => (c._id === idCuenta || c.id === idCuenta) && c.platform === 'whatsapp'
       );
-
-      // Consultar línea guardada en BD
-      const resLinea = await pool.query(
-        `SELECT numero, etiqueta, estado FROM "CRM_Opticas".lineas_canales WHERE optica_id = $1 AND canal = 'whatsapp' LIMIT 1`,
-        [optica_id]
-      );
-      const lineaGuardada = resLinea.rows[0];
 
       const numero = cuentaWpZernio?.metadata?.displayPhoneNumber || 
                      cuentaWpZernio?.username || 
@@ -162,7 +165,7 @@ export async function obtener_canales_optica(optica_id = 1) {
                              lineaGuardada?.etiqueta || 
                              'WhatsApp Business';
 
-      const conectado = Boolean(optica.canal_whatsapp_conectado);
+      const conectado = Boolean(lineaGuardada?.estado === 'activa');
 
       cuentaWhatsApp = {
         id_cuenta_zernio: idCuenta,
@@ -231,11 +234,11 @@ export async function desconectar_canal_whatsapp(optica_id = 1, { cambiar_numero
   try {
     if (cambiar_numero) {
       // 1. Obtener ID de cuenta para eliminarla del proveedor
-      const resOptica = await pool.query(
-        `SELECT id_cuenta_zernio FROM "CRM_Opticas".opticas WHERE id = $1`,
+      const resLinea = await pool.query(
+        `SELECT id_cuenta_zernio FROM "CRM_Opticas".lineas_canales WHERE optica_id = $1 AND canal = 'whatsapp' ORDER BY id DESC LIMIT 1`,
         [optica_id]
       );
-      const idCuentaZernio = resOptica.rows[0]?.id_cuenta_zernio;
+      const idCuentaZernio = resLinea.rows[0]?.id_cuenta_zernio;
 
       if (idCuentaZernio) {
         try {
@@ -246,12 +249,7 @@ export async function desconectar_canal_whatsapp(optica_id = 1, { cambiar_numero
         }
       }
 
-      // 2. Limpiar completamente en BD
-      await pool.query(
-        `UPDATE "CRM_Opticas".opticas SET id_cuenta_zernio = NULL, canal_whatsapp_conectado = false WHERE id = $1`,
-        [optica_id]
-      );
-
+      // 2. Limpiar completamente en BD (lineas_canales)
       await pool.query(
         `UPDATE "CRM_Opticas".lineas_canales SET id_cuenta_zernio = NULL, estado = 'inactiva' WHERE optica_id = $1 AND canal = 'whatsapp'`,
         [optica_id]
@@ -264,11 +262,6 @@ export async function desconectar_canal_whatsapp(optica_id = 1, { cambiar_numero
     }
 
     // Desconexión simple del canal (mantiene el número guardado)
-    await pool.query(
-      `UPDATE "CRM_Opticas".opticas SET canal_whatsapp_conectado = false WHERE id = $1`,
-      [optica_id]
-    );
-
     await pool.query(
       `UPDATE "CRM_Opticas".lineas_canales SET estado = 'inactiva' WHERE optica_id = $1 AND canal = 'whatsapp'`,
       [optica_id]
@@ -292,11 +285,6 @@ export async function desconectar_canal_whatsapp(optica_id = 1, { cambiar_numero
  */
 export async function reconectar_canal_whatsapp(optica_id = 1) {
   try {
-    await pool.query(
-      `UPDATE "CRM_Opticas".opticas SET canal_whatsapp_conectado = true WHERE id = $1`,
-      [optica_id]
-    );
-
     await pool.query(
       `UPDATE "CRM_Opticas".lineas_canales SET estado = 'activa' WHERE optica_id = $1 AND canal = 'whatsapp'`,
       [optica_id]
@@ -330,11 +318,6 @@ export async function vincular_cuenta_whatsapp_activa(optica_id = 1) {
     const idCuenta = cuentaWp._id || cuentaWp.id;
     const numero = cuentaWp.metadata?.displayPhoneNumber || cuentaWp.username || cuentaWp.platformUserId || '';
 
-    await pool.query(
-      `UPDATE "CRM_Opticas".opticas SET id_cuenta_zernio = $1, canal_whatsapp_conectado = true WHERE id = $2`,
-      [idCuenta, optica_id]
-    );
-
     const resUpdate = await pool.query(
       `UPDATE "CRM_Opticas".lineas_canales SET estado = 'activa', id_cuenta_zernio = $1, numero = $2 WHERE optica_id = $3 AND canal = 'whatsapp'`,
       [idCuenta, numero, optica_id]
@@ -343,7 +326,7 @@ export async function vincular_cuenta_whatsapp_activa(optica_id = 1) {
     if (resUpdate.rowCount === 0) {
       await pool.query(
         `INSERT INTO "CRM_Opticas".lineas_canales (optica_id, canal, numero, id_cuenta_zernio, etiqueta, estado, es_predeterminada)
-         VALUES ($1, 'whatsapp', $2, $3, 'Línea Principal', 'activa', true)`,
+         VALUES ($1, 'whatsapp', $2, $3, 'Línea WhatsApp Principal', 'activa', true)`,
         [optica_id, numero, idCuenta]
       );
     }

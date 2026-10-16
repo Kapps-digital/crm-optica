@@ -43,13 +43,16 @@ export async function obtenerConfiguracionIA(opticaId) {
   const idOpticaNumerico = Number(opticaId) || 1;
   const res = await pool.query(
     `SELECT id, nombre, ia_activa, ia_nombre, ia_tono, ia_instrucciones, 
-            ia_preguntas_frecuentes, ia_api_key, ia_modelo,
+            ia_preguntas_frecuentes,
             hora_inicio_atencion, hora_fin_atencion, duracion_cita_minutos,
             especialista_defecto, motivo_cita_defecto
      FROM "CRM_Opticas".opticas 
      WHERE id = $1`,
     [idOpticaNumerico]
   );
+
+  const modeloEnv = (process.env.IA_MODELO || 'gemini-3.5-flash').trim();
+  const apiKeyEnv = (process.env.GEMINI_API_KEY || process.env.OPENROUTER_API_KEY || '').trim();
 
   if (res.rows.length === 0) {
     return {
@@ -58,8 +61,8 @@ export async function obtenerConfiguracionIA(opticaId) {
       ia_tono: 'cercano',
       ia_instrucciones: '',
       ia_preguntas_frecuentes: '',
-      ia_api_key: '',
-      ia_modelo: 'openrouter/free',
+      ia_api_key: apiKeyEnv,
+      ia_modelo: modeloEnv,
     };
   }
 
@@ -71,8 +74,8 @@ export async function obtenerConfiguracionIA(opticaId) {
     ia_tono: row.ia_tono || 'cercano',
     ia_instrucciones: row.ia_instrucciones || '',
     ia_preguntas_frecuentes: row.ia_preguntas_frecuentes || '',
-    ia_api_key: row.ia_api_key || '',
-    ia_modelo: row.ia_modelo || 'openrouter/free',
+    ia_api_key: apiKeyEnv,
+    ia_modelo: modeloEnv,
   };
 }
 
@@ -87,8 +90,6 @@ export async function guardarConfiguracionIA(opticaId, datos) {
     ia_tono,
     ia_instrucciones,
     ia_preguntas_frecuentes,
-    ia_api_key,
-    ia_modelo,
   } = datos;
 
   const estadoActivo = Boolean(ia_activa);
@@ -99,18 +100,14 @@ export async function guardarConfiguracionIA(opticaId, datos) {
          ia_nombre = $2,
          ia_tono = $3,
          ia_instrucciones = $4,
-         ia_preguntas_frecuentes = $5,
-         ia_api_key = $6,
-         ia_modelo = $7
-     WHERE id = $8`,
+         ia_preguntas_frecuentes = $5
+     WHERE id = $6`,
     [
       estadoActivo,
       (ia_nombre || 'Asistente Óptico').trim(),
       (ia_tono || 'cercano').trim(),
       ia_instrucciones || '',
       ia_preguntas_frecuentes || '',
-      ia_api_key || '',
-      ia_modelo || 'openrouter/free',
       idOpticaNumerico,
     ]
   );
@@ -1019,11 +1016,12 @@ async function ejecutarLlamadaGemini({
 
   // Lista de modelos ordenados con fallback automático ante errores 429, 503 o 404
   const modelosAProbar = [
+    'gemini-flash-latest',
+    'gemini-1.5-flash',
     normalizarModeloGemini(modelo),
     'gemini-3.5-flash',
     'gemini-3.5-flash-lite',
     'gemini-flash-lite-latest',
-    'gemini-flash-latest',
     'gemini-3.1-flash-lite',
   ].filter((v, i, a) => v && a.indexOf(v) === i);
 
@@ -1052,7 +1050,7 @@ async function ejecutarLlamadaGemini({
             tools: herramientasGemini,
             generationConfig: {
               temperature: 0.0,
-              maxOutputTokens: 600,
+              maxOutputTokens: 1500,
             },
           }),
         });
@@ -1219,20 +1217,12 @@ export async function procesarMensajeConIA({ conversacion_id, mensaje_id, contac
     return { respondido: false, motivo: 'ia_pausada_en_chat' };
   }
 
-  let apiKey = (configOptica.ia_api_key || '').trim();
-  const modeloConfigurado = (configOptica.ia_modelo || '').trim();
+  let apiKey = (process.env.GEMINI_API_KEY || process.env.OPENROUTER_API_KEY || '').trim();
+  const modeloConfigurado = (process.env.IA_MODELO || 'gemini-3.5-flash').trim();
   const proveedorDeseado = detectarProveedorIA(apiKey, modeloConfigurado);
 
   if (!apiKey) {
-    if (proveedorDeseado === 'gemini') {
-      apiKey = process.env.GEMINI_API_KEY || '';
-    } else {
-      apiKey = process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY || '';
-    }
-  }
-
-  if (!apiKey) {
-    console.warn(`[Motor IA] Óptica ${optica_id} tiene la IA activa pero no hay clave de API configurada.`);
+    console.warn(`[Motor IA] Óptica ${optica_id} tiene la IA activa pero no hay clave GEMINI_API_KEY en variables de entorno.`);
     return { respondido: false, motivo: 'sin_clave_api' };
   }
 
@@ -1421,7 +1411,7 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
             tools: HERRAMIENTAS_OPENAI,
             tool_choice: 'auto',
             temperature: 0.0,
-            max_tokens: 600,
+            max_tokens: 1500,
           }),
         });
 

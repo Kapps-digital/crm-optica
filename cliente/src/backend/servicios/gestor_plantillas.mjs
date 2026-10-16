@@ -446,7 +446,7 @@ export async function obtenerCuotaDiaria(opticaId) {
   // 2. Consultar mensajes enviados en la ventana móvil de 24 horas
   const res = await pool.query(
     `SELECT COUNT(*)::int AS enviados_ultimas_24h
-     FROM "CRM_Opticas".envios_mensajes_lote
+     FROM "CRM_Opticas".campanas_destinatarios
      WHERE optica_id = $1
        AND enviado_en >= (NOW() - INTERVAL '24 HOURS')`,
     [idOpticaNumerico]
@@ -534,7 +534,7 @@ export async function calcularAudienciaLote(opticaId, { plantillaId, segmentoId,
   // 3. Consultar quiénes ya recibieron esta plantilla en los últimos `diasExclusion`
   const resHistorial = await pool.query(
     `SELECT DISTINCT contacto_id, telefono
-     FROM "CRM_Opticas".envios_mensajes_lote
+     FROM "CRM_Opticas".campanas_destinatarios
      WHERE optica_id = $1
        AND plantilla_id = $2
        AND enviado_en >= (NOW() - make_interval(days => $3))`,
@@ -566,7 +566,7 @@ export async function calcularAudienciaLote(opticaId, { plantillaId, segmentoId,
   // 5. Calcular número de lote correlativo para esta plantilla y segmento
   const resLotesPrevios = await pool.query(
     `SELECT COUNT(*)::int AS total_lotes
-     FROM "CRM_Opticas".campanas_envios
+     FROM "CRM_Opticas".campanas
      WHERE optica_id = $1 AND plantilla_id = $2`,
     [idOpticaNumerico, idPlantillaNumerico]
   );
@@ -790,7 +790,7 @@ export async function lanzarLoteCampana(opticaId, datos) {
 
   // 8. Paso D: Registrar campaña en base de datos con auditoría real y broadcast_id
   const resCampana = await pool.query(
-    `INSERT INTO "CRM_Opticas".campanas_envios
+    `INSERT INTO "CRM_Opticas".campanas
       (optica_id, plantilla_id, nombre_campana, segmento_id, origen_tipo, total_destinatarios, total_enviados, total_fallidos, estado, error_mensaje, broadcast_id)
      VALUES
       ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
@@ -821,7 +821,7 @@ export async function lanzarLoteCampana(opticaId, datos) {
     const errorDestinatario = infoTel?.error ? `${infoTel.error} (${infoTel.errorCode})` : errorGlobal;
 
     await pool.query(
-      `INSERT INTO "CRM_Opticas".envios_mensajes_lote
+      `INSERT INTO "CRM_Opticas".campanas_destinatarios
         (campana_id, optica_id, plantilla_id, contacto_id, telefono, nombre_destinatario, estado_entrega, id_mensaje_plataforma, error_mensaje)
        VALUES
         ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
@@ -862,7 +862,7 @@ export async function lanzarLoteCampana(opticaId, datos) {
 export async function eliminarLoteCampana(opticaId, campanaId) {
   const idOpticaNumerico = Number(opticaId) || 1;
   const res = await pool.query(
-    `DELETE FROM "CRM_Opticas".campanas_envios
+    `DELETE FROM "CRM_Opticas".campanas
      WHERE id = $1 AND optica_id = $2
      RETURNING id`,
     [Number(campanaId), idOpticaNumerico]
@@ -882,7 +882,7 @@ export async function obtenerHistorialLotes(opticaId) {
             ce.estado, ce.error_mensaje, ce.broadcast_id, ce.creado_en,
             p.etiqueta AS plantilla_etiqueta, p.categoria AS plantilla_categoria,
             s.nombre AS segmento_nombre
-     FROM "CRM_Opticas".campanas_envios ce
+     FROM "CRM_Opticas".campanas ce
      JOIN "CRM_Opticas".plantillas p ON p.id = ce.plantilla_id
      LEFT JOIN "CRM_Opticas".segmentos s ON s.id = ce.segmento_id
      WHERE ce.optica_id = $1
@@ -919,7 +919,7 @@ export async function obtenerHistorialLotes(opticaId) {
           }
 
           await pool.query(
-            `UPDATE "CRM_Opticas".campanas_envios
+            `UPDATE "CRM_Opticas".campanas
              SET total_enviados = $1, total_fallidos = $2, estado = $3, error_mensaje = $4
              WHERE id = $5`,
             [nuevosEnviados, nuevosFallidos, nuevoEstado, errorMsg, c.id]

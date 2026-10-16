@@ -17,6 +17,7 @@ import {
   Play,
   Copy,
   ShoppingBag,
+  Wifi,
 } from 'lucide-react';
 import { obtenerOpticaSesion } from '@/servicios/api_crm';
 import type { BotonPlantilla } from '@/tipos/crm';
@@ -280,8 +281,8 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
             }}
           >
             <span>9:41</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.24rem' }}>
-              {/* 4 Barras de señal celular blancas reales */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.22rem' }}>
+              {/* 1. Barras de señal celular blancas */}
               <div
                 style={{
                   display: 'flex',
@@ -296,18 +297,13 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
                 <div style={{ width: '1.8px', height: '8.5px', backgroundColor: '#ffffff', borderRadius: '0.5px' }} />
               </div>
 
-              {/* Red 5G en blanco */}
-              <span style={{ fontSize: '0.48rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
-                5G
-              </span>
+              {/* 2. Ícono de Wi-Fi blanco de iOS */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 1px' }}>
+                <Wifi size={9.5} color="#ffffff" strokeWidth={2.4} />
+              </div>
 
-              {/* Porcentaje en blanco */}
-              <span style={{ fontSize: '0.48rem', fontWeight: 700, color: '#ffffff' }}>
-                100%
-              </span>
-
-              {/* Icono de batería iOS blanco */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8px' }}>
+              {/* 3. Ícono de Batería blanca de iOS */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8px', marginLeft: '1px' }}>
                 <div
                   style={{
                     width: '13px',

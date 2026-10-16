@@ -871,9 +871,10 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
 
         if (esGemini || (claveApi && (claveApi.startsWith('AQ.') || claveApi.startsWith('AIza')))) {
           const modelosPrueba = [
+            'gemini-flash-latest',
+            'gemini-1.5-flash',
             mod,
             'gemini-3.5-flash',
-            'gemini-flash-latest',
             'gemini-3.1-flash-lite',
           ].filter((v, i, a) => v && a.indexOf(v) === i);
 
@@ -889,7 +890,7 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
               body: JSON.stringify({
                 contents: [{ role: 'user', parts: [{ text: mensaje_prueba || 'Hola, ¿qué horario de atención tienen?' }] }],
                 systemInstruction: { parts: [{ text: promptSistema }] },
-                generationConfig: { temperature: 0.0, maxOutputTokens: 400 },
+                generationConfig: { temperature: 0.0, maxOutputTokens: 1500 },
               }),
             });
 
@@ -926,7 +927,7 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
               { role: 'user', content: mensaje_prueba || 'Hola, ¿qué horario de atención tienen?' },
             ],
             temperature: 0.0,
-            max_tokens: 400,
+            max_tokens: 1500,
           }),
         });
 

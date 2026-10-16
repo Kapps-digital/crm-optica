@@ -24,12 +24,8 @@ import {
   Award,
   Clock,
   Bot,
-  Key,
-  Eye,
-  EyeOff,
   Send,
   HelpCircle,
-  ShieldAlert,
   Wand2,
 } from 'lucide-react';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
@@ -97,11 +93,8 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
   const [iaActiva, setIaActiva] = useState(false);
   const [iaNombre, setIaNombre] = useState('Sofía - Asistente Óptico');
   const [iaTono, setIaTono] = useState('cercano');
-  const [iaApiKey, setIaApiKey] = useState('');
-  const [iaModelo, setIaModelo] = useState('openrouter/free');
   const [iaInstrucciones, setIaInstrucciones] = useState('');
   const [iaPreguntasFrecuentes, setIaPreguntasFrecuentes] = useState('');
-  const [mostrarApiKey, setMostrarApiKey] = useState(false);
 
   // Probador de IA en vivo
   const [mensajePrueba, setMensajePrueba] = useState('Hola, ¿qué horario de atención tienen y cómo puedo agendar una cita?');
@@ -223,8 +216,6 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
         setIaActiva(Boolean(res.configuracion.ia_activa));
         setIaNombre(res.configuracion.ia_nombre || 'Sofía - Asistente Óptico');
         setIaTono(res.configuracion.ia_tono || 'cercano');
-        setIaApiKey(res.configuracion.ia_api_key || '');
-        setIaModelo(res.configuracion.ia_modelo || 'openrouter/free');
         setIaInstrucciones(res.configuracion.ia_instrucciones || '');
         setIaPreguntasFrecuentes(res.configuracion.ia_preguntas_frecuentes || '');
       }
@@ -744,8 +735,6 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
         ia_activa: nuevoEstado,
         ia_nombre: iaNombre,
         ia_tono: iaTono,
-        ia_api_key: iaApiKey,
-        ia_modelo: iaModelo,
         ia_instrucciones: iaInstrucciones,
         ia_preguntas_frecuentes: iaPreguntasFrecuentes,
       });
@@ -789,8 +778,6 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
         ia_activa: iaActiva,
         ia_nombre: iaNombre,
         ia_tono: iaTono,
-        ia_api_key: iaApiKey,
-        ia_modelo: iaModelo,
         ia_instrucciones: iaInstrucciones,
         ia_preguntas_frecuentes: iaPreguntasFrecuentes,
       });
@@ -836,8 +823,6 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
         prompt_personalizado: iaInstrucciones,
         faq_personalizado: iaPreguntasFrecuentes,
         tono: iaTono,
-        api_key_prueba: iaApiKey,
-        modelo: iaModelo,
       });
 
       if (res.exito && res.respuesta) {
@@ -1823,7 +1808,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <h3 style={{ fontSize: '0.96rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
-                      Agente de Inteligencia Artificial (WhatsApp)
+                      Agente de Inteligencia Artificial
                     </h3>
                     <span
                       style={{
@@ -1840,7 +1825,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                     </span>
                   </div>
                   <p style={{ fontSize: '0.74rem', color: 'var(--texto-atenuado)', margin: '0.15rem 0 0 0' }}>
-                    Atiende automáticamente a tus clientes en WhatsApp, resuelve preguntas frecuentes y agenda citas en el CRM.
+                    Atiende automáticamente a tus clientes en tus canales de mensajería, resuelve preguntas frecuentes y agenda citas en el CRM.
                   </p>
                 </div>
               </div>
@@ -1958,148 +1943,6 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                     Define la manera en que el modelo redacta sus oraciones y trata al paciente.
                   </span>
                 </div>
-
-                {/* Modelo de IA */}
-                <div className="modal-campo-grupo">
-                  <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
-                    Motor de Inteligencia Artificial (Google Gemini u OpenRouter)
-                  </label>
-                  <SelectorDesplegable
-                    valor={[
-                      'gemini-3.5-flash',
-                      'gemini-3.1-flash-lite',
-                      'gemini-flash-latest',
-                      'openrouter/free',
-                      'deepseek/deepseek-chat',
-                      'deepseek/deepseek-r1',
-                      'meta-llama/llama-3.3-70b-instruct',
-                      'google/gemini-2.5-flash',
-                      'openai/gpt-4o-mini',
-                    ].includes(iaModelo) ? iaModelo : 'personalizado'}
-                    alCambiar={(val) => {
-                      if (val === 'personalizado') {
-                        if ([
-                          'gemini-3.5-flash',
-                          'gemini-3.1-flash-lite',
-                          'gemini-flash-latest',
-                          'openrouter/free',
-                          'deepseek/deepseek-chat',
-                          'deepseek/deepseek-r1',
-                          'meta-llama/llama-3.3-70b-instruct',
-                          'google/gemini-2.5-flash',
-                          'openai/gpt-4o-mini',
-                        ].includes(iaModelo)) {
-                          setIaModelo('gemini-3.5-flash');
-                        }
-                      } else {
-                        setIaModelo(val);
-                      }
-                    }}
-                    opciones={[
-                      { valor: 'gemini-3.5-flash', etiqueta: '⚡ Google Gemini 2.0 / 3.5 Flash (Oficial Google AI Studio - 1,500 req/día gratis)' },
-                      { valor: 'gemini-3.1-flash-lite', etiqueta: '⚡ Google Gemini Flash Lite (Oficial Google AI Studio - Ultra rápido)' },
-                      { valor: 'gemini-flash-latest', etiqueta: '⚡ Google Gemini Flash Latest (Oficial Google AI Studio)' },
-                      { valor: 'openrouter/free', etiqueta: 'OpenRouter Free (Gratuito limitado a 50 msgs/día)' },
-                      { valor: 'deepseek/deepseek-chat', etiqueta: 'DeepSeek V3 (Vía OpenRouter)' },
-                      { valor: 'deepseek/deepseek-r1', etiqueta: 'DeepSeek R1 (Vía OpenRouter)' },
-                      { valor: 'meta-llama/llama-3.3-70b-instruct', etiqueta: 'Meta Llama 3.3 70B (Vía OpenRouter)' },
-                      { valor: 'openai/gpt-4o-mini', etiqueta: 'OpenAI GPT-4o Mini (Vía OpenRouter)' },
-                      { valor: 'personalizado', etiqueta: '✏️ Especificar otro modelo manualmente...' },
-                    ]}
-                    tamano="compacto"
-                    anchoMinimo="100%"
-                  />
-                  {![
-                    'gemini-3.5-flash',
-                    'gemini-3.1-flash-lite',
-                    'gemini-flash-latest',
-                    'openrouter/free',
-                    'deepseek/deepseek-chat',
-                    'deepseek/deepseek-r1',
-                    'meta-llama/llama-3.3-70b-instruct',
-                    'google/gemini-2.5-flash',
-                    'openai/gpt-4o-mini',
-                  ].includes(iaModelo) && (
-                    <input
-                      type="text"
-                      value={iaModelo}
-                      onChange={(e) => setIaModelo(e.target.value)}
-                      placeholder="Identificador del modelo (ejemplo: gemini-3.5-flash o anthropic/claude-3.5-haiku)"
-                      className="modal-input"
-                      style={{ fontSize: '0.74rem', marginTop: '0.35rem' }}
-                    />
-                  )}
-                  <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem' }}>
-                    Soporte nativo para Google Gemini Oficial (Google AI Studio) y pasarela OpenRouter.
-                  </span>
-                </div>
-
-                {/* Clave de API */}
-                <div className="modal-campo-grupo">
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.3rem' }}>
-                    <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
-                      Clave de API (Google AI Studio u OpenRouter)
-                    </label>
-                    <div style={{ display: 'flex', gap: '0.6rem' }}>
-                      <a
-                        href="https://aistudio.google.com/app/apikey"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ fontSize: '0.68rem', color: 'var(--color-primario)', textDecoration: 'none', fontWeight: 600 }}
-                      >
-                        Obtener clave en Google AI Studio ↗
-                      </a>
-                      <a
-                        href="https://openrouter.ai/keys"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', textDecoration: 'none', fontWeight: 500 }}
-                      >
-                        OpenRouter ↗
-                      </a>
-                    </div>
-                  </div>
-                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                    <Key
-                      style={{
-                        position: 'absolute',
-                        left: '0.75rem',
-                        width: '14px',
-                        height: '14px',
-                        color: 'var(--texto-atenuado)',
-                        pointerEvents: 'none',
-                      }}
-                    />
-                    <input
-                      type={mostrarApiKey ? 'text' : 'password'}
-                      value={iaApiKey}
-                      onChange={(e) => setIaApiKey(e.target.value)}
-                      placeholder="AQ... o AIza... (Google AI Studio) o sk-or-v1-... (OpenRouter)"
-                      className="modal-input"
-                      style={{ paddingLeft: '2.1rem', paddingRight: '2.2rem', fontSize: '0.78rem' }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setMostrarApiKey(!mostrarApiKey)}
-                      style={{
-                        position: 'absolute',
-                        right: '0.6rem',
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--texto-atenuado)',
-                        cursor: 'pointer',
-                        padding: '2px',
-                        display: 'flex',
-                      }}
-                      title={mostrarApiKey ? 'Ocultar clave' : 'Mostrar clave'}
-                    >
-                      {mostrarApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </div>
-                  <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem' }}>
-                    Para Google Gemini introduce tu clave de Google AI Studio (AQ... o AIza...). Para OpenRouter introduce tu clave sk-or-v1-...
-                  </span>
-                </div>
               </div>
 
               {/* Bloque Derecho: Instrucciones y Preguntas Frecuentes (FAQ) */}
@@ -2160,58 +2003,6 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                   <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem' }}>
                     Datos precisos, precios y políticas. La IA solo responderá lo que esté escrito aquí.
                   </span>
-                </div>
-              </div>
-            </div>
-
-            {/* 3. Tarjeta de Blindaje de Seguridad Infranqueable */}
-            <div
-              style={{
-                background: 'rgba(2, 132, 199, 0.04)',
-                border: '1px solid rgba(2, 132, 199, 0.25)',
-                borderRadius: 'var(--radio-lg)',
-                padding: '1.1rem 1.4rem',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.65rem' }}>
-                <ShieldAlert style={{ width: '18px', height: '18px', color: 'var(--color-primario)' }} />
-                <h4 style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
-                  Reglas de Seguridad y Blindaje Infranqueables (Activas por defecto)
-                </h4>
-              </div>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
-                  gap: '0.85rem',
-                  fontSize: '0.73rem',
-                  color: 'var(--texto-atenuado)',
-                  lineHeight: '1.35',
-                }}
-              >
-                <div>
-                  <strong style={{ color: 'var(--texto-principal)', display: 'block', marginBottom: '0.15rem' }}>
-                    🔒 Temperatura 0.0 Determinista
-                  </strong>
-                  Cero creatividad o alucinación. El agente se limita estrictamente a los hechos registrados en la ficha y en las preguntas frecuentes.
-                </div>
-                <div>
-                  <strong style={{ color: 'var(--texto-principal)', display: 'block', marginBottom: '0.15rem' }}>
-                    🔒 Aislamiento de Base de Datos
-                  </strong>
-                  El agente no tiene acceso SQL ni ve credenciales. El backend sanitiza e inyecta únicamente el texto necesario para responder.
-                </div>
-                <div>
-                  <strong style={{ color: 'var(--texto-principal)', display: 'block', marginBottom: '0.15rem' }}>
-                    🔒 Agendamiento con Validación
-                  </strong>
-                  Solo reserva cupos reales libres dentro del horario laboral ({horaInicioAtencion} a {horaFinAtencion}) evitando duplicados.
-                </div>
-                <div>
-                  <strong style={{ color: 'var(--texto-principal)', display: 'block', marginBottom: '0.15rem' }}>
-                    🔒 Transferencia Humana Inmediata
-                  </strong>
-                  Si el paciente pide un humano o pregunta algo fuera de su conocimiento, pausa la IA en ese chat y transfiere al equipo asesor.
                 </div>
               </div>
             </div>
@@ -2284,21 +2075,49 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                   <div
                     style={{
                       background: 'rgba(16, 185, 129, 0.05)',
-                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
                       borderRadius: 'var(--radio-md)',
-                      padding: '0.85rem 1rem',
+                      padding: '1rem 1.15rem',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '0.35rem',
+                      gap: '0.45rem',
+                      maxHeight: '450px',
+                      overflowY: 'auto',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#10b981', fontSize: '0.72rem', fontWeight: 700 }}>
-                      <Bot size={14} />
-                      <span>Respuesta generada por {iaNombre}:</span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.3rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#10b981', fontSize: '0.74rem', fontWeight: 700 }}>
+                        <Bot size={15} />
+                        <span>Respuesta generada por {iaNombre}:</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setRespuestaPrueba(null)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--texto-atenuado)',
+                          fontSize: '0.68rem',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                          padding: '0 0.2rem',
+                        }}
+                      >
+                        Limpiar prueba
+                      </button>
                     </div>
-                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--texto-principal)', lineHeight: '1.45', whiteSpace: 'pre-wrap' }}>
+                    <div
+                      style={{
+                        margin: 0,
+                        fontSize: '0.82rem',
+                        color: 'var(--texto-principal)',
+                        lineHeight: '1.55',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                      }}
+                    >
                       {respuestaPrueba}
-                    </p>
+                    </div>
                   </div>
                 )}
               </form>
