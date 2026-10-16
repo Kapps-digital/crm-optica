@@ -145,16 +145,16 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
         userSelect: 'none',
       }}
     >
-      {/* Chasis exterior del Smartphone (Proporción compacta 270px x 412px sin desborde) */}
+      {/* Chasis exterior del Smartphone (Proporciones iPhone moderno realista) */}
       <div
         style={{
-          width: '270px',
-          height: '412px',
-          backgroundColor: '#0f172a',
-          borderRadius: '28px',
-          padding: '6px',
+          width: '286px',
+          height: '525px',
+          backgroundColor: '#090a0f',
+          borderRadius: '42px',
+          padding: '10px',
           boxShadow:
-            '0 18px 40px -10px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 0 0 1.5px rgba(255, 255, 255, 0.15)',
+            '0 25px 60px -15px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 0 0 1.5px rgba(255, 255, 255, 0.18)',
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
@@ -166,7 +166,7 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
             width: '100%',
             height: '100%',
             backgroundColor: '#efeae2',
-            borderRadius: '23px',
+            borderRadius: '32px',
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
@@ -177,13 +177,13 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
           <div
             style={{
               position: 'absolute',
-              top: '5px',
+              top: '6px',
               left: '50%',
               transform: 'translateX(-50%)',
-              width: '64px',
-              height: '14px',
+              width: '74px',
+              height: '16px',
               backgroundColor: '#000000',
-              borderRadius: '9px',
+              borderRadius: '10px',
               zIndex: 20,
               display: 'flex',
               alignItems: 'center',
@@ -196,29 +196,30 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
                 width: '5px',
                 height: '5px',
                 borderRadius: '50%',
-                backgroundColor: '#0a101f',
+                backgroundColor: '#0f172a',
                 border: '1px solid #1e293b',
               }}
             />
           </div>
 
-          {/* Barra de Estado del Sistema */}
+          {/* Barra de Estado del Sistema iOS */}
           <div
             style={{
-              height: '21px',
+              height: '24px',
               backgroundColor: '#075e54',
               color: '#ffffff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '0 0.9rem',
+              padding: '0 0.95rem',
               fontSize: '0.62rem',
               fontWeight: 700,
               zIndex: 10,
             }}
           >
             <span>9:41</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.58rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.28rem', fontSize: '0.58rem' }}>
+              <span style={{ fontSize: '0.6rem', letterSpacing: '-0.02em' }}>📶</span>
               <span>5G</span>
               <span>100%</span>
             </div>
@@ -229,7 +230,7 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
             style={{
               backgroundColor: '#075e54',
               color: '#ffffff',
-              padding: '0.25rem 0.45rem 0.35rem 0.35rem',
+              padding: '0.28rem 0.5rem 0.38rem 0.4rem',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -238,19 +239,19 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
               zIndex: 10,
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flex: 1, minWidth: 0 }}>
-              <ChevronLeft size={16} color="#ffffff" style={{ cursor: 'pointer' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flex: 1, minWidth: 0 }}>
+              <ChevronLeft size={17} color="#ffffff" style={{ cursor: 'pointer', flexShrink: 0 }} />
               {/* Avatar Óptica con Iniciales Corporativas */}
               <div
                 style={{
-                  width: '26px',
-                  height: '26px',
+                  width: '28px',
+                  height: '28px',
                   borderRadius: '50%',
                   background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '10px',
+                  fontSize: '11px',
                   fontWeight: 800,
                   color: '#ffffff',
                   boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
@@ -261,7 +262,7 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
                 {inicialesNegocio}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                   <span
                     style={{
                       fontSize: '0.74rem',
@@ -279,29 +280,30 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
                       fontSize: '0.55rem',
                       backgroundColor: '#25d366',
                       color: '#075e54',
-                      width: '10px',
-                      height: '10px',
+                      width: '11px',
+                      height: '11px',
                       borderRadius: '50%',
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontWeight: 900,
+                      flexShrink: 0,
                     }}
                   >
                     ✓
                   </span>
                 </div>
-                <span style={{ fontSize: '0.58rem', opacity: 0.9, display: 'block', lineHeight: 1 }}>
+                <span style={{ fontSize: '0.58rem', opacity: 0.85, display: 'block', lineHeight: 1 }}>
                   en línea
                 </span>
               </div>
             </div>
 
             {/* Iconos de cabecera */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-              <Video size={13} color="#ffffff" />
-              <Phone size={12} color="#ffffff" />
-              <MoreVertical size={13} color="#ffffff" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexShrink: 0 }}>
+              <Video size={14} color="#ffffff" />
+              <Phone size={13} color="#ffffff" />
+              <MoreVertical size={14} color="#ffffff" />
             </div>
           </div>
 
@@ -311,7 +313,7 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
               flex: 1,
               backgroundImage: fondoDoodleWhatsApp,
               backgroundRepeat: 'repeat',
-              backgroundSize: '290px auto',
+              backgroundSize: '280px auto',
               backgroundColor: '#efeae2',
               padding: '0.5rem 0.45rem',
               display: 'flex',
@@ -328,7 +330,7 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
                 color: '#54656f',
                 fontSize: '0.58rem',
                 fontWeight: 600,
-                padding: '0.1rem 0.45rem',
+                padding: '0.12rem 0.5rem',
                 borderRadius: '6px',
                 boxShadow: '0 1px 0.5px rgba(0,0,0,0.12)',
                 marginBottom: '0.35rem',
@@ -347,12 +349,12 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
                 color: '#54656f',
                 fontSize: '0.54rem',
                 textAlign: 'center',
-                padding: '0.15rem 0.4rem',
+                padding: '0.18rem 0.45rem',
                 borderRadius: '5px',
                 boxShadow: '0 1px 0.5px rgba(0,0,0,0.06)',
                 marginBottom: '0.45rem',
                 maxWidth: '92%',
-                lineHeight: 1.2,
+                lineHeight: 1.25,
               }}
             >
               🔒 Los mensajes están cifrados de extremo a extremo.
@@ -363,9 +365,9 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
               <div
                 style={{
                   width: '100%',
-                  maxWidth: '246px',
+                  maxWidth: '252px',
                   backgroundColor: '#ffffff',
-                  borderRadius: '9px',
+                  borderRadius: '10px',
                   boxShadow: '0 1px 0.5px rgba(11, 20, 26, 0.13)',
                   overflow: 'hidden',
                   display: 'flex',
@@ -396,18 +398,19 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
                   <ChevronDown size={11} color="#667781" style={{ cursor: 'pointer' }} />
                 </div>
 
-                {/* 2. Encabezado de Imagen o Video (Proporción banner 82px) */}
+                {/* 2. Encabezado de Imagen o Video (Zoom reducido, proporción completa) */}
                 {encabezadoTipo === 'IMAGEN' && (
                   <div
                     style={{
                       width: '100%',
-                      height: '82px',
-                      backgroundColor: '#e2e8f0',
+                      height: '142px',
+                      backgroundColor: '#ffffff',
                       position: 'relative',
                       overflow: 'hidden',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
+                      padding: '4px',
                     }}
                   >
                     {encabezadoContenido ? (
@@ -417,11 +420,9 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
                         src={encabezadoContenido}
                         alt="Encabezado de plantilla"
                         style={{
-                          position: 'absolute',
-                          inset: 0,
                           width: '100%',
                           height: '100%',
-                          objectFit: 'cover',
+                          objectFit: 'contain',
                           zIndex: 2,
                           display: 'block',
                         }}
@@ -469,7 +470,7 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
                   <div
                     style={{
                       width: '100%',
-                      height: '82px',
+                      height: '135px',
                       backgroundColor: '#0f172a',
                       position: 'relative',
                       overflow: 'hidden',
@@ -681,8 +682,8 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
             </div>
             <div
               style={{
-                width: '26px',
-                height: '26px',
+                width: '28px',
+                height: '28px',
                 borderRadius: '50%',
                 backgroundColor: '#00a884',
                 display: 'flex',
@@ -692,26 +693,28 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
                 flexShrink: 0,
               }}
             >
-              <Mic size={12} color="#ffffff" />
+              <Mic size={13} color="#ffffff" />
             </div>
           </div>
 
-          {/* Home indicator bar (iOS / Android) */}
+          {/* Home indicator bar (iOS) */}
           <div
             style={{
-              height: '8px',
+              height: '12px',
               backgroundColor: '#f0f2f5',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              paddingBottom: '2px',
             }}
           >
             <div
               style={{
-                width: '65px',
-                height: '2.5px',
-                backgroundColor: '#94a3b8',
+                width: '80px',
+                height: '3px',
+                backgroundColor: '#000000',
                 borderRadius: '2px',
+                opacity: 0.75,
               }}
             />
           </div>
