@@ -1,5 +1,6 @@
 import { base_datos } from '../base_datos/conexion.mjs';
 import { sincronizar_mensajes_conversacion } from './sincronizador_zernio.mjs';
+import { extraerNombrePersonaValido } from './motor_ia.mjs';
 
 /**
  * Normaliza y procesa los eventos entrantes del webhook de Zernio.
@@ -11,13 +12,16 @@ import { sincronizar_mensajes_conversacion } from './sincronizador_zernio.mjs';
  * Resuelve la regla de WhatsApp donde el teléfono puede ser nulo (BSUID).
  */
 export async function obtener_o_crear_contacto({ nombre, telefono, bsuid, correo }) {
+  const nombrePersonaValido = extraerNombrePersonaValido(nombre);
+
   // 1. Si viene BSUID, buscar primero por BSUID
   if (bsuid) {
     const consulta_bsuid = base_datos.prepare('SELECT * FROM contactos WHERE business_scoped_user_id = ?');
     const contacto_existente = await consulta_bsuid.get(bsuid);
     if (contacto_existente) {
-      if (nombre && !contacto_existente.nombre_completo) {
-        await base_datos.prepare("UPDATE contactos SET nombre_completo = ?, actualizado_en = now() WHERE id = ?").run(nombre, contacto_existente.id);
+      const nombreActualEsValido = extraerNombrePersonaValido(contacto_existente.nombre_completo);
+      if (nombrePersonaValido && !nombreActualEsValido) {
+        await base_datos.prepare("UPDATE contactos SET nombre_completo = ?, actualizado_en = now() WHERE id = ?").run(nombrePersonaValido, contacto_existente.id);
       }
       return contacto_existente.id;
     }
@@ -31,15 +35,20 @@ export async function obtener_o_crear_contacto({ nombre, telefono, bsuid, correo
       if (bsuid && !contacto_existente.business_scoped_user_id) {
         await base_datos.prepare("UPDATE contactos SET business_scoped_user_id = ?, actualizado_en = now() WHERE id = ?").run(bsuid, contacto_existente.id);
       }
+      const nombreActualEsValido = extraerNombrePersonaValido(contacto_existente.nombre_completo);
+      if (nombrePersonaValido && !nombreActualEsValido) {
+        await base_datos.prepare("UPDATE contactos SET nombre_completo = ?, actualizado_en = now() WHERE id = ?").run(nombrePersonaValido, contacto_existente.id);
+      }
       return contacto_existente.id;
     }
   }
 
   // 3. Crear nuevo contacto
+  const nombreAGuardar = nombrePersonaValido || (telefono ? `Contacto ${telefono}` : 'Paciente Sin Nombre');
   const insercion = await base_datos.prepare(`
     INSERT INTO contactos (nombre_completo, telefono, correo, business_scoped_user_id)
     VALUES (?, ?, ?, ?)
-  `).run(nombre || 'Paciente Sin Nombre', telefono || null, correo || null, bsuid || null);
+  `).run(nombreAGuardar, telefono || null, correo || null, bsuid || null);
 
   return Number(insercion.lastInsertRowid);
 }

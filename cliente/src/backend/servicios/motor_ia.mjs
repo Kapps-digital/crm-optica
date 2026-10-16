@@ -339,12 +339,41 @@ export function sanitizarMarkdownParaWhatsApp(texto) {
 }
 
 /**
+ * Determina si una cadena representa un nombre real de persona.
+ * Si es un número telefónico, handle de usuario ('@...', 'user_...'), "Contacto +...", etc., retorna null.
+ */
+export function extraerNombrePersonaValido(nombre) {
+  if (!nombre || typeof nombre !== 'string') return null;
+  const limpio = nombre.trim();
+  if (!limpio) return null;
+
+  // 1. Descartar patrones de sistema o canal
+  if (/^contacto\s*\+?\d+/i.test(limpio)) return null;
+  if (/^paciente(\s*sin\s*nombre)?$/i.test(limpio)) return null;
+  if (/^sin\s*nombre$/i.test(limpio)) return null;
+  if (/^usuario$/i.test(limpio)) return null;
+
+  // 2. Descartar handles o identificadores de usuario técnicos
+  if (/^@|^user_|^wa_|^co\.\d+/i.test(limpio)) return null;
+
+  // 3. Descartar si son puros dígitos o símbolos telefónicos
+  const soloLetras = limpio.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]/g, '');
+  if (soloLetras.length < 2) return null;
+
+  // 4. Descartar si contiene secuencias telefónicas largas (>= 7 dígitos)
+  const soloDigitos = limpio.replace(/\D/g, '');
+  if (soloDigitos.length >= 7) return null;
+
+  return limpio;
+}
+
+/**
  * Construye el mensaje estructurado canónico de cita para WhatsApp (idéntico a la plantilla CRM)
  */
 export function construirMensajeCitaWhatsApp({
   tipo = 'confirmacion', // 'confirmacion' | 'reprogramacion' | 'consulta'
   nombreOptica = 'Óptica',
-  nombrePaciente = 'Paciente',
+  nombrePaciente = '',
   fecha,
   hora,
   motivo,
@@ -354,17 +383,23 @@ export function construirMensajeCitaWhatsApp({
   const fechaVisual = formatearFechaDDMMYYYY(fecha);
   const espTexto = especialista && String(especialista).trim() !== '' ? String(especialista).trim() : 'Sin especialista';
   const motivoTexto = motivo && String(motivo).trim() !== '' ? String(motivo).trim() : 'Examen de optometría';
-  const pacienteTexto = (nombrePaciente || 'Paciente').trim();
+  const nombreValido = extraerNombrePersonaValido(nombrePaciente);
 
   let titulo = 'Confirmación de Cita';
-  let saludo = `Hola *${pacienteTexto}*, tu cita de optometría ha sido programada con éxito:`;
+  let saludo = nombreValido
+    ? `Hola *${nombreValido}*, tu cita de optometría ha sido programada con éxito:`
+    : `Hola, tu cita de optometría ha sido programada con éxito:`;
 
   if (tipo === 'reprogramacion') {
     titulo = 'Cita Reprogramada';
-    saludo = `Hola *${pacienteTexto}*, tu cita de optometría ha sido reprogramada con éxito:`;
+    saludo = nombreValido
+      ? `Hola *${nombreValido}*, tu cita de optometría ha sido reprogramada con éxito:`
+      : `Hola, tu cita de optometría ha sido reprogramada con éxito:`;
   } else if (tipo === 'consulta') {
     titulo = 'Cita Programada';
-    saludo = `Hola *${pacienteTexto}*, tienes la siguiente cita programada:`;
+    saludo = nombreValido
+      ? `Hola *${nombreValido}*, tienes la siguiente cita programada:`
+      : `Hola, tienes la siguiente cita programada:`;
   }
 
   return [
@@ -1211,7 +1246,17 @@ export async function procesarMensajeConIA({ conversacion_id, mensaje_id, contac
     [idContacto]
   );
   const paciente = resContacto.rows[0] || {};
-  const nombrePaciente = paciente.nombre_completo || 'Paciente';
+  const nombreRealPersona = extraerNombrePersonaValido(paciente.nombre_completo);
+
+  // Regla estricta de trato según requerimiento del negocio:
+  // Si tiene un nombre real de persona en WhatsApp/CRM, usar su nombre.
+  // Si no tiene nombre real (o es un número telefónico/usuario técnico), omitir por completo el número y el usuario.
+  let instruccionTratoNombre = '';
+  if (nombreRealPersona) {
+    instruccionTratoNombre = `El paciente se llama *${nombreRealPersona}*. Dirígete a él cordialmente por su nombre cuando lo saludes, te despidas o confirmes citas.`;
+  } else {
+    instruccionTratoNombre = `No se tiene registrado un nombre de persona real para este contacto. REGLA ESTRICTA DE IDENTIDAD: Está TERMINANTEMENTE PROHIBIDO dirigirte al cliente por su número de teléfono (ej: "Contacto +57...", "+57313..."), por su usuario o handle de WhatsApp o inventar nombres. OMITIR POR COMPLETO el nombre o número y salúdalo o despídete con amabilidad directa (ejemplos: "¡Hola! Bienvenido a ${nombreOpticaReal}...", "¡Con muchísimo gusto! En ${nombreOpticaReal} quedamos muy atentos ante cualquier otra consulta...").`;
+  }
 
   // 5. Obtener citas pendientes vigentes del paciente (solo de hoy en adelante)
   const hoyStr = obtenerFechaHoyColombia();
@@ -1269,11 +1314,21 @@ export async function procesarMensajeConIA({ conversacion_id, mensaje_id, contac
       .replace(/\{\{horario_atencion\}\}/g, horarioAtencion)
       .replace(/\{\{duracion_consulta\}\}/g, duracionConsulta)
       .replace(/\{\{ia_tono\}\}/g, configOptica.ia_tono || 'amable y profesional')
-      .replace(/\{\{nombre_paciente\}\}/g, nombrePaciente)
+      .replace(/\{\{nombre_paciente\}\}/g, nombreRealPersona || 'No identificado')
+      .replace(/\{\{instruccion_trato_nombre\}\}/g, instruccionTratoNombre)
       .replace(/\{\{motivos_cita_disponibles\}\}/g, motivosTexto)
       .replace(/\{\{citas_vigentes_texto\}\}/g, citasTexto)
       .replace(/\{\{ia_instrucciones\}\}/g, configOptica.ia_instrucciones || 'Atender con calidez.')
       .replace(/\{\{ia_preguntas_frecuentes\}\}/g, configOptica.ia_preguntas_frecuentes || 'Horario: ' + horarioAtencion);
+
+    if (!nombreRealPersona) {
+      promptSistemaFinal = promptSistemaFinal
+        .replace(/Hola \*\{\{nombre_paciente\}\}\*,/g, 'Hola,')
+        .replace(/Hola \*No identificado\*,/g, 'Hola,')
+        .replace(/¡Hola, No identificado!/g, '¡Hola!')
+        .replace(/¡Con muchísimo gusto, No identificado!/g, '¡Con muchísimo gusto!')
+        .replace(/¡Con mucho gusto, No identificado!/g, '¡Con mucho gusto!');
+    }
   } else {
     promptSistemaFinal = `Eres ${configOptica.ia_nombre}, el asistente virtual oficial de "${nombreOpticaReal}".
 Fecha de hoy: ${fechaHoy}.
