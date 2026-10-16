@@ -614,7 +614,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1fr) 268px',
+                gridTemplateColumns: 'minmax(0, 1fr) 236px',
                 gap: '0.85rem',
                 alignItems: 'start',
               }}
