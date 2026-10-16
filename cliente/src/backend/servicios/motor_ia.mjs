@@ -982,13 +982,14 @@ async function ejecutarLlamadaGemini({
     });
   }
 
-  // Lista de modelos ordenados con fallback automático ante errores 503 o 404
+  // Lista de modelos ordenados con fallback automático ante errores 429, 503 o 404
   const modelosAProbar = [
     normalizarModeloGemini(modelo),
-    'gemini-2.5-flash',
     'gemini-3.5-flash',
-    'gemini-3.1-flash-lite',
+    'gemini-3.5-flash-lite',
+    'gemini-flash-lite-latest',
     'gemini-flash-latest',
+    'gemini-3.1-flash-lite',
   ].filter((v, i, a) => v && a.indexOf(v) === i);
 
   let modeloElegido = modelosAProbar[0];
