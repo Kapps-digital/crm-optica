@@ -1168,6 +1168,38 @@ input[type="number"] {
   background: var(--color-primario-claro);
 }
 
+/* Estado bloqueado / desactivado visual cuando expira la ventana de 24h */
+.area-envio-mensaje.bloqueada-24h {
+  background: var(--fondo-elevado, #f1f5f9);
+  cursor: not-allowed;
+  opacity: 0.85;
+  border-top: 1px solid var(--borde-tarjeta);
+}
+
+.area-envio-mensaje.bloqueada-24h input {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: var(--texto-atenuado, #94a3b8);
+  cursor: not-allowed;
+  user-select: none;
+  font-size: 0.77rem;
+}
+
+.area-envio-mensaje.bloqueada-24h input::placeholder {
+  color: var(--texto-atenuado, #94a3b8);
+  opacity: 0.85;
+}
+
+.area-envio-mensaje.bloqueada-24h .btn-enviar-accion,
+.btn-enviar-accion:disabled {
+  background: var(--borde-tarjeta, #cbd5e1) !important;
+  color: var(--texto-atenuado, #94a3b8) !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+  transform: none !important;
+  opacity: 0.55;
+}
+
 /* 3. Columna Lateral Derecha: FICHA CLÍNICA OPTOMÉTRICA */
 .columna-ficha-optometrica {
   background: var(--fondo-tarjeta);

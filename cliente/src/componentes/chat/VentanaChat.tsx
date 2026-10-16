@@ -745,13 +745,6 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          {!enVentana24h && (
-            <div id="chat-activo-badge-24h" className="badge-24h expirada">
-              <AlertTriangle style={{ width: '12px', height: '12px' }} />
-              <span>Ventana 24h Expirada</span>
-            </div>
-          )}
-
           {/* Botón de Control Toggle del Agente IA en este chat */}
           {conversacion && (
             iaGlobalActiva === false ? (
@@ -1359,11 +1352,18 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
       </div>
 
       {/* Input para enviar mensaje */}
-      <form className="area-envio-mensaje" onSubmit={manejarEnvio}>
+      <form
+        className={`area-envio-mensaje ${!enVentana24h ? 'bloqueada-24h' : ''}`}
+        onSubmit={manejarEnvio}
+      >
         <input
           type="text"
           id="input-mensaje-texto"
-          placeholder={enVentana24h ? "Escribe un mensaje al paciente..." : "Ventana de 24h cerrada. Utiliza 'Reactivar con Plantilla'..."}
+          placeholder={
+            enVentana24h
+              ? "Escribe un mensaje al paciente..."
+              : "🔒 Ventana de 24h cerrada. Utiliza 'Reactivar con Plantilla' arriba..."
+          }
           autoComplete="off"
           value={textoMensaje}
           disabled={!enVentana24h}
@@ -1372,7 +1372,7 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
         <EtiquetaTooltip
           texto={
             !enVentana24h
-              ? 'Ventana de 24h inactiva'
+              ? 'Ventana de 24h cerrada. Reanuda arriba con una plantilla.'
               : !textoMensaje.trim()
               ? 'Escribe un mensaje para enviar'
               : 'Enviar mensaje (Enter)'
