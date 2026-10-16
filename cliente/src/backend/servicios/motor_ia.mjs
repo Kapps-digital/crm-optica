@@ -823,39 +823,72 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId, c
 }
 
 /**
- * Detecta si una clave o modelo corresponde a Google Gemini oficial
+ * Detecta si una clave o modelo corresponde a Google Gemini oficial o a OpenRouter
  */
-export function esProveedorGemini(apiKey, modelo) {
+export function detectarProveedorIA(apiKey, modelo) {
   const clave = String(apiKey || '').trim();
   const mod = String(modelo || '').trim().toLowerCase();
-  if (clave.startsWith('AQ.') || clave.startsWith('AIza')) return true;
-  if (mod.includes('gemini') && !mod.includes('openrouter')) return true;
-  if (process.env.GEMINI_API_KEY && clave === process.env.GEMINI_API_KEY) return true;
-  return false;
+
+  // 1. Si la clave es explícitamente de Google AI Studio (AQ... o AIza...)
+  if (clave.startsWith('AQ.') || clave.startsWith('AIza')) {
+    return 'gemini';
+  }
+  // 2. Si la clave es explícitamente de OpenRouter (sk-or-v1-...)
+  if (clave.startsWith('sk-or-')) {
+    return 'openrouter';
+  }
+  // 3. Si el modelo es explícitamente de Gemini
+  if (mod.includes('gemini') && !mod.includes('openrouter')) {
+    return 'gemini';
+  }
+  // 4. Si el modelo apunta a proveedores de OpenRouter
+  if (
+    mod.includes('openrouter') ||
+    mod.includes('deepseek') ||
+    mod.includes('llama') ||
+    mod.includes('gpt-') ||
+    mod.includes('claude')
+  ) {
+    return 'openrouter';
+  }
+  // 5. Fallback según variables de entorno disponibles
+  if (process.env.GEMINI_API_KEY) return 'gemini';
+  if (process.env.OPENROUTER_API_KEY) return 'openrouter';
+  return 'gemini';
+}
+
+/**
+ * Mantiene compatibilidad con llamadas existentes
+ */
+export function esProveedorGemini(apiKey, modelo) {
+  return detectarProveedorIA(apiKey, modelo) === 'gemini';
 }
 
 /**
  * Normaliza nombres de modelo para Google Gemini Oficial.
- * Prioriza gemini-3.1-flash-lite ya que es el modelo activo en Google AI Studio
- * con soporte nativo 100% estable de Function Calling en v1beta.
+ * Si el modelo no es de Gemini (ej. 'openrouter/free'), retorna automáticamente
+ * el modelo oficial activo 'gemini-2.5-flash'.
  */
 export function normalizarModeloGemini(modelo) {
   const m = String(modelo || '').trim().toLowerCase();
   if (
-    m === 'gemini-2.0-flash' ||
-    m === 'gemini-2.5-flash' ||
     m === 'gemini-3.5-flash' ||
+    m === 'gemini-3.1-flash-lite' ||
     m === 'gemini-flash-latest' ||
-    m === 'gemini-flash-lite' ||
-    m === 'gemini-3.1-flash-lite'
+    m === 'gemini-2.5-flash' ||
+    m === 'gemini-2.0-flash' ||
+    m === 'gemini-1.5-flash'
   ) {
-    return 'gemini-3.1-flash-lite';
+    return m;
   }
   if (m.startsWith('models/')) {
-    return m.replace(/^models\//, '');
+    const sinPrefijo = m.replace(/^models\//, '');
+    if (sinPrefijo.includes('gemini')) return sinPrefijo;
   }
-  if (m) return m;
-  return 'gemini-3.1-flash-lite';
+  if (m && m.includes('gemini') && !m.includes('/')) {
+    return m;
+  }
+  return 'gemini-3.5-flash';
 }
 
 /**
@@ -949,12 +982,12 @@ async function ejecutarLlamadaGemini({
     });
   }
 
-  // Lista de modelos ordenados con fallback automático
+  // Lista de modelos ordenados con fallback automático ante errores 503 o 404
   const modelosAProbar = [
     normalizarModeloGemini(modelo),
     'gemini-3.5-flash',
-    'gemini-flash-latest',
     'gemini-3.1-flash-lite',
+    'gemini-flash-latest',
   ].filter((v, i, a) => v && a.indexOf(v) === i);
 
   let modeloElegido = modelosAProbar[0];
@@ -1096,12 +1129,15 @@ export async function procesarMensajeConIA({ conversacion_id, contacto_id, optic
     return { respondido: false, motivo: 'ia_pausada_en_chat' };
   }
 
-  let apiKey = configOptica.ia_api_key;
+  let apiKey = (configOptica.ia_api_key || '').trim();
+  const modeloConfigurado = (configOptica.ia_modelo || '').trim();
+  const proveedorDeseado = detectarProveedorIA(apiKey, modeloConfigurado);
+
   if (!apiKey) {
-    if (esProveedorGemini(process.env.GEMINI_API_KEY, configOptica.ia_modelo)) {
-      apiKey = process.env.GEMINI_API_KEY;
+    if (proveedorDeseado === 'gemini') {
+      apiKey = process.env.GEMINI_API_KEY || '';
     } else {
-      apiKey = process.env.GEMINI_API_KEY || process.env.OPENROUTER_API_KEY;
+      apiKey = process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY || '';
     }
   }
 
@@ -1198,16 +1234,17 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
 
   const esConsultaDisponibilidad = /horario|disponib|citas?|cu[aá]ndo|agenda|de nuevo|libres?/i.test(texto_mensaje);
   const esGemini = esProveedorGemini(apiKey, configOptica.ia_modelo);
+  const modeloGeminiNormalizado = normalizarModeloGemini(configOptica.ia_modelo);
 
   try {
     let respuestaFinalTexto = '';
     let ultimoMensajeConfirmacionOficial = null;
 
     if (esGemini) {
-      console.log(`[Motor IA] Procesando con Google Gemini Oficial (modelo: ${configOptica.ia_modelo || 'gemini-3.5-flash'})`);
+      console.log(`[Motor IA] Procesando con Google Gemini Oficial (modelo: ${modeloGeminiNormalizado})`);
       const resGemini = await ejecutarLlamadaGemini({
         apiKey,
-        modelo: configOptica.ia_modelo || 'gemini-3.5-flash',
+        modelo: modeloGeminiNormalizado,
         promptSistema: promptSistemaFinal,
         historialReverso,
         textoMensaje: texto_mensaje,
