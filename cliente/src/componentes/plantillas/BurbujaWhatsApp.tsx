@@ -25,8 +25,8 @@ import type { BotonPlantilla } from '@/tipos/crm';
 // DIMENSIONES MAESTRAS DEL SMARTPHONE
 // (Modifica estos 2 valores directamente si deseas ajustar el tamaño exterior)
 // =========================================================================
-export const ANCHO_SMARTPHONE_PX = 212; // Ancho exterior del smartphone en px (ej: 212px)
-export const ALTO_SMARTPHONE_PX = 370;  // Alto exterior del smartphone en px (ej: 370px)
+export const ANCHO_SMARTPHONE_PX = 180; // Ancho exterior del smartphone en px (ej: 212px)
+export const ALTO_SMARTPHONE_PX = 340;  // Alto exterior del smartphone en px (ej: 370px)
 
 interface PropiedadesBurbujaWhatsApp {
   encabezadoTipo?: 'TEXTO' | 'IMAGEN' | 'VIDEO' | 'NINGUNO';
@@ -157,8 +157,8 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
           width: `${ANCHO_SMARTPHONE_PX}px`,
           height: `${ALTO_SMARTPHONE_PX}px`,
           backgroundColor: '#16171b',
-          borderRadius: '32px',
-          padding: '6px',
+          borderRadius: '26px',
+          padding: '4px',
           boxShadow:
             '0 14px 40px -8px rgba(0, 0, 0, 0.55), 0 0 0 1.5px #32353e, inset 0 0 0 1px rgba(255, 255, 255, 0.12)',
           display: 'flex',
@@ -228,7 +228,7 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
             width: '100%',
             height: '100%',
             backgroundColor: '#efeae2',
-            borderRadius: '26px',
+            borderRadius: '23px',
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
@@ -427,7 +427,7 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
               <div
                 style={{
                   width: '100%',
-                  maxWidth: '190px',
+                  maxWidth: '160px',
                   backgroundColor: '#ffffff',
                   borderRadius: '7px',
                   boxShadow: '0 1px 0.5px rgba(11, 20, 26, 0.13)',
@@ -437,42 +437,18 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
                   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
                 }}
               >
-                {/* 1. Cabecera WhatsApp Business */}
-                <div
-                  style={{
-                    padding: '0.18rem 0.35rem 0.14rem 0.35rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    borderBottom: '1px solid rgba(0,0,0,0.03)',
-                  }}
-                >
-                  <span
-                    style={{
-                      color: '#b02a37',
-                      fontSize: '0.50rem',
-                      fontWeight: 600,
-                      letterSpacing: '-0.01em',
-                    }}
-                  >
-                    WhatsApp Business
-                  </span>
-                  <ChevronDown size={8} color="#667781" style={{ cursor: 'pointer' }} />
-                </div>
-
-                {/* 2. Encabezado de Imagen o Video (Zoom reducido, proporción completa) */}
+                {/* 1. Encabezado de Imagen o Video oficial (Borde a borde, idéntico a WhatsApp real) */}
                 {encabezadoTipo === 'IMAGEN' && (
                   <div
                     style={{
                       width: '100%',
-                      height: '86px',
-                      backgroundColor: '#ffffff',
+                      height: '115px',
+                      backgroundColor: '#f0f2f5',
                       position: 'relative',
                       overflow: 'hidden',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      padding: '2px',
                     }}
                   >
                     {encabezadoContenido ? (
@@ -484,46 +460,64 @@ export const BurbujaWhatsApp: React.FC<PropiedadesBurbujaWhatsApp> = ({
                         style={{
                           width: '100%',
                           height: '100%',
-                          objectFit: 'contain',
-                          zIndex: 2,
+                          objectFit: 'cover',
                           display: 'block',
                         }}
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
                         }}
                       />
-                    ) : null}
+                    ) : (
+                      <div
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#ffffff',
+                          gap: '0.12rem',
+                          padding: '0.25rem',
+                          textAlign: 'center',
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '50%',
+                            background: 'rgba(255,255,255,0.2)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <IconoImagen size={11} color="#ffffff" />
+                        </div>
+                        <span style={{ fontSize: '0.54rem', fontWeight: 700 }}>Imagen de Muestra</span>
+                        <span style={{ fontSize: '0.46rem', opacity: 0.9 }}>Promoción Óptica</span>
+                      </div>
+                    )}
+
+                    {/* Chevron superior derecho (Oficial WhatsApp) */}
                     <div
                       style={{
                         position: 'absolute',
-                        inset: 0,
-                        zIndex: 1,
-                        background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                        top: '4px',
+                        right: '4px',
+                        width: '15px',
+                        height: '15px',
+                        borderRadius: '50%',
+                        backgroundColor: 'rgba(0, 0, 0, 0.28)',
                         display: 'flex',
-                        flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: '#ffffff',
-                        gap: '0.12rem',
-                        padding: '0.25rem',
-                        textAlign: 'center',
+                        zIndex: 3,
                       }}
                     >
-                      <div
-                        style={{
-                          width: '20px',
-                          height: '20px',
-                          borderRadius: '50%',
-                          background: 'rgba(255,255,255,0.2)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <IconoImagen size={11} color="#ffffff" />
-                      </div>
-                      <span style={{ fontSize: '0.54rem', fontWeight: 700 }}>Imagen de Muestra</span>
-                      <span style={{ fontSize: '0.46rem', opacity: 0.9 }}>Promoción Óptica</span>
+                      <ChevronDown size={10} color="#ffffff" strokeWidth={2.5} />
                     </div>
                   </div>
                 )}

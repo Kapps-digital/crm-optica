@@ -433,10 +433,10 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                   ? '#ef4444'
                   : '#3b82f6',
             border: `1px solid ${mensajeNotificacion.tipo === 'exito'
-                ? 'rgba(16, 185, 129, 0.25)'
-                : mensajeNotificacion.tipo === 'error'
-                  ? 'rgba(239, 68, 68, 0.25)'
-                  : 'rgba(59, 130, 246, 0.25)'
+              ? 'rgba(16, 185, 129, 0.25)'
+              : mensajeNotificacion.tipo === 'error'
+                ? 'rgba(239, 68, 68, 0.25)'
+                : 'rgba(59, 130, 246, 0.25)'
               }`,
           }}
         >
@@ -614,7 +614,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1fr) 236px',
+                gridTemplateColumns: 'minmax(0, 1fr) 220px',
                 gap: '0.85rem',
                 alignItems: 'start',
               }}
@@ -909,7 +909,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                 </div>
 
                 {/* Previsualización Smartphone WhatsApp Compacta Centrada */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0.15rem 0' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0.40rem 0' }}>
                   <BurbujaWhatsApp
                     encabezadoTipo={plantillaSeleccionada.encabezado_tipo}
                     encabezadoContenido={plantillaSeleccionada.encabezado_contenido}
@@ -1084,14 +1084,14 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                                 (item.estado || '').toLowerCase() === 'completado'
                                   ? 'rgba(16, 185, 129, 0.12)'
                                   : (item.estado || '').toLowerCase() === 'fallido'
-                                  ? 'rgba(239, 68, 68, 0.12)'
-                                  : 'rgba(245, 158, 11, 0.12)',
+                                    ? 'rgba(239, 68, 68, 0.12)'
+                                    : 'rgba(245, 158, 11, 0.12)',
                               color:
                                 (item.estado || '').toLowerCase() === 'completado'
                                   ? '#10b981'
                                   : (item.estado || '').toLowerCase() === 'fallido'
-                                  ? '#ef4444'
-                                  : '#f59e0b',
+                                    ? '#ef4444'
+                                    : '#f59e0b',
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: '0.3rem',
