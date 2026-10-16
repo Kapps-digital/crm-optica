@@ -614,8 +614,8 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1fr) 308px',
-                gap: '1rem',
+                gridTemplateColumns: 'minmax(0, 1fr) 268px',
+                gap: '0.85rem',
                 alignItems: 'start',
               }}
             >
@@ -819,39 +819,40 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
               <div
                 style={{
                   position: 'sticky',
-                  top: '0.5rem',
+                  top: '0.4rem',
                   background: 'var(--fondo-tarjeta)',
                   border: '1px solid var(--borde-suave)',
-                  borderRadius: '16px',
+                  borderRadius: '14px',
                   overflow: 'hidden',
                   boxShadow: '0 4px 18px rgba(0,0,0,0.05)',
                   display: 'flex',
                   flexDirection: 'column',
+                  maxHeight: 'calc(100vh - 1.2rem)',
                 }}
               >
                 {/* Cabecera del Simulador (Fila compacta única) */}
                 <div
                   style={{
-                    padding: '0.5rem 0.85rem',
+                    padding: '0.35rem 0.65rem',
                     borderBottom: '1px solid var(--borde-suave)',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    gap: '0.5rem',
+                    gap: '0.4rem',
                     background: 'rgba(0, 0, 0, 0.02)',
                   }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <span
                       style={{
-                        fontSize: '0.62rem',
+                        fontSize: '0.58rem',
                         fontWeight: 800,
                         textTransform: 'uppercase',
                         color: '#10b981',
                         letterSpacing: '0.04em',
                         display: 'block',
                         lineHeight: 1,
-                        marginBottom: '0.15rem',
+                        marginBottom: '0.1rem',
                       }}
                     >
                       Vista Previa Móvil
@@ -859,7 +860,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                     <h3
                       style={{
                         margin: 0,
-                        fontSize: '0.88rem',
+                        fontSize: '0.82rem',
                         fontWeight: 700,
                         color: 'var(--texto-principal)',
                         whiteSpace: 'nowrap',
@@ -877,7 +878,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '0.35rem',
+                      gap: '0.3rem',
                       background:
                         plantillaSeleccionada.estado === 'APPROVED' || plantillaSeleccionada.estado === 'APROBADA'
                           ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
@@ -887,9 +888,9 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                           ? '#ffffff'
                           : 'var(--texto-secundario)',
                       border: 'none',
-                      borderRadius: '7px',
-                      padding: '0.38rem 0.75rem',
-                      fontSize: '0.76rem',
+                      borderRadius: '6px',
+                      padding: '0.3rem 0.6rem',
+                      fontSize: '0.72rem',
                       fontWeight: 700,
                       cursor:
                         plantillaSeleccionada.estado === 'APPROVED' || plantillaSeleccionada.estado === 'APROBADA'
@@ -902,13 +903,13 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                       flexShrink: 0,
                     }}
                   >
-                    <Send size={12} />
+                    <Send size={11} />
                     <span>Lanzar Lote</span>
                   </button>
                 </div>
 
                 {/* Previsualización Smartphone WhatsApp Compacta Centrada */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0.2rem 0' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0.15rem 0' }}>
                   <BurbujaWhatsApp
                     encabezadoTipo={plantillaSeleccionada.encabezado_tipo}
                     encabezadoContenido={plantillaSeleccionada.encabezado_contenido}
