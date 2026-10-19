@@ -221,7 +221,40 @@ export function formatearNombreEspecialista(nombre?: string | null): string {
   return `${prefijo} ${palabrasFormateadas.join(' ')}`;
 }
 
+/**
+ * Determina si la ficha clínica de un paciente/contacto está incompleta.
+ * Se considera incompleta si no tiene documento/cédula registrada.
+ */
+export function esFichaIncompleta(contacto?: {
+  cedula?: string | null;
+  documento?: string | null;
+  contacto_cedula?: string | null;
+  nombre?: string | null;
+  nombre_completo?: string | null;
+  contacto_nombre?: string | null;
+} | null): boolean {
+  if (!contacto) return true;
+  const doc = (contacto.cedula || contacto.documento || contacto.contacto_cedula || '').trim();
+  return !doc;
+}
 
-
-
-
+/**
+ * Devuelve lista amigable de campos clínicos pendientes por completar en recepción.
+ */
+export function obtenerCamposFaltantesFicha(contacto?: {
+  cedula?: string | null;
+  documento?: string | null;
+  contacto_cedula?: string | null;
+  edad?: number | null;
+  contacto_edad?: number | null;
+  telefono?: string | null;
+  contacto_telefono?: string | null;
+} | null): string[] {
+  if (!contacto) return ['Documento', 'Edad'];
+  const faltantes: string[] = [];
+  const doc = (contacto.cedula || contacto.documento || contacto.contacto_cedula || '').trim();
+  if (!doc) faltantes.push('Documento de identidad');
+  const edad = contacto.edad ?? contacto.contacto_edad;
+  if (edad === undefined || edad === null || edad <= 0) faltantes.push('Edad');
+  return faltantes;
+}

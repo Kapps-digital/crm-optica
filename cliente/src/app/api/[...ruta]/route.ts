@@ -617,7 +617,9 @@ async function procesarPeticion(
 
       let consulta = `
         SELECT c.*, COALESCE(c.estado, 'pendiente') AS estado,
-          co.nombre_completo AS contacto_nombre, co.telefono AS contacto_telefono, co.correo AS contacto_correo
+          co.nombre_completo AS contacto_nombre, co.telefono AS contacto_telefono, co.correo AS contacto_correo,
+          co.cedula AS contacto_cedula, co.tipo_documento AS contacto_tipo_documento, co.edad AS contacto_edad,
+          co.sexo AS contacto_sexo
         FROM citas c LEFT JOIN contactos co ON co.id = c.contacto_id WHERE c.optica_id = ?
       `;
       const paramsSql: any[] = [optica_id];

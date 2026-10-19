@@ -644,7 +644,7 @@ const HERRAMIENTAS_OPENAI = [
     type: 'function',
     function: {
       name: 'agendar_cita',
-      description: 'Agenda y confirma una nueva cita en el CRM una vez que el paciente ha confirmado la fecha, la hora Y el motivo de la consulta. ¡ATENCIÓN!: NUNCA ejecutes esta herramienta sin haber preguntado y confirmado previamente el motivo de la cita con el paciente ofreciéndole las opciones disponibles de la clínica.',
+      description: 'Agenda y confirma una nueva cita en el CRM una vez que el cliente ha confirmado la fecha, la hora, el motivo de la consulta Y su nombre y apellido (en caso de no estar registrado como paciente). ¡ATENCIÓN!: NUNCA ejecutes esta herramienta sin haber confirmado previamente el motivo de la cita con el cliente, ni sin haberle pedido su nombre y apellido si el cliente no está registrado como paciente.',
       parameters: {
         type: 'object',
         properties: {
@@ -659,6 +659,10 @@ const HERRAMIENTAS_OPENAI = [
           motivo: {
             type: 'string',
             description: 'Motivo de la cita elegido o confirmado por el paciente (ejemplo: "Examen Visual y Control Anual", "Primera Vez - Examen Computarizado", "Adaptación de Lentes de Contacto", etc.). OBLIGATORIO.',
+          },
+          nombre_apellido: {
+            type: 'string',
+            description: 'Nombre y apellido completo del cliente proporcionados durante la conversación si el cliente no estaba previamente registrado como paciente en el sistema (ejemplo: "Carlos Mendoza").',
           },
         },
         required: ['fecha', 'hora', 'motivo'],
@@ -698,7 +702,7 @@ const HERRAMIENTAS_OPENAI = [
     type: 'function',
     function: {
       name: 'transferir_a_asesor',
-      description: 'Transfiere de inmediato el chat a un asesor humano cuando el paciente lo solicite expresamente ("quiero hablar con un asesor", "pásame con una persona") o cuando se presente una duda médica o situación que la IA no pueda responder. Marca el chat con alerta urgente en el CRM.',
+      description: 'Transfiere de inmediato el chat a un asesor humano cuando: 1) El cliente solicite cotizaciones, precios de consultas/exámenes/lentes/monturas, stock, qué debe llevar o especificaciones técnicas de exámenes o productos que NO estén explícitamente definidos en las instrucciones o preguntas frecuentes (FAQ) de la óptica; 2) El cliente realice una pregunta cuya información no esté en la base de datos o el sistema y la IA no pueda responder con certeza; 3) El paciente solicite expresamente hablar con un asesor o persona humana ("quiero hablar con un asesor", "pásame con alguien"); 4) Se presente una duda médica especializada o reclamo complejo. Marca el chat con alerta urgente en el CRM.',
       parameters: {
         type: 'object',
         properties: {
@@ -777,7 +781,7 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId, c
   }
 
   if (nombre === 'agendar_cita') {
-    const { fecha, hora, motivo } = argumentos;
+    const { fecha, hora, motivo, nombre_apellido } = argumentos;
     const hoyStr = obtenerFechaHoyColombia();
 
     // Validar motivo obligatorio confirmado por el paciente
@@ -842,8 +846,22 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId, c
     const motivoFinal = motivo || resOptica.rows[0]?.motivo_cita_defecto || 'Primera Vez - Examen Computarizado';
     const nombreOptica = resOptica.rows[0]?.nombre || 'Óptica';
 
-    const resContacto = await pool.query(`SELECT nombre_completo FROM "CRM_Opticas".contactos WHERE id = $1`, [contactoId]);
-    const nombrePaciente = resContacto.rows[0]?.nombre_completo || 'Paciente';
+    const resContacto = await pool.query(`SELECT nombre_completo, es_paciente FROM "CRM_Opticas".contactos WHERE id = $1`, [contactoId]);
+    let nombrePaciente = resContacto.rows[0]?.nombre_completo || 'Paciente';
+
+    // Si el cliente suministró su nombre y apellido, actualizar su ficha en contactos
+    if (nombre_apellido && typeof nombre_apellido === 'string' && nombre_apellido.trim() !== '') {
+      const nombreLimpio = extraerNombrePersonaValido(nombre_apellido) || nombre_apellido.trim();
+      if (nombreLimpio) {
+        await pool.query(
+          `UPDATE "CRM_Opticas".contactos 
+           SET nombre_completo = $1, es_paciente = TRUE 
+           WHERE id = $2 AND (nombre_completo IS NULL OR nombre_completo = '' OR es_paciente IS NOT TRUE OR nombre_completo ILIKE 'Contacto %' OR nombre_completo ILIKE 'Paciente%')`,
+          [nombreLimpio, contactoId]
+        );
+        nombrePaciente = nombreLimpio;
+      }
+    }
 
     const resInsert = await pool.query(
       `INSERT INTO "CRM_Opticas".citas 
@@ -1442,11 +1460,19 @@ export async function procesarMensajeConIA({ conversacion_id, mensaje_id, contac
   // 4. Obtener datos del paciente
   const idContacto = contacto_id || conv.contacto_id;
   const resContacto = await pool.query(
-    `SELECT nombre_completo, telefono FROM "CRM_Opticas".contactos WHERE id = $1`,
+    `SELECT nombre_completo, telefono, es_paciente FROM "CRM_Opticas".contactos WHERE id = $1`,
     [idContacto]
   );
   const paciente = resContacto.rows[0] || {};
   const nombreRealPersona = extraerNombrePersonaValido(paciente.nombre_completo);
+  const esPacienteRegistrado = Boolean(paciente.es_paciente && nombreRealPersona);
+
+  let estadoPacienteRegistrado = '';
+  if (esPacienteRegistrado) {
+    estadoPacienteRegistrado = `SÍ, ES PACIENTE REGISTRADO (Nombre: *${nombreRealPersona}*). Ya se encuentra en el sistema; NO le pidas nombre ni apellido para agendar la cita; confirma y aparta la cita directamente con este nombre registrado.`;
+  } else {
+    estadoPacienteRegistrado = `NO ESTÁ REGISTRADO COMO PACIENTE (o no tiene nombre y apellido en el sistema). Para agendar una cita es OBLIGATORIO solicitarle amablemente su Nombre y Apellido completo antes de confirmar y llamar a la herramienta "agendar_cita".`;
+  }
 
   // Regla estricta de trato según requerimiento del negocio:
   // Si tiene un nombre real de persona en WhatsApp/CRM, usar su nombre.
@@ -1498,7 +1524,9 @@ export async function procesarMensajeConIA({ conversacion_id, mensaje_id, contac
   });
 
   const diasAtencion = configOptica.dias_atencion || 'Lunes a Domingo';
-  const horarioAtencion = `${diasAtencion}, de ${configOptica.hora_inicio_atencion || '08:00 AM'} a ${configOptica.hora_fin_atencion || '06:00 PM'}`;
+  const horaInicioAtencion = configOptica.hora_inicio_atencion || '08:00 AM';
+  const horaFinAtencion = configOptica.hora_fin_atencion || configOptica.hora_final_atencion || '06:00 PM';
+  const horarioAtencion = `${diasAtencion}, de ${horaInicioAtencion} a ${horaFinAtencion}`;
   const duracionConsulta = `${configOptica.duracion_cita_minutos || 30} minutos`;
 
   let promptSistemaFinal = '';
@@ -1512,10 +1540,14 @@ export async function procesarMensajeConIA({ conversacion_id, mensaje_id, contac
       .replace(/\{\{nombre_optica\}\}/g, nombreOpticaReal)
       .replace(/\{\{fecha_hoy\}\}/g, fechaHoy)
       .replace(/\{\{hora_actual_colombia\}\}/g, horaActualColombia)
+      .replace(/\{\{dias_atencion\}\}/g, diasAtencion)
+      .replace(/\{\{hora_inicio_atencion\}\}/g, horaInicioAtencion)
+      .replace(/\{\{hora_fin_atencion\}\}/g, horaFinAtencion)
       .replace(/\{\{horario_atencion\}\}/g, horarioAtencion)
       .replace(/\{\{duracion_consulta\}\}/g, duracionConsulta)
       .replace(/\{\{ia_tono\}\}/g, configOptica.ia_tono || 'amable y profesional')
       .replace(/\{\{nombre_paciente\}\}/g, nombreRealPersona || 'No identificado')
+      .replace(/\{\{estado_paciente_registrado\}\}/g, estadoPacienteRegistrado)
       .replace(/\{\{instruccion_trato_nombre\}\}/g, instruccionTratoNombre)
       .replace(/\{\{motivos_cita_disponibles\}\}/g, motivosTexto)
       .replace(/\{\{citas_vigentes_texto\}\}/g, citasTexto)
@@ -1536,14 +1568,17 @@ Fecha de hoy: ${fechaHoy}.
 Hora actual en Colombia: ${horaActualColombia}.
 Horario hábil de atención de la óptica: ${horarioAtencion}.
 Duración estándar de cada consulta: ${duracionConsulta}.
+Estado del paciente en el sistema: ${estadoPacienteRegistrado}.
 
 REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
 1. IDENTIDAD INSTITUCIONAL: El nombre oficial y exclusivo de esta óptica es "${nombreOpticaReal}". Utiliza siempre este nombre oficial en tus saludos o menciones. NUNCA uses nombres genéricos como "la óptica" ni inventes nombres de otras empresas.
 2. NEGRITAS: Utiliza EXCLUSIVAMENTE un solo asterisco a cada lado: *texto en negrita*.
-3. CERO MEMORIA: NUNCA copies horarios de mensajes viejos del chat. Cada vez que pregunten horarios o disponibilidad, llama a "consultar_horarios_disponibles".
-4. JORNADAS: Pregunta si prefieren en la mañana (antes de 1:00 PM) o tarde (1:00 PM a 6:00 PM).
-5. HOY: Prohibido ofrecer horas pasadas.
-6. REPROGRAMACIÓN: Prohibido auto-asignar hora sin confirmación explícita del paciente.
+3. AGENDAR CITA: Si el cliente NO es paciente registrado, debes pedirle obligatoriamente su Nombre y Apellido completo antes de agendar. Si ya es paciente registrado, NO se lo pidas y usa su nombre registrado. Confirma siempre motivo, fecha y hora antes de llamar a "agendar_cita".
+4. COTIZACIONES, PRECIOS, EXÁMENES Y DUDAS SIN INFORMACIÓN: Si preguntan por cotizaciones, precios de consulta/exámenes/lentes/monturas, qué debe llevar para el examen, especificaciones técnicas de exámenes o productos, o cualquier pregunta que no tenga información en la base de datos o en FAQ, debes llamar obligatoriamente a "transferir_a_asesor".
+5. CERO MEMORIA: NUNCA copies horarios de mensajes viejos del chat. Cada vez que pregunten horarios o disponibilidad, llama a "consultar_horarios_disponibles".
+6. JORNADAS: Pregunta si prefieren en la mañana (antes de 1:00 PM) o tarde (1:00 PM a 6:00 PM).
+7. HOY: Prohibido ofrecer horas pasadas.
+8. REPROGRAMACIÓN: Prohibido auto-asignar hora sin confirmación explícita del paciente.
 `;
   }
 

@@ -22,12 +22,15 @@ import {
   User,
   MoreVertical,
   CalendarCheck,
+  IdCard,
+  AlertTriangle,
 } from 'lucide-react';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
 import { ModalAgendarCita, type DatosNuevaCita } from './ModalAgendarCita';
 import { ModalReprogramarCita, type DatosReprogramarCita } from './ModalReprogramarCita';
 import { ModalConfirmarCancelarCita } from './ModalConfirmarCancelarCita';
+import { ModalRegistrarPaciente } from '../pacientes/ModalRegistrarPaciente';
 import {
   SelectorPeriodoAgenda,
   type FiltroPeriodoAgenda,
@@ -46,6 +49,7 @@ import {
   obtenerNombrePaciente,
   compararCitasPorFechaYHora,
   convertirHoraAMinutos,
+  esFichaIncompleta,
 } from '@/utilidades/formato';
 
 interface PropiedadesCalendarioCitas {
@@ -134,6 +138,34 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
   const [modalReprogramarAbierto, setModalReprogramarAbierto] = useState(false);
   const [citaParaReprogramar, setCitaParaReprogramar] = useState<Cita | null>(null);
   const [citaParaCancelar, setCitaParaCancelar] = useState<Cita | null>(null);
+
+  // Estado para completar datos de paciente con ficha incompleta en recepción
+  const [modalCompletarPacienteAbierto, setModalCompletarPacienteAbierto] = useState(false);
+  const [pacienteParaCompletar, setPacienteParaCompletar] = useState<Contacto | null>(null);
+
+  const abrirModalCompletarPaciente = (cita: Cita) => {
+    const encontrado = contactos.find((c) => Number(c.id) === Number(cita.contacto_id));
+    if (encontrado) {
+      setPacienteParaCompletar(encontrado);
+    } else {
+      setPacienteParaCompletar({
+        id: cita.contacto_id,
+        nombre: cita.contacto_nombre,
+        nombre_completo: cita.contacto_nombre,
+        telefono: cita.contacto_telefono || null,
+        correo: cita.contacto_correo || null,
+        cedula: cita.contacto_cedula || null,
+        tipo_documento: cita.contacto_tipo_documento || 'CC',
+        edad: cita.contacto_edad || null,
+        sexo: cita.contacto_sexo || null,
+        es_paciente: true,
+        business_scoped_user_id: null,
+        creado_en: new Date().toISOString(),
+        actualizado_en: new Date().toISOString(),
+      });
+    }
+    setModalCompletarPacienteAbierto(true);
+  };
 
   // Paginación de la vista Agenda (por defecto 5 registros)
   const [limiteAgenda, setLimiteAgenda] = useState<number>(5);
@@ -973,6 +1005,11 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
                                   <span className="tooltip-cita-paciente">{cita.contacto_nombre || 'Paciente'}</span>
                                 </div>
                                 {cita.motivo && <div className="tooltip-cita-motivo">{cita.motivo}</div>}
+                                {!cita.contacto_cedula && (
+                                  <div style={{ fontSize: '0.67rem', color: '#f59e0b', marginTop: '0.2rem', fontWeight: 600 }}>
+                                    ⚠️ Datos incompletos
+                                  </div>
+                                )}
                                 <div className="tooltip-cita-pie">
                                   <span className="tooltip-cita-especialista">
                                     {esSinDoc ? '⚠️ Sin doctor asignado' : `👨‍⚕️ ${cita.especialista}`}
@@ -994,6 +1031,19 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
                               <span className="pildora-paciente">
                                 {cita.contacto_nombre || 'Paciente'}
                               </span>
+                              {!cita.contacto_cedula && (
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    color: '#d97706',
+                                    marginLeft: '0.25rem',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  <AlertTriangle size={11} strokeWidth={2.5} />
+                                </span>
+                              )}
                               {esSinDoc && <span className="pildora-punto-alerta">!</span>}
                             </div>
                           </EtiquetaTooltip>
@@ -1102,6 +1152,31 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
                         </div>
 
                         <div className="tarjeta-cita-badges-grupo">
+                          {!cita.contacto_cedula && (
+                            <EtiquetaTooltip texto="Paciente con cita pero sin documento registrado. Clic para completar datos en recepción." posicion="abajo">
+                              <button
+                                type="button"
+                                onClick={() => abrirModalCompletarPaciente(cita)}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem',
+                                  fontSize: '0.67rem',
+                                  fontWeight: 700,
+                                  padding: '0.15rem 0.5rem',
+                                  borderRadius: '6px',
+                                  background: 'rgba(245, 158, 11, 0.15)',
+                                  color: '#d97706',
+                                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                }}
+                              >
+                                <AlertTriangle size={11} />
+                                <span>Datos Incompletos</span>
+                              </button>
+                            </EtiquetaTooltip>
+                          )}
                           {renderBadgeEstado(cita.estado)}
                         </div>
                       </div>
@@ -1123,6 +1198,31 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
                               </span>
                             )}
                             <span className="id-item">#{cita.contacto_id}</span>
+                            {!cita.contacto_cedula ? (
+                              <EtiquetaTooltip texto="Completar datos del paciente" posicion="arriba">
+                                <span
+                                  onClick={() => abrirModalCompletarPaciente(cita)}
+                                  style={{
+                                    color: '#d97706',
+                                    fontSize: '0.70rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.25rem',
+                                    textDecoration: 'underline',
+                                  }}
+                                >
+                                  <IdCard size={11} />
+                                  <span>Completar datos</span>
+                                </span>
+                              </EtiquetaTooltip>
+                            ) : (
+                              <span style={{ color: 'var(--texto-secundario)', fontSize: '0.70rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                                <IdCard size={11} />
+                                <span>{(cita.contacto_tipo_documento || 'CC')}: {cita.contacto_cedula}</span>
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1329,9 +1429,41 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
                           </td>
                           <td>
                             <div className="agenda-td-paciente">
-                              <strong>{cita.contacto_nombre || 'Sin nombre'}</strong>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                <strong>{cita.contacto_nombre || 'Sin nombre'}</strong>
+                                {!cita.contacto_cedula && (
+                                  <EtiquetaTooltip texto="Cédula pendiente. Clic para completar datos del paciente en recepción." posicion="arriba">
+                                    <button
+                                      type="button"
+                                      onClick={() => abrirModalCompletarPaciente(cita)}
+                                      style={{
+                                        fontSize: '0.62rem',
+                                        fontWeight: 700,
+                                        padding: '0.08rem 0.35rem',
+                                        borderRadius: '4px',
+                                        background: 'rgba(245, 158, 11, 0.15)',
+                                        color: '#d97706',
+                                        border: '1px solid rgba(245, 158, 11, 0.35)',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '0.2rem',
+                                        transition: 'all 0.15s ease',
+                                      }}
+                                    >
+                                      <AlertTriangle size={10} />
+                                      <span>Datos Incompletos</span>
+                                    </button>
+                                  </EtiquetaTooltip>
+                                )}
+                              </div>
                               {cita.contacto_telefono && (
                                 <span className="tel">{formatearTelefono(cita.contacto_telefono)}</span>
+                              )}
+                              {cita.contacto_cedula && (
+                                <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)' }}>
+                                  {(cita.contacto_tipo_documento || 'CC')}: {cita.contacto_cedula}
+                                </span>
                               )}
                             </div>
                           </td>
@@ -1357,6 +1489,25 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
                           </td>
                           <td style={{ textAlign: 'right' }}>
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                              {/* Botón Completar Ficha si no tiene cédula */}
+                              {!cita.contacto_cedula && (
+                                <EtiquetaTooltip texto="Completar cédula y datos clínicos en recepción" posicion="arriba">
+                                  <button
+                                    type="button"
+                                    className="btn-accion-cita"
+                                    style={{
+                                      padding: '0.35rem',
+                                      color: '#d97706',
+                                      borderColor: 'rgba(245, 158, 11, 0.45)',
+                                      background: 'rgba(245, 158, 11, 0.12)',
+                                    }}
+                                    onClick={() => abrirModalCompletarPaciente(cita)}
+                                  >
+                                    <IdCard size={13} />
+                                  </button>
+                                </EtiquetaTooltip>
+                              )}
+
                               {/* Botón Reprogramar: Solo icono en la tabla de la agenda */}
                               {cita.estado !== 'completada' && cita.estado !== 'cancelada' && (
                                 <EtiquetaTooltip texto="Reprogramar cita" posicion="arriba">
@@ -1493,6 +1644,21 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
         cita={citaParaCancelar}
         alCerrar={() => setCitaParaCancelar(null)}
         alConfirmar={manejarConfirmarCancelarCita}
+      />
+
+      {/* Modal para Completar Ficha del Paciente en Recepción */}
+      <ModalRegistrarPaciente
+        abierto={modalCompletarPacienteAbierto}
+        contactoParaConvertir={pacienteParaCompletar}
+        alCerrar={() => {
+          setModalCompletarPacienteAbierto(false);
+          setPacienteParaCompletar(null);
+        }}
+        alGuardarExitoso={async () => {
+          await cargarCitas();
+          setModalCompletarPacienteAbierto(false);
+          setPacienteParaCompletar(null);
+        }}
       />
     </div>
   );

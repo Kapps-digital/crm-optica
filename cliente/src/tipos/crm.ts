@@ -189,6 +189,10 @@ export interface Cita {
   contacto_nombre?: string | null;
   contacto_telefono?: string | null;
   contacto_correo?: string | null;
+  contacto_cedula?: string | null;
+  contacto_tipo_documento?: string | null;
+  contacto_edad?: number | null;
+  contacto_sexo?: string | null;
 }
 
 export interface CriteriosSegmento {
