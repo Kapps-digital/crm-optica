@@ -229,8 +229,8 @@ async function procesarPeticion(
           motivo_cita_defecto: opticaDb.motivo_cita_defecto || '',
           notificacion_auto_citas_whatsapp: opticaDb.notificacion_auto_citas_whatsapp !== false,
           dias_atencion: opticaDb.dias_atencion || 'Lunes a Domingo',
-          hora_inicio_atencion: opticaDb.hora_inicio_atencion || '08:00',
-          hora_fin_atencion: opticaDb.hora_fin_atencion || '18:00',
+          hora_inicio_atencion: opticaDb.hora_inicio_atencion || '08:00 AM',
+          hora_fin_atencion: opticaDb.hora_fin_atencion || '06:00 PM',
           ia_activa: Boolean(opticaDb.ia_activa ?? true),
         } : null,
       });
