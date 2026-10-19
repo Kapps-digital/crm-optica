@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   MessageSquare,
   Building2,
@@ -27,6 +27,11 @@ import {
   Send,
   HelpCircle,
   Wand2,
+  Zap,
+  ArrowDownRight,
+  ArrowUpRight,
+  RefreshCw,
+  BarChart3,
 } from 'lucide-react';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
 import { SelectorColorPopover } from '../comunes/SelectorColorPopover';
@@ -42,9 +47,12 @@ import {
   obtenerConfiguracionIAApi,
   guardarConfiguracionIAApi,
   probarAgenteIAApi,
+  obtenerMetricasConsumoIAApi,
+  type ResumenConsumoIA,
+  type ConsumoTokensIA,
 } from '@/servicios/api_crm';
 import type { Optica, CuentaCanalWhatsApp, ConfiguracionIA } from '@/tipos/crm';
-import { formatearTelefono } from '@/utilidades/formato';
+import { formatearTelefono, formatearNombreEspecialista } from '@/utilidades/formato';
 
 interface PropiedadesModuloConfiguracion {
   opticaActual?: Optica | null;
@@ -80,6 +88,51 @@ const OPCIONES_MOTIVOS_CITA = [
   { valor: 'Molestia Ocular / Urgencia Visual', etiqueta: 'Molestia Ocular / Urgencia Visual' },
 ];
 
+const DIAS_SEMANA_OPCIONES = [
+  { id: 'Lun', etiqueta: 'Lunes', corto: 'Lun' },
+  { id: 'Mar', etiqueta: 'Martes', corto: 'Mar' },
+  { id: 'Mie', etiqueta: 'Miércoles', corto: 'Mié' },
+  { id: 'Jue', etiqueta: 'Jueves', corto: 'Jue' },
+  { id: 'Vie', etiqueta: 'Viernes', corto: 'Vie' },
+  { id: 'Sab', etiqueta: 'Sábado', corto: 'Sáb' },
+  { id: 'Dom', etiqueta: 'Domingo', corto: 'Dom' },
+];
+
+const obtenerDiasActivos = (textoDias?: string | null): Record<string, boolean> => {
+  const texto = (textoDias || 'Lunes a Domingo').toLowerCase().trim();
+  if (texto === 'lunes a domingo' || texto === 'todos los días' || texto === 'todos los dias') {
+    return { Lun: true, Mar: true, Mie: true, Jue: true, Vie: true, Sab: true, Dom: true };
+  }
+  if (texto === 'lunes a sábado' || texto === 'lunes a sabado') {
+    return { Lun: true, Mar: true, Mie: true, Jue: true, Vie: true, Sab: true, Dom: false };
+  }
+  if (texto === 'lunes a viernes') {
+    return { Lun: true, Mar: true, Mie: true, Jue: true, Vie: true, Sab: false, Dom: false };
+  }
+  if (texto.includes('fin de semana') || texto.includes('fines de semana')) {
+    return { Lun: false, Mar: false, Mie: false, Jue: false, Vie: false, Sab: true, Dom: true };
+  }
+  return {
+    Lun: /lun/i.test(texto),
+    Mar: /mar/i.test(texto),
+    Mie: /mi[eé]/i.test(texto),
+    Jue: /jue/i.test(texto),
+    Vie: /vie/i.test(texto),
+    Sab: /s[aá]b/i.test(texto),
+    Dom: /dom/i.test(texto),
+  };
+};
+
+const generarTextoDias = (activos: Record<string, boolean>): string => {
+  const lista = DIAS_SEMANA_OPCIONES.filter((d) => activos[d.id]);
+  if (lista.length === 7) return 'Lunes a Domingo';
+  if (lista.length === 6 && !activos.Dom) return 'Lunes a Sábado';
+  if (lista.length === 5 && !activos.Sab && !activos.Dom) return 'Lunes a Viernes';
+  if (lista.length === 2 && activos.Sab && activos.Dom) return 'Sábados y Domingos';
+  if (lista.length === 0) return 'Lunes a Domingo';
+  return lista.map((d) => d.corto).join(', ');
+};
+
 export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
   opticaActual,
   alActualizarOptica,
@@ -99,8 +152,13 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
   // Probador de IA en vivo
   const [mensajePrueba, setMensajePrueba] = useState('Hola, ¿qué horario de atención tienen y cómo puedo agendar una cita?');
   const [respuestaPrueba, setRespuestaPrueba] = useState<string | null>(null);
+  const [consumoPrueba, setConsumoPrueba] = useState<ConsumoTokensIA | null>(null);
   const [probandoIA, setProbandoIA] = useState(false);
   const [errorPrueba, setErrorPrueba] = useState<string | null>(null);
+
+  // Métricas de Consumo de Tokens por Óptica
+  const [cargandoMetricasIA, setCargandoMetricasIA] = useState(false);
+  const [resumenConsumoIA, setResumenConsumoIA] = useState<ResumenConsumoIA | null>(null);
 
   // Estados de Canales
   const [cargandoCanales, setCargandoCanales] = useState(true);
@@ -145,9 +203,21 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
   const [registroProfesionalDefecto, setRegistroProfesionalDefecto] = useState('');
   const [motivoCitaDefecto, setMotivoCitaDefecto] = useState('');
   const [notificacionAutoCitas, setNotificacionAutoCitas] = useState(true);
+  const [diasAtencion, setDiasAtencion] = useState('Lunes a Domingo');
   const [horaInicioAtencion, setHoraInicioAtencion] = useState('08:00 AM');
   const [horaFinAtencion, setHoraFinAtencion] = useState('06:00 PM');
   const [guardandoClinica, setGuardandoClinica] = useState(false);
+
+  const diasActivos = useMemo(() => {
+    return obtenerDiasActivos(diasAtencion);
+  }, [diasAtencion]);
+
+  const alternarDia = (idDia: string) => {
+    const nuevos = { ...diasActivos, [idDia]: !diasActivos[idDia] };
+    const totalActivos = Object.values(nuevos).filter(Boolean).length;
+    if (totalActivos === 0) return;
+    setDiasAtencion(generarTextoDias(nuevos));
+  };
 
   // Modal de confirmación de cambios clínicos y agenda
   const [modalConfirmarClinicaAbierto, setModalConfirmarClinicaAbierto] = useState(false);
@@ -184,6 +254,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
           setRegistroProfesionalDefecto(opticaMapeada.registro_profesional_defecto || '');
           setMotivoCitaDefecto(opticaMapeada.motivo_cita_defecto || '');
           setNotificacionAutoCitas(opticaMapeada.notificacion_auto_citas_whatsapp !== false);
+          setDiasAtencion(opticaMapeada.dias_atencion || 'Lunes a Domingo');
           setHoraInicioAtencion(normalizarHoraTexto(opticaMapeada.hora_inicio_atencion) || '08:00 AM');
           setHoraFinAtencion(normalizarHoraTexto(opticaMapeada.hora_fin_atencion) || '06:00 PM');
 
@@ -207,6 +278,21 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
     cargarEstadoCanales();
   }, [cargarEstadoCanales]);
 
+  // Cargar métricas de consumo de IA por óptica
+  const cargarMetricasConsumo = useCallback(async () => {
+    setCargandoMetricasIA(true);
+    try {
+      const res = await obtenerMetricasConsumoIAApi(opticaData?.id ? Number(opticaData.id) : undefined);
+      if (res.exito && res.resumen) {
+        setResumenConsumoIA(res.resumen);
+      }
+    } catch (e) {
+      console.warn('Error al cargar métricas de consumo de IA:', e);
+    } finally {
+      setCargandoMetricasIA(false);
+    }
+  }, [opticaData?.id]);
+
   // Cargar configuración de IA
   const cargarConfiguracionIA = useCallback(async () => {
     setCargandoIA(true);
@@ -228,7 +314,8 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
 
   useEffect(() => {
     cargarConfiguracionIA();
-  }, [cargarConfiguracionIA]);
+    cargarMetricasConsumo();
+  }, [cargarConfiguracionIA, cargarMetricasConsumo]);
 
   // Escuchar mensaje emitido por el callback de popup
   useEffect(() => {
@@ -602,7 +689,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
 
     // 3. Especialista / Optómetra Principal
     const espOrig = (opticaData?.especialista_defecto || '').trim();
-    const espActual = especialistaDefecto.trim();
+    const espActual = formatearNombreEspecialista(especialistaDefecto) || especialistaDefecto.trim();
     if (espActual !== espOrig) {
       cambios.push({
         campo: 'Especialista Principal',
@@ -633,7 +720,17 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
       });
     }
 
-    // 6. Horario Hábil de Atención
+    // 6. Días y Horario de Atención
+    const diasOrig = opticaData?.dias_atencion || 'Lunes a Domingo';
+    const diasActual = diasAtencion || 'Lunes a Domingo';
+    if (diasActual !== diasOrig) {
+      cambios.push({
+        campo: 'Días de Atención',
+        anterior: diasOrig,
+        nuevo: diasActual,
+      });
+    }
+
     const horaIniOrig = normalizarHoraTexto(opticaData?.hora_inicio_atencion) || '08:00 AM';
     const horaFinOrig = normalizarHoraTexto(opticaData?.hora_fin_atencion) || '06:00 PM';
     const horaIniActual = normalizarHoraTexto(horaInicioAtencion) || '08:00 AM';
@@ -677,10 +774,11 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
         optica_id: opticaData?.id || 1,
         duracion_cita_minutos: Number(duracionConsulta) || 30,
         control_meses_defecto: Number(controlDefectoMeses) || 12,
-        especialista_defecto: especialistaDefecto.trim(),
+        especialista_defecto: formatearNombreEspecialista(especialistaDefecto) || especialistaDefecto.trim(),
         registro_profesional_defecto: registroProfesionalDefecto.trim(),
         motivo_cita_defecto: motivoCitaDefecto.trim(),
         notificacion_auto_citas_whatsapp: notificacionAutoCitas,
+        dias_atencion: diasAtencion.trim() || 'Lunes a Domingo',
         hora_inicio_atencion: normalizarHoraTexto(horaInicioAtencion),
         hora_fin_atencion: normalizarHoraTexto(horaFinAtencion),
       });
@@ -704,6 +802,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
       setRegistroProfesionalDefecto(opticaActualizada.registro_profesional_defecto || '');
       setMotivoCitaDefecto(opticaActualizada.motivo_cita_defecto || '');
       setNotificacionAutoCitas(opticaActualizada.notificacion_auto_citas_whatsapp !== false);
+      setDiasAtencion(opticaActualizada.dias_atencion || 'Lunes a Domingo');
       setHoraInicioAtencion(normalizarHoraTexto(opticaActualizada.hora_inicio_atencion) || '08:00 AM');
       setHoraFinAtencion(normalizarHoraTexto(opticaActualizada.hora_fin_atencion) || '06:00 PM');
 
@@ -815,6 +914,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
     if (!mensajePrueba.trim()) return;
     setProbandoIA(true);
     setRespuestaPrueba(null);
+    setConsumoPrueba(null);
     setErrorPrueba(null);
 
     try {
@@ -827,6 +927,11 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
 
       if (res.exito && res.respuesta) {
         setRespuestaPrueba(res.respuesta);
+        if (res.consumo) {
+          setConsumoPrueba(res.consumo);
+        }
+        // Refrescar métricas acumuladas de la óptica
+        cargarMetricasConsumo();
       } else {
         setErrorPrueba(res.error || 'No se pudo obtener respuesta del modelo.');
       }
@@ -1635,11 +1740,53 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                   </span>
                 </div>
 
-                {/* 3. Horario Hábil de Atención */}
+                {/* 3. Días y Horario de Atención */}
                 <div className="modal-campo-grupo">
-                  <label className="modal-label" style={{ fontSize: '0.73rem', fontWeight: 600 }}>
-                    Horario Hábil de Atención
-                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
+                    <label className="modal-label" style={{ fontSize: '0.73rem', fontWeight: 600, margin: 0 }}>
+                      Días & Horario de Atención
+                    </label>
+                    <span style={{ fontSize: '0.67rem', fontWeight: 700, color: 'var(--color-primario)', background: 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.12)', padding: '0.06rem 0.38rem', borderRadius: '4px' }}>
+                      {diasAtencion || 'Lunes a Domingo'}
+                    </span>
+                  </div>
+
+                  {/* Selector interactivo de días de atención */}
+                  <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.35rem', width: '100%' }}>
+                    {DIAS_SEMANA_OPCIONES.map((dia) => {
+                      const activo = diasActivos[dia.id];
+                      return (
+                        <button
+                          key={dia.id}
+                          type="button"
+                          onClick={() => alternarDia(dia.id)}
+                          title={`${dia.etiqueta}: ${activo ? 'Abierto (clic para desactivar)' : 'Cerrado (clic para activar)'}`}
+                          style={{
+                            flex: 1,
+                            padding: '0.22rem 0',
+                            fontSize: '0.69rem',
+                            fontWeight: 700,
+                            borderRadius: '5px',
+                            border: activo
+                              ? '1px solid var(--color-primario)'
+                              : '1px solid var(--borde-tarjeta, rgba(0,0,0,0.12))',
+                            backgroundColor: activo
+                              ? 'var(--color-primario)'
+                              : 'var(--fondo-tarjeta, transparent)',
+                            color: activo ? '#ffffff' : 'var(--texto-atenuado)',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          {dia.corto}
+                        </button>
+                      );
+                    })}
+                  </div>
+
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                     <div style={{ flex: 1 }}>
                       <SelectorHoraPopover
@@ -1658,7 +1805,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                     </div>
                   </div>
                   <span style={{ fontSize: '0.69rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem', lineHeight: '1.2' }}>
-                    Rango horario operativo visible en el selector de citas.
+                    Días y rango horario operativo visibles en el selector de citas.
                   </span>
                 </div>
 
@@ -1682,6 +1829,14 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                       type="text"
                       value={especialistaDefecto}
                       onChange={(e) => setEspecialistaDefecto(e.target.value)}
+                      onBlur={() => setEspecialistaDefecto(formatearNombreEspecialista(especialistaDefecto))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          setEspecialistaDefecto(formatearNombreEspecialista(especialistaDefecto));
+                          (e.currentTarget as HTMLInputElement).blur();
+                        }
+                      }}
                       placeholder="Sin asignar (en blanco por defecto)"
                       className="modal-input"
                       style={{ paddingLeft: '2.1rem', paddingBlock: '0.36rem', fontSize: '0.78rem' }}
@@ -2118,6 +2273,32 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                     >
                       {respuestaPrueba}
                     </div>
+
+                    {consumoPrueba && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.85rem',
+                          marginTop: '0.65rem',
+                          padding: '0.5rem 0.85rem',
+                          borderRadius: 'var(--radio-md)',
+                          background: 'rgba(2, 132, 199, 0.08)',
+                          border: '1px solid rgba(2, 132, 199, 0.25)',
+                          fontSize: '0.74rem',
+                          color: 'var(--texto-principal)',
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <span style={{ fontWeight: 700, color: 'var(--color-primario)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <Zap size={13} /> Consumo de esta respuesta:
+                        </span>
+                        <span><strong>Entrada:</strong> {consumoPrueba.tokens_entrada.toLocaleString('es-CO')} tokens</span>
+                        <span><strong>Salida:</strong> {consumoPrueba.tokens_salida.toLocaleString('es-CO')} tokens</span>
+                        <span><strong>Total:</strong> {consumoPrueba.tokens_totales.toLocaleString('es-CO')} tokens</span>
+                        <span style={{ color: 'var(--texto-atenuado)' }}>({consumoPrueba.modelo})</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </form>

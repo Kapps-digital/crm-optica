@@ -116,7 +116,7 @@ export async function obtener_canales_optica(optica_id = 1) {
         activo,
         duracion_cita_minutos, control_meses_defecto, especialista_defecto, 
         registro_profesional_defecto, motivo_cita_defecto, notificacion_auto_citas_whatsapp,
-        hora_inicio_atencion, hora_fin_atencion,
+        dias_atencion, hora_inicio_atencion, hora_fin_atencion,
         COALESCE(ia_activa, true) AS ia_activa
        FROM "CRM_Opticas".opticas WHERE id = $1`,
       [optica_id]
@@ -360,6 +360,7 @@ export async function actualizar_datos_optica(optica_id = 1, datos = {}) {
       registro_profesional_defecto,
       motivo_cita_defecto,
       notificacion_auto_citas_whatsapp,
+      dias_atencion,
       hora_inicio_atencion,
       hora_fin_atencion,
     } = datos;
@@ -411,6 +412,10 @@ export async function actualizar_datos_optica(optica_id = 1, datos = {}) {
     if (notificacion_auto_citas_whatsapp !== undefined && notificacion_auto_citas_whatsapp !== null) {
       campos.push(`notificacion_auto_citas_whatsapp = $${indice++}`);
       valores.push(Boolean(notificacion_auto_citas_whatsapp));
+    }
+    if (dias_atencion !== undefined && dias_atencion !== null) {
+      campos.push(`dias_atencion = $${indice++}`);
+      valores.push(String(dias_atencion).trim());
     }
     if (hora_inicio_atencion !== undefined && hora_inicio_atencion !== null) {
       campos.push(`hora_inicio_atencion = $${indice++}`);

@@ -16,7 +16,7 @@ import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
 import { ModalAlertaVentana24h } from '../comunes/ModalAlertaVentana24h';
 import type { Contacto, FormulaOptica } from '@/tipos/crm';
-import { formatearTelefono, obtenerNombrePaciente } from '@/utilidades/formato';
+import { formatearTelefono, obtenerNombrePaciente, formatearEjeVisual } from '@/utilidades/formato';
 
 interface PropiedadesFichaOptometrica {
   contacto: Contacto | null;
@@ -90,10 +90,10 @@ export const FichaOptometrica: React.FC<PropiedadesFichaOptometrica> = ({
       `📅 *Fecha Examen:* ${formulaActiva.fecha_examen ? new Date(formulaActiva.fecha_examen).toLocaleDateString() : new Date().toLocaleDateString()}`,
       ``,
       `👁️ *Ojo Derecho (OD):*`,
-      `• Esfera: ${formulaActiva.esfera_od || '+0.00'} | Cil: ${formulaActiva.cilindro_od || '-0.00'} | Eje: ${formulaActiva.eje_od || '0'}° | AV: ${formulaActiva.av_od || '20/20'}${formulaActiva.adicion_od ? ` | Adic: ${formulaActiva.adicion_od}` : ''}`,
+      `• Esfera: ${formulaActiva.esfera_od || '+0.00'} | Cil: ${formulaActiva.cilindro_od || '-0.00'} | Eje: ${formatearEjeVisual(formulaActiva.eje_od)} | AV: ${formulaActiva.av_od || '20/20'}${formulaActiva.adicion_od ? ` | Adic: ${formulaActiva.adicion_od}` : ''}`,
       ``,
       `👁️ *Ojo Izquierdo (OI):*`,
-      `• Esfera: ${formulaActiva.esfera_oi || '+0.00'} | Cil: ${formulaActiva.cilindro_oi || '-0.00'} | Eje: ${formulaActiva.eje_oi || '0'}° | AV: ${formulaActiva.av_oi || '20/20'}${formulaActiva.adicion_oi ? ` | Adic: ${formulaActiva.adicion_oi}` : ''}`,
+      `• Esfera: ${formulaActiva.esfera_oi || '+0.00'} | Cil: ${formulaActiva.cilindro_oi || '-0.00'} | Eje: ${formatearEjeVisual(formulaActiva.eje_oi)} | AV: ${formulaActiva.av_oi || '20/20'}${formulaActiva.adicion_oi ? ` | Adic: ${formulaActiva.adicion_oi}` : ''}`,
       ``,
       `🔬 *Tipo de Lente:* ${formulaActiva.tipo_lente || 'Monofocal Antirreflejo'}`,
       `📏 *Distancia Pupilar (DP):* ${formulaActiva.distancia_pupilar || '62 mm'}`,
@@ -203,7 +203,7 @@ export const FichaOptometrica: React.FC<PropiedadesFichaOptometrica> = ({
                   <td className="ojo-rotulo">OD</td>
                   <td id="f-od-esf">{formulaActiva.esfera_od || '+0.00'}</td>
                   <td id="f-od-cil">{formulaActiva.cilindro_od || '-0.00'}</td>
-                  <td id="f-od-eje">{formulaActiva.eje_od ? `${formulaActiva.eje_od}°` : '0°'}</td>
+                  <td id="f-od-eje">{formatearEjeVisual(formulaActiva.eje_od)}</td>
                   <td id="f-od-add">{formulaActiva.adicion_od || '+0.00'}</td>
                   <td id="f-od-av">{formulaActiva.av_od || '20/20'}</td>
                 </tr>
@@ -211,7 +211,7 @@ export const FichaOptometrica: React.FC<PropiedadesFichaOptometrica> = ({
                   <td className="ojo-rotulo">OI</td>
                   <td id="f-oi-esf">{formulaActiva.esfera_oi || '+0.00'}</td>
                   <td id="f-oi-cil">{formulaActiva.cilindro_oi || '-0.00'}</td>
-                  <td id="f-oi-eje">{formulaActiva.eje_oi ? `${formulaActiva.eje_oi}°` : '0°'}</td>
+                  <td id="f-oi-eje">{formatearEjeVisual(formulaActiva.eje_oi)}</td>
                   <td id="f-oi-add">{formulaActiva.adicion_oi || '+0.00'}</td>
                   <td id="f-oi-av">{formulaActiva.av_oi || '20/20'}</td>
                 </tr>

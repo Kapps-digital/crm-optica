@@ -135,6 +135,24 @@ export const base_datos = {
  */
 export async function inicializar_base_datos() {
   try {
+    // Asegurar tabla de auditoría de consumo de tokens IA
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS "CRM_Opticas".consumo_ia (
+        id BIGSERIAL PRIMARY KEY,
+        optica_id BIGINT NOT NULL REFERENCES "CRM_Opticas".opticas(id) ON DELETE CASCADE,
+        conversacion_id BIGINT REFERENCES "CRM_Opticas".conversaciones(id) ON DELETE SET NULL,
+        mensaje_id BIGINT REFERENCES "CRM_Opticas".mensajes(id) ON DELETE SET NULL,
+        modelo VARCHAR(100) NOT NULL,
+        tokens_entrada INTEGER NOT NULL DEFAULT 0,
+        tokens_salida INTEGER NOT NULL DEFAULT 0,
+        tokens_totales INTEGER NOT NULL DEFAULT 0,
+        tipo_evento VARCHAR(50) NOT NULL DEFAULT 'chat_whatsapp',
+        creado_en TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_consumo_ia_optica ON "CRM_Opticas".consumo_ia (optica_id, creado_en);
+      CREATE INDEX IF NOT EXISTS idx_consumo_ia_tipo ON "CRM_Opticas".consumo_ia (tipo_evento);
+    `);
+
     const res = await pool.query(`
       SELECT table_name 
       FROM information_schema.tables 
@@ -150,3 +168,4 @@ export async function inicializar_base_datos() {
 
 // Inicializar verificación de conexión al importar
 inicializar_base_datos();
+

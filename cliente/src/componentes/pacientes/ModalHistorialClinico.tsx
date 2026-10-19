@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import type { Contacto, FormulaOptica, Cita } from '@/tipos/crm';
 import { obtenerDetalleContacto } from '@/servicios/api_crm';
-import { formatearTelefono, formatearSeparadorMiles, obtenerNombrePaciente } from '@/utilidades/formato';
+import { formatearTelefono, formatearSeparadorMiles, obtenerNombrePaciente, formatearEjeVisual } from '@/utilidades/formato';
 import { BarraPaginacionTabla } from '../comunes/BarraPaginacionTabla';
 
 interface PropiedadesModalHistorialClinico {
@@ -667,7 +667,7 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                                               <td style={{ padding: '0.4rem', fontWeight: 700, color: 'var(--color-primario)' }}>OD (Derecho)</td>
                                               <td style={{ padding: '0.4rem', fontWeight: 600 }}>{f.esfera_od || '0.00'}</td>
                                               <td style={{ padding: '0.4rem', fontWeight: 600 }}>{f.cilindro_od || '0.00'}</td>
-                                              <td style={{ padding: '0.4rem' }}>{f.eje_od ? `${f.eje_od}°` : '--'}</td>
+                                              <td style={{ padding: '0.4rem' }}>{formatearEjeVisual(f.eje_od, '--')}</td>
                                               <td style={{ padding: '0.4rem' }}>{f.adicion_od || '--'}</td>
                                               <td style={{ padding: '0.4rem', color: '#10b981', fontWeight: 600 }}>{f.av_od || '20/20'}</td>
                                             </tr>
@@ -675,7 +675,7 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                                               <td style={{ padding: '0.4rem', fontWeight: 700, color: '#0284c7' }}>OI (Izquierdo)</td>
                                               <td style={{ padding: '0.4rem', fontWeight: 600 }}>{f.esfera_oi || '0.00'}</td>
                                               <td style={{ padding: '0.4rem', fontWeight: 600 }}>{f.cilindro_oi || '0.00'}</td>
-                                              <td style={{ padding: '0.4rem' }}>{f.eje_oi ? `${f.eje_oi}°` : '--'}</td>
+                                              <td style={{ padding: '0.4rem' }}>{formatearEjeVisual(f.eje_oi, '--')}</td>
                                               <td style={{ padding: '0.4rem' }}>{f.adicion_oi || '--'}</td>
                                               <td style={{ padding: '0.4rem', color: '#10b981', fontWeight: 600 }}>{f.av_oi || '20/20'}</td>
                                             </tr>

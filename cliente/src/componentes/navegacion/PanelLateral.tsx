@@ -17,6 +17,7 @@ import {
   LogOut,
   Power,
   Settings,
+  Zap,
 } from 'lucide-react';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import { ModalConfirmarCierreSesion } from './ModalConfirmarCierreSesion';
@@ -256,7 +257,7 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
               <div className="panel-popover-acciones">
                 <button
                   type="button"
-                  className="panel-popover-btn-item"
+                  className={`panel-popover-btn-item ${vistaActiva === 'configuracion' ? 'activo' : ''}`}
                   onClick={() => {
                     alCambiarVista('configuracion');
                     setMenuUsuarioAbierto(false);
@@ -264,6 +265,17 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
                 >
                   <Settings className="panel-popover-item-icono" />
                   <span>Configuración</span>
+                </button>
+                <button
+                  type="button"
+                  className={`panel-popover-btn-item ${vistaActiva === 'consumo' ? 'activo' : ''}`}
+                  onClick={() => {
+                    alCambiarVista('consumo');
+                    setMenuUsuarioAbierto(false);
+                  }}
+                >
+                  <Zap className="panel-popover-item-icono" />
+                  <span>Consumo</span>
                 </button>
                 <button
                   type="button"

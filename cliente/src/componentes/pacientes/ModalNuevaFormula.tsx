@@ -7,7 +7,7 @@ import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
 import type { Contacto, FormulaOptica } from '@/tipos/crm';
 import { obtenerOpticaSesion } from '@/servicios/api_crm';
-import { formatearTelefono, obtenerNombrePaciente } from '@/utilidades/formato';
+import { formatearTelefono, obtenerNombrePaciente, formatearDistanciaPupilar, formatearNombreEspecialista } from '@/utilidades/formato';
 
 // Helpers de normalización y formateo optométrico inteligente
 const formatearEsfera = (valorEntrada: string): string => {
@@ -267,9 +267,9 @@ export const ModalNuevaFormula: React.FC<PropiedadesModalNuevaFormula> = ({
         eje_oi: formulario.eje_oi,
         adicion_oi: formulario.adicion_oi,
         av_oi: formulario.av_oi,
-        distancia_pupilar: formulario.distancia_pupilar,
+        distancia_pupilar: formatearDistanciaPupilar(formulario.distancia_pupilar) || formulario.distancia_pupilar.trim(),
         tipo_lente: formulario.tipo_lente,
-        optometra: formulario.optometra,
+        optometra: formatearNombreEspecialista(formulario.optometra) || formulario.optometra.trim(),
         proximo_control_en_meses: Number(formulario.proximo_control_en_meses),
         observaciones: formulario.observaciones || undefined,
         fecha_examen: new Date().toISOString(),
@@ -496,9 +496,33 @@ export const ModalNuevaFormula: React.FC<PropiedadesModalNuevaFormula> = ({
                   id="campo-distancia-pupilar"
                   type="text"
                   value={formulario.distancia_pupilar}
-                  onChange={(e) => setFormulario({ ...formulario, distancia_pupilar: e.target.value })}
+                  onChange={(e) => {
+                    const soloDigitos = e.target.value.replace(/\D/g, '');
+                    setFormulario((prev) => ({ ...prev, distancia_pupilar: soloDigitos }));
+                  }}
+                  onBlur={() => {
+                    setFormulario((prev) => ({
+                      ...prev,
+                      distancia_pupilar: formatearDistanciaPupilar(prev.distancia_pupilar),
+                    }));
+                  }}
                   onFocus={(e) => e.target.select()}
-                  onKeyDown={(e) => avanzarConEnter(e, 'campo-optometra')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      setFormulario((prev) => ({
+                        ...prev,
+                        distancia_pupilar: formatearDistanciaPupilar(prev.distancia_pupilar),
+                      }));
+                      setTimeout(() => {
+                        const siguiente = document.getElementById('campo-optometra') as HTMLInputElement | null;
+                        if (siguiente) {
+                          siguiente.focus();
+                          siguiente.select();
+                        }
+                      }, 10);
+                    }
+                  }}
                   className="modal-input"
                   placeholder="Ej: 62 mm"
                 />
@@ -530,7 +554,23 @@ export const ModalNuevaFormula: React.FC<PropiedadesModalNuevaFormula> = ({
                   type="text"
                   value={formulario.optometra}
                   onChange={(e) => setFormulario({ ...formulario, optometra: e.target.value })}
+                  onBlur={() => {
+                    setFormulario((prev) => ({
+                      ...prev,
+                      optometra: formatearNombreEspecialista(prev.optometra),
+                    }));
+                  }}
                   onFocus={(e) => e.target.select()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      setFormulario((prev) => ({
+                        ...prev,
+                        optometra: formatearNombreEspecialista(prev.optometra),
+                      }));
+                      (e.currentTarget as HTMLInputElement).blur();
+                    }
+                  }}
                   className="modal-input"
                   placeholder="Nombre del especialista"
                 />

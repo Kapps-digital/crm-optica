@@ -37,6 +37,201 @@ export function cargarPlantillaInstrucciones() {
 const URL_OPENROUTER_COMPLETIONS = 'https://openrouter.ai/api/v1/chat/completions';
 
 /**
+ * Registra el consumo de tokens de una interacción de IA en la base de datos
+ */
+export async function registrarConsumoIA({
+  optica_id,
+  conversacion_id = null,
+  mensaje_id = null,
+  modelo,
+  tokens_entrada = 0,
+  tokens_salida = 0,
+  tokens_totales = 0,
+  tipo_evento = 'chat_whatsapp',
+}) {
+  try {
+    const entrada = Math.max(0, Number(tokens_entrada) || 0);
+    let salida = Math.max(0, Number(tokens_salida) || 0);
+    let totales = Number(tokens_totales) || 0;
+
+    // Si la API reporta totales mayores que entrada + salida (ej: tokens de razonamiento/thinking de Gemini 2.0 Flash),
+    // atribuimos la diferencia a salida para que la suma siempre sea matemáticamente exacta (entrada + salida = totales)
+    if (totales > (entrada + salida)) {
+      salida = totales - entrada;
+    } else if (totales === 0 || totales < (entrada + salida)) {
+      totales = entrada + salida;
+    }
+
+    await pool.query(
+      `INSERT INTO "CRM_Opticas".consumo_ia 
+        (optica_id, conversacion_id, mensaje_id, modelo, tokens_entrada, tokens_salida, tokens_totales, tipo_evento)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        Number(optica_id) || 1,
+        conversacion_id ? Number(conversacion_id) : null,
+        mensaje_id ? Number(mensaje_id) : null,
+        modelo || 'desconocido',
+        entrada,
+        salida,
+        totales,
+        tipo_evento || 'chat_whatsapp',
+      ]
+    );
+  } catch (err) {
+    console.error('[Consumo IA] Error al registrar consumo en BD:', err.message);
+  }
+}
+
+/**
+ * Obtiene métricas agregadas, tendencia diaria e historial de consumo de tokens
+ * con soporte para filtrado por óptica, rango de fechas y tipo de evento
+ */
+export async function obtenerMetricasConsumoIA(argumentoOpciones = {}) {
+  try {
+    const opciones =
+      typeof argumentoOpciones === 'object' && argumentoOpciones !== null
+        ? argumentoOpciones
+        : { optica_id: argumentoOpciones };
+
+    const { optica_id = null, desde = null, hasta = null, tipo_evento = null, modelo = null } = opciones;
+
+    const condiciones = [];
+    const parametros = [];
+    let contador = 0;
+
+    if (optica_id && optica_id !== 'todas') {
+      contador++;
+      condiciones.push(`c.optica_id = $${contador}`);
+      parametros.push(Number(optica_id));
+    }
+
+    if (desde) {
+      contador++;
+      condiciones.push(`c.creado_en >= $${contador}::timestamp`);
+      parametros.push(desde);
+    }
+
+    if (hasta) {
+      contador++;
+      condiciones.push(`c.creado_en <= ($${contador}::timestamp + interval '1 day' - interval '1 second')`);
+      parametros.push(hasta);
+    }
+
+    if (tipo_evento && tipo_evento !== 'todos') {
+      contador++;
+      condiciones.push(`c.tipo_evento = $${contador}`);
+      parametros.push(tipo_evento);
+    }
+
+    if (modelo && modelo !== 'todos') {
+      contador++;
+      condiciones.push(`c.modelo = $${contador}`);
+      parametros.push(modelo);
+    }
+
+    const clausulaWhere = condiciones.length > 0 ? `WHERE ${condiciones.join(' AND ')}` : '';
+
+    const sqlResumen = `
+      SELECT 
+        COUNT(*)::int AS total_mensajes_respondidos,
+        COUNT(DISTINCT c.conversacion_id)::int AS total_conversaciones,
+        COALESCE(SUM(c.tokens_entrada), 0)::bigint AS total_tokens_entrada,
+        COALESCE(SUM(c.tokens_salida), 0)::bigint AS total_tokens_salida,
+        COALESCE(SUM(c.tokens_totales), 0)::bigint AS total_tokens_acumulados,
+        COALESCE(ROUND(AVG(c.tokens_entrada), 1), 0)::numeric AS promedio_tokens_entrada,
+        COALESCE(ROUND(AVG(c.tokens_salida), 1), 0)::numeric AS promedio_tokens_salida,
+        COALESCE(ROUND(AVG(c.tokens_totales), 1), 0)::numeric AS promedio_tokens_totales
+      FROM "CRM_Opticas".consumo_ia c
+      ${clausulaWhere}
+    `;
+
+    const resTotales = await pool.query(sqlResumen, parametros);
+
+    const sqlTendencia = `
+      SELECT 
+        TO_CHAR(c.creado_en, 'YYYY-MM-DD') AS fecha,
+        COUNT(*)::int AS total_mensajes,
+        COALESCE(SUM(c.tokens_entrada), 0)::bigint AS tokens_entrada,
+        COALESCE(SUM(c.tokens_salida), 0)::bigint AS tokens_salida,
+        COALESCE(SUM(c.tokens_totales), 0)::bigint AS tokens_totales
+      FROM "CRM_Opticas".consumo_ia c
+      ${clausulaWhere}
+      GROUP BY TO_CHAR(c.creado_en, 'YYYY-MM-DD')
+      ORDER BY fecha ASC
+      LIMIT 60
+    `;
+
+    const resTendencia = await pool.query(sqlTendencia, parametros);
+
+    const sqlHistorial = `
+      SELECT 
+        c.id, c.optica_id, o.nombre AS nombre_optica,
+        c.conversacion_id, c.mensaje_id, c.modelo,
+        c.tokens_entrada, c.tokens_salida, c.tokens_totales,
+        c.tipo_evento, c.creado_en
+      FROM "CRM_Opticas".consumo_ia c
+      LEFT JOIN "CRM_Opticas".opticas o ON o.id = c.optica_id
+      ${clausulaWhere}
+      ORDER BY c.creado_en DESC
+      LIMIT 50
+    `;
+
+    const resHistorial = await pool.query(sqlHistorial, parametros);
+
+    // Obtener catálogo de modelos registrados en el historial de consumo
+    const resModelos = await pool.query(`
+      SELECT DISTINCT modelo 
+      FROM "CRM_Opticas".consumo_ia 
+      WHERE modelo IS NOT NULL AND modelo != '' 
+      ORDER BY modelo ASC
+    `);
+    const modelosDisponibles = resModelos.rows.map((r) => r.modelo);
+
+    // Obtener catálogo de tipos de evento / orígenes registrados en el historial de consumo
+    const resTiposEvento = await pool.query(`
+      SELECT DISTINCT tipo_evento 
+      FROM "CRM_Opticas".consumo_ia 
+      WHERE tipo_evento IS NOT NULL AND tipo_evento != '' 
+      ORDER BY tipo_evento ASC
+    `);
+    const tiposEventoDisponibles = resTiposEvento.rows.map((r) => r.tipo_evento);
+
+    return {
+      resumen: resTotales.rows[0] || {
+        total_mensajes_respondidos: 0,
+        total_conversaciones: 0,
+        total_tokens_entrada: 0,
+        total_tokens_salida: 0,
+        total_tokens_acumulados: 0,
+        promedio_tokens_entrada: 0,
+        promedio_tokens_salida: 0,
+        promedio_tokens_totales: 0,
+      },
+      tendencia_diaria: resTendencia.rows || [],
+      historial: resHistorial.rows || [],
+      modelos_disponibles: modelosDisponibles,
+      tipos_evento_disponibles: tiposEventoDisponibles,
+    };
+  } catch (error) {
+    console.error('[Consumo IA] Error al obtener métricas de consumo:', error.message);
+    return {
+      resumen: {
+        total_mensajes_respondidos: 0,
+        total_conversaciones: 0,
+        total_tokens_entrada: 0,
+        total_tokens_salida: 0,
+        total_tokens_acumulados: 0,
+        promedio_tokens_entrada: 0,
+        promedio_tokens_salida: 0,
+        promedio_tokens_totales: 0,
+      },
+      tendencia_diaria: [],
+      historial: [],
+    };
+  }
+}
+
+/**
  * Obtiene la configuración de IA de una óptica
  */
 export async function obtenerConfiguracionIA(opticaId) {
@@ -44,7 +239,7 @@ export async function obtenerConfiguracionIA(opticaId) {
   const res = await pool.query(
     `SELECT id, nombre, ia_activa, ia_nombre, ia_tono, ia_instrucciones, 
             ia_preguntas_frecuentes,
-            hora_inicio_atencion, hora_fin_atencion, duracion_cita_minutos,
+            dias_atencion, hora_inicio_atencion, hora_fin_atencion, duracion_cita_minutos,
             especialista_defecto, motivo_cita_defecto
      FROM "CRM_Opticas".opticas 
      WHERE id = $1`,
@@ -1030,6 +1225,10 @@ async function ejecutarLlamadaGemini({
   let respuestaFinalTexto = '';
   let ultimoMensajeConfirmacionOficial = null;
 
+  let totalTokensEntrada = 0;
+  let totalTokensSalida = 0;
+  let totalTokens = 0;
+
   while (llamadasRestantes > 0) {
     llamadasRestantes--;
 
@@ -1059,6 +1258,12 @@ async function ejecutarLlamadaGemini({
           datosJson = await res.json();
           modeloElegido = mod;
           exitoPeticion = true;
+
+          if (datosJson?.usageMetadata) {
+            totalTokensEntrada += Number(datosJson.usageMetadata.promptTokenCount || 0);
+            totalTokensSalida += Number(datosJson.usageMetadata.candidatesTokenCount || 0);
+            totalTokens += Number(datosJson.usageMetadata.totalTokenCount || 0);
+          }
           break;
         } else {
           const errTxt = await res.text();
@@ -1134,6 +1339,11 @@ async function ejecutarLlamadaGemini({
     respuestaTexto: respuestaFinalTexto,
     ultimoMensajeConfirmacionOficial,
     modeloUsado: modeloElegido,
+    consumoTokens: {
+      tokens_entrada: totalTokensEntrada,
+      tokens_salida: totalTokensSalida,
+      tokens_totales: totalTokens > 0 ? totalTokens : (totalTokensEntrada + totalTokensSalida),
+    },
   };
 }
 
@@ -1287,7 +1497,8 @@ export async function procesarMensajeConIA({ conversacion_id, mensaje_id, contac
     hour12: true,
   });
 
-  const horarioAtencion = `${configOptica.hora_inicio_atencion || '08:00 AM'} a ${configOptica.hora_fin_atencion || '06:00 PM'}`;
+  const diasAtencion = configOptica.dias_atencion || 'Lunes a Domingo';
+  const horarioAtencion = `${diasAtencion}, de ${configOptica.hora_inicio_atencion || '08:00 AM'} a ${configOptica.hora_fin_atencion || '06:00 PM'}`;
   const duracionConsulta = `${configOptica.duracion_cita_minutos || 30} minutos`;
 
   let promptSistemaFinal = '';
@@ -1343,6 +1554,8 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
   try {
     let respuestaFinalTexto = '';
     let ultimoMensajeConfirmacionOficial = null;
+    let consumoTokensFinal = { tokens_entrada: 0, tokens_salida: 0, tokens_totales: 0 };
+    let modeloFinalUtilizado = '';
 
     if (esGemini) {
       console.log(`[Motor IA] Procesando con Google Gemini Oficial (modelo: ${modeloGeminiNormalizado})`);
@@ -1364,6 +1577,10 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
 
       respuestaFinalTexto = resGemini.respuestaTexto || '';
       ultimoMensajeConfirmacionOficial = resGemini.ultimoMensajeConfirmacionOficial;
+      modeloFinalUtilizado = resGemini.modeloUsado || modeloGeminiNormalizado;
+      if (resGemini.consumoTokens) {
+        consumoTokensFinal = resGemini.consumoTokens;
+      }
     } else {
       // 6. Ensamblar contenido de conversación en formato OpenAI / OpenRouter
       const messages = [
@@ -1392,6 +1609,7 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
       }
 
       const modeloOpenRouter = configOptica.ia_modelo || 'openrouter/free';
+      modeloFinalUtilizado = modeloOpenRouter;
       let llamadasRestantes = 3;
 
       while (llamadasRestantes > 0) {
@@ -1422,6 +1640,12 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
         }
 
         const datosJson = await respApi.json();
+        if (datosJson?.usage) {
+          consumoTokensFinal.tokens_entrada += Number(datosJson.usage.prompt_tokens || 0);
+          consumoTokensFinal.tokens_salida += Number(datosJson.usage.completion_tokens || 0);
+          consumoTokensFinal.tokens_totales += Number(datosJson.usage.total_tokens || 0);
+        }
+
         const choice = datosJson.choices?.[0];
         const mensajeRespuesta = choice?.message;
 
@@ -1493,7 +1717,19 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
       enviado_por_ia: true,
     });
 
-    // 8. Si la respuesta contiene indicación de transferencia a asesor humano, marcar como urgente y pausar IA
+    // 8. Registrar consumo de tokens en la base de datos de auditoría
+    await registrarConsumoIA({
+      optica_id,
+      conversacion_id,
+      mensaje_id,
+      modelo: modeloFinalUtilizado,
+      tokens_entrada: consumoTokensFinal.tokens_entrada,
+      tokens_salida: consumoTokensFinal.tokens_salida,
+      tokens_totales: consumoTokensFinal.tokens_totales,
+      tipo_evento: 'chat_whatsapp',
+    });
+
+    // 9. Si la respuesta contiene indicación de transferencia a asesor humano, marcar como urgente y pausar IA
     const textoMinus = textoParaWhatsApp.toLowerCase();
     if (
       textoMinus.includes('asesor') ||
@@ -1516,6 +1752,7 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
       respondido: true,
       texto: textoParaWhatsApp,
       exito_envio: resEnvio.exito,
+      consumo: consumoTokensFinal,
     };
   } catch (error) {
     console.error('[Motor IA] Excepción al procesar con IA:', error);

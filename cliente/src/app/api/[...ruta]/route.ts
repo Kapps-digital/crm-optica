@@ -51,6 +51,8 @@ import {
   guardarConfiguracionIA,
   alternarEstadoIAChat,
   obtenerMotivosDisponiblesOpticaBD,
+  registrarConsumoIA,
+  obtenerMetricasConsumoIA,
 } from '@/backend/servicios/motor_ia.mjs';
 
 const base_datos = bdModulo as any;
@@ -198,7 +200,7 @@ async function procesarPeticion(
           id, nombre, slug, logo_url, color_primario, color_secundario, telefono,
           duracion_cita_minutos, control_meses_defecto, especialista_defecto,
           registro_profesional_defecto, motivo_cita_defecto, notificacion_auto_citas_whatsapp,
-          hora_inicio_atencion, hora_fin_atencion,
+          dias_atencion, hora_inicio_atencion, hora_fin_atencion,
           COALESCE(ia_activa, true) AS ia_activa
         FROM opticas WHERE id = ? AND activo = true
       `).get(optica_id);
@@ -226,6 +228,7 @@ async function procesarPeticion(
           registro_profesional_defecto: opticaDb.registro_profesional_defecto || '',
           motivo_cita_defecto: opticaDb.motivo_cita_defecto || '',
           notificacion_auto_citas_whatsapp: opticaDb.notificacion_auto_citas_whatsapp !== false,
+          dias_atencion: opticaDb.dias_atencion || 'Lunes a Domingo',
           hora_inicio_atencion: opticaDb.hora_inicio_atencion || '08:00',
           hora_fin_atencion: opticaDb.hora_fin_atencion || '18:00',
           ia_activa: Boolean(opticaDb.ia_activa ?? true),
@@ -881,6 +884,10 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
           let exitoGemini = false;
           let ultimoError = '';
           let textoRespuesta = '';
+          let modeloUsado = modelosPrueba[0];
+          let tokensEntrada = 0;
+          let tokensSalida = 0;
+          let tokensTotales = 0;
 
           for (const m of modelosPrueba) {
             const urlGemini = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${claveApi}`;
@@ -897,7 +904,25 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
             if (resp.ok) {
               const data = await resp.json();
               textoRespuesta = data.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('').trim() || 'Sin respuesta generada.';
+              modeloUsado = m;
               exitoGemini = true;
+
+              if (data.usageMetadata) {
+                tokensEntrada = Number(data.usageMetadata.promptTokenCount || 0);
+                const salidaTexto = Number(data.usageMetadata.candidatesTokenCount || 0);
+                const razonamiento = Number(data.usageMetadata.thoughtsTokenCount || 0);
+                const totalApi = Number(data.usageMetadata.totalTokenCount || 0);
+                
+                // Si la API reporta tokens de razonamiento o un total superior, asegurar cuadratura matemática:
+                // Entrada + Salida = Totales (los tokens de razonamiento son facturados como generación/salida)
+                if (totalApi > (tokensEntrada + salidaTexto)) {
+                  tokensSalida = totalApi - tokensEntrada;
+                  tokensTotales = totalApi;
+                } else {
+                  tokensSalida = salidaTexto + razonamiento;
+                  tokensTotales = tokensEntrada + tokensSalida;
+                }
+              }
               break;
             } else {
               ultimoError = await resp.text();
@@ -905,7 +930,28 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
           }
 
           if (exitoGemini) {
-            return NextResponse.json({ exito: true, respuesta: textoRespuesta });
+            // Registrar consumo de tokens de prueba
+            await registrarConsumoIA({
+              optica_id,
+              conversacion_id: null,
+              mensaje_id: null,
+              modelo: modeloUsado,
+              tokens_entrada: tokensEntrada,
+              tokens_salida: tokensSalida,
+              tokens_totales: tokensTotales,
+              tipo_evento: 'simulador_prueba',
+            });
+
+            return NextResponse.json({
+              exito: true,
+              respuesta: textoRespuesta,
+              consumo: {
+                modelo: modeloUsado,
+                tokens_entrada: tokensEntrada,
+                tokens_salida: tokensSalida,
+                tokens_totales: tokensTotales,
+              },
+            });
           } else {
             return NextResponse.json({ exito: false, error: `Error de Google Gemini: ${ultimoError}` }, { status: 400 });
           }
@@ -938,10 +984,53 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
 
         const data = await resp.json();
         const textoRespuesta = data.choices?.[0]?.message?.content || 'Sin respuesta generada.';
-        return NextResponse.json({ exito: true, respuesta: textoRespuesta });
+        const tokensEntrada = Number(data.usage?.prompt_tokens || 0);
+        const tokensSalida = Number(data.usage?.completion_tokens || 0);
+        const tokensTotales = Number(data.usage?.total_tokens || (tokensEntrada + tokensSalida));
+
+        // Registrar consumo de tokens de prueba
+        await registrarConsumoIA({
+          optica_id,
+          conversacion_id: null,
+          mensaje_id: null,
+          modelo: mod,
+          tokens_entrada: tokensEntrada,
+          tokens_salida: tokensSalida,
+          tokens_totales: tokensTotales,
+          tipo_evento: 'simulador_prueba',
+        });
+
+        return NextResponse.json({
+          exito: true,
+          respuesta: textoRespuesta,
+          consumo: {
+            modelo: mod,
+            tokens_entrada: tokensEntrada,
+            tokens_salida: tokensSalida,
+            tokens_totales: tokensTotales,
+          },
+        });
       } catch (err: any) {
         return NextResponse.json({ exito: false, error: err.message }, { status: 500 });
       }
+    }
+
+    if (metodo === 'GET' && rutaStr === 'configuracion/ia/metricas-consumo') {
+      const opticaParam = searchParams.get('optica_id');
+      const opticaFiltro = opticaParam === 'todas' ? 'todas' : (opticaParam ? Number(opticaParam) : optica_id);
+      const desde = searchParams.get('desde') || null;
+      const hasta = searchParams.get('hasta') || null;
+      const tipo_evento = searchParams.get('tipo_evento') || null;
+      const modelo = searchParams.get('modelo') || null;
+
+      const metricas = await obtenerMetricasConsumoIA({
+        optica_id: opticaFiltro,
+        desde,
+        hasta,
+        tipo_evento,
+        modelo,
+      });
+      return NextResponse.json({ exito: true, ...metricas }, { headers: ENCABEZADOS_NO_CACHE });
     }
 
     // 10. PROXY MULTIMEDIA WHATSAPP / ZERNIO (IMÁGENES, AUDIOS, VIDEOS, DOCUMENTOS)

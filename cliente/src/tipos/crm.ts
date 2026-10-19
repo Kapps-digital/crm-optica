@@ -123,6 +123,7 @@ export interface Optica {
   motivo_cita_defecto?: string;
   motivos_citas_json?: string[];
   notificacion_auto_citas_whatsapp?: boolean;
+  dias_atencion?: string;
   hora_inicio_atencion?: string;
   hora_fin_atencion?: string;
   ia_activa?: boolean;

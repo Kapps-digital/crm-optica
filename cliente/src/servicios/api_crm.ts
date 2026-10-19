@@ -1128,6 +1128,54 @@ export async function alternarIAChatApi(
   }
 }
 
+export interface ConsumoTokensIA {
+  modelo: string;
+  tokens_entrada: number;
+  tokens_salida: number;
+  tokens_totales: number;
+}
+
+export interface ResumenConsumoIA {
+  total_mensajes_respondidos: number;
+  total_conversaciones: number;
+  total_tokens_entrada: number;
+  total_tokens_salida: number;
+  total_tokens_acumulados: number;
+  promedio_tokens_entrada: number;
+  promedio_tokens_salida: number;
+  promedio_tokens_totales: number;
+}
+
+export interface TendenciaDiariaConsumoIA {
+  fecha: string;
+  total_mensajes: number;
+  tokens_entrada: number;
+  tokens_salida: number;
+  tokens_totales: number;
+}
+
+export interface RegistroConsumoIA {
+  id: number;
+  optica_id: number;
+  nombre_optica?: string;
+  conversacion_id: number | null;
+  mensaje_id: number | null;
+  modelo: string;
+  tokens_entrada: number;
+  tokens_salida: number;
+  tokens_totales: number;
+  tipo_evento: string;
+  creado_en: string;
+}
+
+export interface FiltrosMetricasConsumoIA {
+  optica_id?: number | 'todas';
+  desde?: string;
+  hasta?: string;
+  tipo_evento?: string;
+  modelo?: string;
+}
+
 export async function probarAgenteIAApi(datos: {
   mensaje_prueba: string;
   prompt_personalizado?: string;
@@ -1138,6 +1186,7 @@ export async function probarAgenteIAApi(datos: {
 }): Promise<{
   exito: boolean;
   respuesta?: string;
+  consumo?: ConsumoTokensIA;
   error?: string;
 }> {
   try {
@@ -1155,6 +1204,48 @@ export async function probarAgenteIAApi(datos: {
   } catch (error) {
     registrarErrorApi('probarAgenteIAApi', error);
     return { exito: false, error: 'Error de red al probar agente IA' };
+  }
+}
+
+export async function obtenerMetricasConsumoIAApi(
+  filtros?: number | FiltrosMetricasConsumoIA
+): Promise<{
+  exito: boolean;
+  resumen?: ResumenConsumoIA;
+  tendencia_diaria?: TendenciaDiariaConsumoIA[];
+  historial?: RegistroConsumoIA[];
+  modelos_disponibles?: string[];
+  tipos_evento_disponibles?: string[];
+  error?: string;
+}> {
+  try {
+    const params = new URLSearchParams();
+    if (typeof filtros === 'number') {
+      params.set('optica_id', String(filtros));
+    } else if (filtros && typeof filtros === 'object') {
+      if (filtros.optica_id !== undefined && filtros.optica_id !== null) {
+        params.set('optica_id', String(filtros.optica_id));
+      }
+      if (filtros.desde) params.set('desde', filtros.desde);
+      if (filtros.hasta) params.set('hasta', filtros.hasta);
+      if (filtros.tipo_evento) params.set('tipo_evento', filtros.tipo_evento);
+      if (filtros.modelo) params.set('modelo', filtros.modelo);
+    }
+    const queryStr = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch(`/api/configuracion/ia/metricas-consumo${queryStr}`, {
+      method: 'GET',
+      headers: crearEncabezados(),
+      cache: 'no-store',
+    });
+    const texto = await res.text();
+    try {
+      return JSON.parse(texto);
+    } catch {
+      return { exito: false, error: `Error del servidor (${res.status})` };
+    }
+  } catch (error) {
+    registrarErrorApi('obtenerMetricasConsumoIAApi', error);
+    return { exito: false, error: 'Error de red al consultar métricas de consumo de IA' };
   }
 }
 

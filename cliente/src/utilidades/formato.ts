@@ -148,5 +148,80 @@ export function compararCitasPorFechaYHora<T extends { fecha_cita?: string | nul
   return Number(a.id || 0) - Number(b.id || 0);
 }
 
+/**
+ * Formatea el eje de refracción óptica asegurando exactamente un único símbolo de grados (°).
+ * Si el valor ya contiene uno o más símbolos de grado (ej: '20°', '20°°') o no los tiene (ej: '20', 20),
+ * garantiza que se visualice siempre con un solo grado '20°'. Si es nulo o vacío, retorna el fallback.
+ */
+export function formatearEjeVisual(eje?: string | number | null, fallback: string = '0°'): string {
+  if (eje === undefined || eje === null || String(eje).trim() === '') {
+    return fallback;
+  }
+  const limpio = String(eje).replace(/°+/g, '').trim();
+  if (!limpio) return fallback;
+  return `${limpio}°`;
+}
+
+/**
+ * Formatea la distancia pupilar (DP) asegurando el sufijo ' mm' únicamente si hay un número válido.
+ * Si el campo está vacío o no contiene dígitos, retorna una cadena vacía.
+ */
+export function formatearDistanciaPupilar(valor?: string | number | null): string {
+  if (valor === undefined || valor === null) return '';
+  const soloDigitos = String(valor).replace(/\D/g, '').trim();
+  if (!soloDigitos) return '';
+  return `${soloDigitos} mm`;
+}
+
+/**
+ * Formatea el nombre de un especialista / optómetra garantizando:
+ * 1. Limpieza de espacios redundantes al inicio, al final y entre palabras.
+ * 2. Si está vacío o solo contiene espacios o prefijos aislados, retorna ''.
+ * 3. Garantiza el prefijo 'Dr.' (o 'Dra.') al inicio (sin duplicarlo si ya lo tenía).
+ * 4. Pone en mayúscula la primera letra de cada palabra y el resto en minúscula (Title Case).
+ */
+export function formatearNombreEspecialista(nombre?: string | null): string {
+  if (!nombre) return '';
+  const limpio = String(nombre).trim().replace(/\s+/g, ' ');
+  if (!limpio) return '';
+
+  const palabras = limpio.split(' ');
+  if (palabras.length === 0) return '';
+
+  // Detectar si la primera palabra es variante de Dr. o Dra.
+  const primeraLimpia = palabras[0].toLowerCase().replace(/\.+$/, '');
+  let prefijo = 'Dr.';
+  let palabrasRestantes: string[] = [];
+
+  if (primeraLimpia === 'dr' || primeraLimpia === 'doctor') {
+    prefijo = 'Dr.';
+    palabrasRestantes = palabras.slice(1);
+  } else if (primeraLimpia === 'dra' || primeraLimpia === 'doctora') {
+    prefijo = 'Dra.';
+    palabrasRestantes = palabras.slice(1);
+  } else {
+    prefijo = 'Dr.';
+    palabrasRestantes = palabras;
+  }
+
+  // Filtrar palabras vacías
+  palabrasRestantes = palabrasRestantes.filter((p) => p.trim().length > 0);
+
+  // Si no hay palabras tras remover el prefijo, retornar vacío
+  if (palabrasRestantes.length === 0) {
+    return '';
+  }
+
+  // Capitalizar cada palabra (Title Case): primera letra mayúscula, resto minúscula
+  const palabrasFormateadas = palabrasRestantes.map((palabra) => {
+    const min = palabra.toLowerCase();
+    return min.charAt(0).toUpperCase() + min.slice(1);
+  });
+
+  return `${prefijo} ${palabrasFormateadas.join(' ')}`;
+}
+
+
+
 
 

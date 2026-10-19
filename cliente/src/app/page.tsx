@@ -15,6 +15,7 @@ import { CalendarioCitas } from '@/componentes/citas/CalendarioCitas';
 import { ModuloAutoSegmentacion } from '@/componentes/campanas/ModuloAutoSegmentacion';
 import { ModuloPlantillas } from '@/componentes/plantillas/ModuloPlantillas';
 import { ModuloConfiguracion } from '@/componentes/configuracion/ModuloConfiguracion';
+import { ModuloConsumo } from '@/componentes/consumo/ModuloConsumo';
 import { EtiquetaTooltip } from '@/componentes/comunes/EtiquetaTooltip';
 import { SelectorDesplegable } from '@/componentes/comunes/SelectorDesplegable';
 import {
@@ -936,6 +937,11 @@ export default function PaginaPrincipal() {
                 </>
               )}
               {vistaActiva === 'configuracion' && 'Configuración'}
+              {vistaActiva === 'consumo' && (
+                <>
+                  Auditoría <span className="ampersand-titular">&</span> Consumo de IA
+                </>
+              )}
             </h1>
             <p>
               {vistaActiva === 'mensajeria' && 'Gestión centralizada de mensajes y atención al cliente en tiempo real'}
@@ -945,6 +951,7 @@ export default function PaginaPrincipal() {
               {vistaActiva === 'plantillas' && 'Gestión de plantillas preaprobadas para mensajería empresarial'}
               {vistaActiva === 'analitica' && 'Métricas de atención y desempeño del equipo de optometría'}
               {vistaActiva === 'configuracion' && 'Canales de atención, perfil de la óptica y reglas de atención clínica'}
+              {vistaActiva === 'consumo' && 'Monitoreo analítico de tokens por óptica, control de gasto y proyecciones de costos mensuales'}
             </p>
           </div>
 
@@ -1137,7 +1144,14 @@ export default function PaginaPrincipal() {
           />
         )}
 
-        {vistaActiva !== 'mensajeria' && vistaActiva !== 'pacientes' && vistaActiva !== 'citas' && vistaActiva !== 'campanas' && vistaActiva !== 'plantillas' && vistaActiva !== 'configuracion' && (
+        {vistaActiva === 'consumo' && (
+          <ModuloConsumo
+            opticas={listaOpticas}
+            opticaActual={opticaActual}
+          />
+        )}
+
+        {vistaActiva !== 'mensajeria' && vistaActiva !== 'pacientes' && vistaActiva !== 'citas' && vistaActiva !== 'campanas' && vistaActiva !== 'plantillas' && vistaActiva !== 'configuracion' && vistaActiva !== 'consumo' && (
           <div style={{ flex: 1, padding: '3rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--texto-atenuado)' }}>
             <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--texto-principal)', textTransform: 'capitalize' }}>
               Módulo de {vistaActiva}
