@@ -36,6 +36,8 @@ import {
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
 import { SelectorColorPopover } from '../comunes/SelectorColorPopover';
 import { SelectorHoraPopover } from '../comunes/SelectorHoraPopover';
+import { BarraPestanas, ElementoPestana } from '../comunes/BarraPestanas';
+import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import {
   obtenerEstadoCanalesApi,
   obtenerUrlConexionWhatsAppApi,
@@ -169,6 +171,71 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
   const [abriendoConexion, setAbriendoConexion] = useState(false);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
   const [mensajeError, setMensajeError] = useState<string | null>(null);
+  // Sincronizar estado interno cuando cambie la óptica seleccionada globalmente
+  useEffect(() => {
+    if (opticaActual) {
+      setOpticaData((prev) => ({
+        ...(prev || {}),
+        ...opticaActual,
+        ia_habilitada:
+          opticaActual.ia_habilitada !== undefined
+            ? Boolean(opticaActual.ia_habilitada)
+            : prev?.ia_habilitada !== undefined
+            ? Boolean(prev.ia_habilitada)
+            : false,
+      }));
+    }
+  }, [opticaActual]);
+
+  // Habilitación comercial de IA para la sede activa:
+  // Si cualquiera de las fuentes marca false, queda deshabilitada; solo se habilita con confirmación explícita true.
+  const iaHabilitada = useMemo(() => {
+    if (opticaData?.ia_habilitada === false) return false;
+    if (opticaActual?.ia_habilitada === false) return false;
+    if (opticaData?.ia_habilitada === true) return true;
+    if (opticaActual?.ia_habilitada === true) return true;
+    return false;
+  }, [opticaData?.ia_habilitada, opticaActual?.ia_habilitada]);
+
+  // Redirigir a canales si la pestaña seleccionada es IA pero la óptica no tiene el servicio
+  useEffect(() => {
+    if (!iaHabilitada && pestanaActiva === 'ia') {
+      setPestanaActiva('canales');
+    }
+  }, [iaHabilitada, pestanaActiva]);
+
+  // Configuración de pestañas del módulo estandarizada con BarraPestanas
+  const pestanasConfiguracion = useMemo<ElementoPestana<'canales' | 'perfil' | 'citas' | 'ia'>[]>(() => {
+    const pestañas: ElementoPestana<'canales' | 'perfil' | 'citas' | 'ia'>[] = [
+      {
+        id: 'canales',
+        etiqueta: 'Canales de Atención',
+        icono: MessageSquare,
+        conteo: cuentaWhatsApp?.conectado ? 1 : undefined,
+      },
+      {
+        id: 'perfil',
+        etiqueta: 'Perfil de la Óptica',
+        icono: Building2,
+      },
+      {
+        id: 'citas',
+        etiqueta: 'Parámetros Clínicos & Citas',
+        icono: Calendar,
+      },
+    ];
+
+    if (iaHabilitada) {
+      pestañas.push({
+        id: 'ia',
+        etiqueta: 'Agente de IA',
+        icono: Bot,
+        conteo: iaActiva ? 1 : undefined,
+      });
+    }
+
+    return pestañas;
+  }, [cuentaWhatsApp?.conectado, iaActiva, iaHabilitada]);
 
   // Modal de confirmación para cambiar de número
   const [modalCambiarNumeroAbierto, setModalCambiarNumeroAbierto] = useState(false);
@@ -241,6 +308,12 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
             ...res.optica,
             id: Number(res.optica.id),
             ia_activa: res.optica.ia_activa !== undefined ? Boolean(res.optica.ia_activa) : true,
+            ia_habilitada:
+              res.optica.ia_habilitada !== undefined
+                ? Boolean(res.optica.ia_habilitada)
+                : opticaActual?.ia_habilitada !== undefined
+                ? Boolean(opticaActual.ia_habilitada)
+                : false,
           };
           setOpticaData(opticaMapeada);
           setFormPerfil({
@@ -953,132 +1026,22 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
         overflowY: 'auto',
       }}
     >
-      {/* Pestañas de Navegación */}
+      {/* Pestañas de Navegación con componente estandarizado BarraPestanas */}
       <div
         style={{
-          padding: '0.75rem 2rem 0',
-          borderBottom: '1px solid var(--borde-tarjeta)',
-          background: 'var(--fondo-tarjeta)',
-          display: 'flex',
-          gap: '1.5rem',
+          padding: '0.85rem 1.75rem 0.25rem',
+          maxWidth: '1040px',
+          width: '100%',
+          margin: '0 auto',
+          boxSizing: 'border-box',
         }}
       >
-          <button
-            type="button"
-            onClick={() => setPestanaActiva('canales')}
-            style={{
-              padding: '0.45rem 0.25rem 0.7rem',
-              border: 'none',
-              background: 'transparent',
-              fontSize: '0.85rem',
-              fontWeight: pestanaActiva === 'canales' ? 700 : 500,
-              color: pestanaActiva === 'canales' ? 'var(--color-primario)' : 'var(--texto-atenuado)',
-              borderBottom: pestanaActiva === 'canales' ? '2.5px solid var(--color-primario)' : '2.5px solid transparent',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <MessageSquare style={{ width: '16px', height: '16px' }} />
-            <span>Canales de Atención</span>
-            {cuentaWhatsApp?.conectado && (
-              <span
-                style={{
-                  background: 'rgba(16, 185, 129, 0.15)',
-                  color: '#10b981',
-                  fontSize: '0.65rem',
-                  fontWeight: 700,
-                  padding: '0.1rem 0.4rem',
-                  borderRadius: '10px',
-                }}
-              >
-                1 Activo
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setPestanaActiva('perfil')}
-            style={{
-              padding: '0.45rem 0.25rem 0.7rem',
-              border: 'none',
-              background: 'transparent',
-              fontSize: '0.85rem',
-              fontWeight: pestanaActiva === 'perfil' ? 700 : 500,
-              color: pestanaActiva === 'perfil' ? 'var(--color-primario)' : 'var(--texto-atenuado)',
-              borderBottom: pestanaActiva === 'perfil' ? '2.5px solid var(--color-primario)' : '2.5px solid transparent',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <Building2 style={{ width: '16px', height: '16px' }} />
-            <span>Perfil de la Óptica</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setPestanaActiva('citas')}
-            style={{
-              padding: '0.45rem 0.25rem 0.7rem',
-              border: 'none',
-              background: 'transparent',
-              fontSize: '0.85rem',
-              fontWeight: pestanaActiva === 'citas' ? 700 : 500,
-              color: pestanaActiva === 'citas' ? 'var(--color-primario)' : 'var(--texto-atenuado)',
-              borderBottom: pestanaActiva === 'citas' ? '2.5px solid var(--color-primario)' : '2.5px solid transparent',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <Calendar style={{ width: '16px', height: '16px' }} />
-            <span>Parámetros Clínicos & Citas</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setPestanaActiva('ia')}
-            style={{
-              padding: '0.45rem 0.25rem 0.7rem',
-              border: 'none',
-              background: 'transparent',
-              fontSize: '0.85rem',
-              fontWeight: pestanaActiva === 'ia' ? 700 : 500,
-              color: pestanaActiva === 'ia' ? 'var(--color-primario)' : 'var(--texto-atenuado)',
-              borderBottom: pestanaActiva === 'ia' ? '2.5px solid var(--color-primario)' : '2.5px solid transparent',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <Bot style={{ width: '16px', height: '16px' }} />
-            <span>Agente de IA</span>
-            {iaActiva && (
-              <span
-                style={{
-                  background: 'rgba(16, 185, 129, 0.15)',
-                  color: '#10b981',
-                  fontSize: '0.65rem',
-                  fontWeight: 700,
-                  padding: '0.1rem 0.4rem',
-                  borderRadius: '10px',
-                }}
-              >
-                Activo
-              </span>
-            )}
-          </button>
-        </div>
+        <BarraPestanas<'canales' | 'perfil' | 'citas' | 'ia'>
+          pestanas={pestanasConfiguracion}
+          pestanaActiva={pestanaActiva}
+          alCambiarPestana={setPestanaActiva}
+        />
+      </div>
 
       {/* Cuerpo del Módulo */}
       <div style={{ padding: '1rem 1.75rem', maxWidth: '1040px', width: '100%', margin: '0 auto' }}>
@@ -1132,18 +1095,49 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
               background: 'var(--fondo-tarjeta)',
               border: '1px solid var(--borde-tarjeta)',
               borderRadius: 'var(--radio-lg)',
-              padding: '1.5rem 1.75rem',
+              padding: '1.25rem 1.5rem',
               boxShadow: 'var(--sombra-sm)',
               display: 'flex',
               flexDirection: 'column',
               gap: '1.25rem',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-              <MessageSquare style={{ width: '18px', height: '18px', color: 'var(--color-primario)' }} />
-              <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
-                Canales de Atención
-              </h3>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                borderBottom: '1px solid var(--borde-tarjeta)',
+                paddingBottom: '0.75rem',
+                flexWrap: 'wrap',
+                gap: '0.5rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    background: 'var(--fondo-elevado)',
+                    border: '1px solid var(--borde-tarjeta)',
+                    color: 'var(--color-primario)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <MessageSquare style={{ width: '18px', height: '18px' }} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '0.96rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
+                    Canales de Atención
+                  </h3>
+                  <p style={{ fontSize: '0.74rem', color: 'var(--texto-atenuado)', margin: 0 }}>
+                    Conecta tus cuentas oficiales de WhatsApp Business y gestiona la comunicación clínica.
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* Fila WhatsApp (Estilo idéntico a Referencias 1 y 2) */}
@@ -1375,8 +1369,8 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
               {cuentaWhatsApp?.conectado && (
                 <div
                   style={{
-                    background: 'rgba(2, 132, 199, 0.05)',
-                    border: '1px solid rgba(2, 132, 199, 0.2)',
+                    background: 'var(--fondo-elevado)',
+                    border: '1px solid var(--borde-tarjeta)',
                     borderRadius: 'var(--radio-md)',
                     padding: '0.85rem 1.1rem',
                     display: 'flex',
@@ -1434,7 +1428,8 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                       width: '32px',
                       height: '32px',
                       borderRadius: '8px',
-                      background: 'rgba(2, 132, 199, 0.1)',
+                      background: 'var(--fondo-elevado)',
+                      border: '1px solid var(--borde-tarjeta)',
                       color: 'var(--color-primario)',
                       display: 'flex',
                       alignItems: 'center',
@@ -1649,23 +1644,24 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                   <div
                     style={{
-                      width: '28px',
-                      height: '28px',
-                      borderRadius: '6px',
-                      background: 'rgba(2, 132, 199, 0.1)',
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: 'var(--fondo-elevado)',
+                      border: '1px solid var(--borde-tarjeta)',
                       color: 'var(--color-primario)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
                   >
-                    <Calendar style={{ width: '15px', height: '15px' }} />
+                    <Calendar style={{ width: '18px', height: '18px' }} />
                   </div>
                   <div>
-                    <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
+                    <h3 style={{ fontSize: '0.96rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
                       Reglas de Agenda & Atención Clínica
                     </h3>
-                    <p style={{ fontSize: '0.72rem', color: 'var(--texto-atenuado)', margin: 0 }}>
+                    <p style={{ fontSize: '0.74rem', color: 'var(--texto-atenuado)', margin: 0 }}>
                       Valores predeterminados para citas, tiempos de control y profesional a cargo.
                     </p>
                   </div>
@@ -1927,90 +1923,114 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
           </form>
         )}
 
-        {/* PESTAÑA 4: AGENTE DE INTELIGENCIA ARTIFICIAL */}
-        {pestanaActiva === 'ia' && (
+        {/* PESTAÑA 4: AGENTE DE INTELIGENCIA ARTIFICIAL (Solo si está habilitado por Superadmin) */}
+        {pestanaActiva === 'ia' && iaHabilitada && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            {/* 1. Tarjeta Cabecera con Interruptor Maestro */}
+            {/* Tarjeta Principal Unificada del Agente de IA */}
             <div
               style={{
                 background: 'var(--fondo-tarjeta)',
                 border: '1px solid var(--borde-tarjeta)',
                 borderRadius: 'var(--radio-lg)',
-                padding: '1.1rem 1.4rem',
+                padding: '1.25rem 1.5rem',
                 boxShadow: 'var(--sombra-sm)',
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '1rem',
+                flexDirection: 'column',
+                gap: '1.25rem',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', minWidth: 0 }}>
-                <div
-                  style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '10px',
-                    background: iaActiva ? 'rgba(16, 185, 129, 0.15)' : 'rgba(2, 132, 199, 0.1)',
-                    color: iaActiva ? '#10b981' : 'var(--color-primario)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  <Bot style={{ width: '22px', height: '22px' }} />
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <h3 style={{ fontSize: '0.96rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
-                      Agente de Inteligencia Artificial
-                    </h3>
-                    <span
-                      style={{
-                        fontSize: '0.68rem',
-                        fontWeight: 700,
-                        padding: '0.15rem 0.55rem',
-                        borderRadius: '12px',
-                        background: iaActiva ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 116, 139, 0.15)',
-                        color: iaActiva ? '#10b981' : 'var(--texto-atenuado)',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {iaActiva ? 'En línea y respondiendo' : 'Pausado globalmente'}
-                    </span>
+              {/* Encabezado Integrado (Diseño definitivo con switch compacto y botón Guardar Ajustes a la derecha) */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  borderBottom: '1px solid var(--borde-tarjeta)',
+                  paddingBottom: '0.75rem',
+                  flexWrap: 'nowrap',
+                  gap: '1rem',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0, flex: 1 }}>
+                  <div
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: 'var(--fondo-elevado)',
+                      border: '1px solid var(--borde-tarjeta)',
+                      color: 'var(--color-primario)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Bot style={{ width: '18px', height: '18px' }} />
                   </div>
-                  <p style={{ fontSize: '0.74rem', color: 'var(--texto-atenuado)', margin: '0.15rem 0 0 0' }}>
-                    Atiende automáticamente a tus clientes en tus canales de mensajería, resuelve preguntas frecuentes y agenda citas en el CRM.
-                  </p>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                      <h3 style={{ fontSize: '0.96rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
+                        Agente de Inteligencia Artificial
+                      </h3>
+                      {/* Píldora de Estado del Agente de IA con Etiqueta Tooltip Premium */}
+                      <EtiquetaTooltip
+                        texto={iaActiva ? 'Clic para pausar Agente de IA' : 'Clic para activar Agente de IA'}
+                        posicion="arriba"
+                      >
+                        <button
+                          type="button"
+                          onClick={manejarToggleIAGlobal}
+                          disabled={guardandoIA}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.45rem',
+                            padding: '0.28rem 0.75rem',
+                            borderRadius: '9999px',
+                            border: 'none',
+                            background: iaActiva ? 'rgba(16, 185, 129, 0.16)' : 'rgba(100, 116, 139, 0.14)',
+                            color: iaActiva ? '#059669' : '#475569',
+                            fontSize: '0.74rem',
+                            fontWeight: 700,
+                            cursor: guardandoIA ? 'not-allowed' : 'pointer',
+                            whiteSpace: 'nowrap',
+                            transition: 'all 0.15s ease',
+                            opacity: guardandoIA ? 0.7 : 1,
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!guardandoIA) {
+                              e.currentTarget.style.opacity = '0.85';
+                              e.currentTarget.style.transform = 'translateY(-0.5px)';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!guardandoIA) {
+                              e.currentTarget.style.opacity = '1';
+                              e.currentTarget.style.transform = 'none';
+                            }
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: '7px',
+                              height: '7px',
+                              borderRadius: '50%',
+                              background: iaActiva ? '#059669' : '#64748b',
+                              boxShadow: iaActiva ? '0 0 0 2.5px rgba(16, 185, 129, 0.25)' : 'none',
+                              display: 'inline-block',
+                              flexShrink: 0,
+                            }}
+                          />
+                          <span>{iaActiva ? 'Activo' : 'Inactivo'}</span>
+                        </button>
+                      </EtiquetaTooltip>
+                    </div>
+                    <p style={{ fontSize: '0.74rem', color: 'var(--texto-atenuado)', margin: '0.15rem 0 0 0', lineHeight: 1.35 }}>
+                      Atiende automáticamente a tus clientes en tus canales de mensajería, resuelve preguntas frecuentes y agenda citas en el CRM.
+                    </p>
+                  </div>
                 </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexShrink: 0 }}>
-                {/* Switch de Activación */}
-                <button
-                  type="button"
-                  onClick={manejarToggleIAGlobal}
-                  disabled={guardandoIA}
-                  title={iaActiva ? 'Desactivar Agente de IA en todos los chats' : 'Activar Agente de IA en todos los chats'}
-                  style={{
-                    padding: '0.45rem 0.95rem',
-                    borderRadius: '20px',
-                    border: iaActiva ? '1px solid #10b981' : '1px solid var(--borde-tarjeta)',
-                    background: iaActiva ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0, 0, 0, 0.05)',
-                    color: iaActiva ? '#10b981' : 'var(--texto-atenuado)',
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.45rem',
-                    whiteSpace: 'nowrap',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  <Power style={{ width: '14px', height: '14px' }} />
-                  <span>{iaActiva ? 'Agente Activo' : 'Agente Inactivo'}</span>
-                </button>
 
                 <button
                   type="button"
@@ -2018,146 +2038,126 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                   disabled={guardandoIA}
                   className="btn-pildora-primario"
                   style={{
-                    padding: '0.45rem 1.15rem',
+                    padding: '0.4rem 1rem',
                     fontSize: '0.8rem',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '0.45rem',
                     whiteSpace: 'nowrap',
+                    flexShrink: 0,
                   }}
                 >
-                  <Save style={{ width: '14px', height: '14px' }} />
+                  <Save style={{ width: '13px', height: '13px' }} />
                   <span>{guardandoIA ? 'Guardando...' : 'Guardar Ajustes'}</span>
                 </button>
               </div>
-            </div>
 
-            {/* 2. Rejilla de Parámetros y Personalidad */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-                gap: '1.25rem',
-              }}
-            >
-              {/* Bloque Izquierdo: Identidad, Tono y Credenciales */}
+              {/* Subsecciones Integradas en Rejilla de 2 Columnas directas dentro de la misma tarjeta */}
               <div
                 style={{
-                  background: 'var(--fondo-tarjeta)',
-                  border: '1px solid var(--borde-tarjeta)',
-                  borderRadius: 'var(--radio-lg)',
-                  padding: '1.25rem 1.5rem',
-                  boxShadow: 'var(--sombra-sm)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '1rem',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                  gap: '1.25rem',
+                  alignItems: 'start',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--borde-tarjeta)', paddingBottom: '0.65rem' }}>
-                  <Wand2 style={{ width: '16px', height: '16px', color: 'var(--color-primario)' }} />
-                  <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
-                    Identidad y Tono de Comunicación
-                  </h4>
+                {/* Columna Izquierda: Identidad y Tono */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--borde-tarjeta)', paddingBottom: '0.5rem' }}>
+                    <Wand2 style={{ width: '15px', height: '15px', color: 'var(--color-primario)' }} />
+                    <h4 style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
+                      Identidad y Tono de Comunicación
+                    </h4>
+                  </div>
+
+                  {/* Nombre del Asistente */}
+                  <div className="modal-campo-grupo">
+                    <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
+                      Nombre del Asistente Virtual
+                    </label>
+                    <input
+                      type="text"
+                      value={iaNombre}
+                      onChange={(e) => setIaNombre(e.target.value)}
+                      placeholder="Ej: Sofía - Asistente Óptico"
+                      className="modal-input"
+                      style={{ fontSize: '0.8rem' }}
+                    />
+                    <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem' }}>
+                      Nombre con el que se identificará ante los pacientes al saludar.
+                    </span>
+                  </div>
+
+                  {/* Tono de Comunicación */}
+                  <div className="modal-campo-grupo">
+                    <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
+                      Estilo y Tono de Atención
+                    </label>
+                    <SelectorDesplegable
+                      valor={iaTono}
+                      alCambiar={setIaTono}
+                      opciones={[
+                        { valor: 'cercano', etiqueta: 'Cercano, cálido y empático (Recomendado)' },
+                        { valor: 'formal', etiqueta: 'Formal, clínico y profesional' },
+                        { valor: 'comercial', etiqueta: 'Comercial, persuasivo y dinámico' },
+                      ]}
+                      tamano="compacto"
+                      anchoMinimo="100%"
+                    />
+                    <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem' }}>
+                      Define la manera en que el modelo redacta sus oraciones y trata al paciente.
+                    </span>
+                  </div>
                 </div>
 
-                {/* Nombre del Asistente */}
-                <div className="modal-campo-grupo">
-                  <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
-                    Nombre del Asistente Virtual
-                  </label>
-                  <input
-                    type="text"
-                    value={iaNombre}
-                    onChange={(e) => setIaNombre(e.target.value)}
-                    placeholder="Ej: Sofía - Asistente Óptico"
-                    className="modal-input"
-                    style={{ fontSize: '0.8rem' }}
-                  />
-                  <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem' }}>
-                    Nombre con el que se identificará ante los pacientes al saludar.
-                  </span>
-                </div>
+                {/* Columna Derecha: Directrices del Negocio y Preguntas Frecuentes (FAQ) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--borde-tarjeta)', paddingBottom: '0.5rem' }}>
+                    <HelpCircle style={{ width: '15px', height: '15px', color: 'var(--color-primario)' }} />
+                    <h4 style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
+                      Directrices del Negocio y Preguntas Frecuentes (FAQ)
+                    </h4>
+                  </div>
 
-                {/* Tono de Comunicación */}
-                <div className="modal-campo-grupo">
-                  <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
-                    Estilo y Tono de Atención
-                  </label>
-                  <SelectorDesplegable
-                    valor={iaTono}
-                    alCambiar={setIaTono}
-                    opciones={[
-                      { valor: 'cercano', etiqueta: 'Cercano, cálido y empático (Recomendado)' },
-                      { valor: 'formal', etiqueta: 'Formal, clínico y profesional' },
-                      { valor: 'comercial', etiqueta: 'Comercial, persuasivo y dinámico' },
-                    ]}
-                    tamano="compacto"
-                    anchoMinimo="100%"
-                  />
-                  <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem' }}>
-                    Define la manera en que el modelo redacta sus oraciones y trata al paciente.
-                  </span>
-                </div>
-              </div>
+                  {/* Instrucciones del Negocio */}
+                  <div className="modal-campo-grupo">
+                    <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
+                      Instrucciones y Personalidad del Negocio
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={iaInstrucciones}
+                      onChange={(e) => setIaInstrucciones(e.target.value)}
+                      placeholder="Ejemplo: Somos una óptica con más de 10 años de experiencia especializada en salud visual. Destaca siempre que nuestros exámenes incluyen optometría computarizada y que contamos con laboratorio propio para entrega rápida de gafas..."
+                      className="modal-input"
+                      style={{ fontSize: '0.78rem', resize: 'vertical', lineHeight: '1.4' }}
+                    />
+                    <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem' }}>
+                      Directrices de comportamiento, valores de la marca y cómo orientar al paciente.
+                    </span>
+                  </div>
 
-              {/* Bloque Derecho: Instrucciones y Preguntas Frecuentes (FAQ) */}
-              <div
-                style={{
-                  background: 'var(--fondo-tarjeta)',
-                  border: '1px solid var(--borde-tarjeta)',
-                  borderRadius: 'var(--radio-lg)',
-                  padding: '1.25rem 1.5rem',
-                  boxShadow: 'var(--sombra-sm)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '1rem',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--borde-tarjeta)', paddingBottom: '0.65rem' }}>
-                  <HelpCircle style={{ width: '16px', height: '16px', color: 'var(--color-primario)' }} />
-                  <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
-                    Directrices del Negocio y Preguntas Frecuentes (FAQ)
-                  </h4>
-                </div>
-
-                {/* Instrucciones del Negocio */}
-                <div className="modal-campo-grupo">
-                  <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
-                    Instrucciones y Personalidad del Negocio
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={iaInstrucciones}
-                    onChange={(e) => setIaInstrucciones(e.target.value)}
-                    placeholder="Ejemplo: Somos una óptica con más de 10 años de experiencia especializada en salud visual. Destaca siempre que nuestros exámenes incluyen optometría computarizada y que contamos con laboratorio propio para entrega rápida de gafas..."
-                    className="modal-input"
-                    style={{ fontSize: '0.78rem', resize: 'vertical', lineHeight: '1.4' }}
-                  />
-                  <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem' }}>
-                    Directrices de comportamiento, valores de la marca y cómo orientar al paciente.
-                  </span>
-                </div>
-
-                {/* Base de Conocimiento y FAQ */}
-                <div className="modal-campo-grupo">
-                  <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
-                    Base de Conocimiento y Preguntas Frecuentes (FAQ)
-                  </label>
-                  <textarea
-                    rows={6}
-                    value={iaPreguntasFrecuentes}
-                    onChange={(e) => setIaPreguntasFrecuentes(e.target.value)}
-                    placeholder={`Escribe aquí información clave que el bot debe saber:
+                  {/* Base de Conocimiento y FAQ */}
+                  <div className="modal-campo-grupo">
+                    <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
+                      Base de Conocimiento y Preguntas Frecuentes (FAQ)
+                    </label>
+                    <textarea
+                      rows={6}
+                      value={iaPreguntasFrecuentes}
+                      onChange={(e) => setIaPreguntasFrecuentes(e.target.value)}
+                      placeholder={`Escribe aquí información clave que el bot debe saber:
 - ¿Cuánto cuesta el examen visual?: Es gratis por la compra de la montura y lentes, o $35.000 para llevar la fórmula.
 - ¿Dónde están ubicados?: Calle 45 # 12-34, cerca a la estación principal.
 - ¿Hacen envíos?: Sí, envíos a domicilio sin costo adicional en el área metropolitana.
 - ¿Qué garantía ofrecen?: 1 año de garantía en monturas y tratamiento antirreflejo.`}
-                    className="modal-input"
-                    style={{ fontSize: '0.78rem', resize: 'vertical', lineHeight: '1.4' }}
-                  />
-                  <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem' }}>
-                    Datos precisos, precios y políticas. La IA solo responderá lo que esté escrito aquí.
-                  </span>
+                      className="modal-input"
+                      style={{ fontSize: '0.78rem', resize: 'vertical', lineHeight: '1.4' }}
+                    />
+                    <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem' }}>
+                      Datos precisos, precios y políticas. La IA solo responderá lo que esté escrito aquí.
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2283,8 +2283,8 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                           marginTop: '0.65rem',
                           padding: '0.5rem 0.85rem',
                           borderRadius: 'var(--radio-md)',
-                          background: 'rgba(2, 132, 199, 0.08)',
-                          border: '1px solid rgba(2, 132, 199, 0.25)',
+                          background: 'var(--fondo-elevado)',
+                          border: '1px solid var(--borde-tarjeta)',
                           fontSize: '0.74rem',
                           color: 'var(--texto-principal)',
                           flexWrap: 'wrap',
@@ -2426,7 +2426,8 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                     width: '32px',
                     height: '32px',
                     borderRadius: '8px',
-                    background: 'rgba(2, 132, 199, 0.12)',
+                    background: 'var(--fondo-elevado)',
+                    border: '1px solid var(--borde-tarjeta)',
                     color: 'var(--color-primario)',
                     display: 'flex',
                     alignItems: 'center',
@@ -2610,7 +2611,8 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                     width: '32px',
                     height: '32px',
                     borderRadius: '8px',
-                    background: 'rgba(2, 132, 199, 0.12)',
+                    background: 'var(--fondo-elevado)',
+                    border: '1px solid var(--borde-tarjeta)',
                     color: 'var(--color-primario)',
                     display: 'flex',
                     alignItems: 'center',

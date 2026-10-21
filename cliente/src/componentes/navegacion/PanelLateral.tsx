@@ -7,7 +7,6 @@ import {
   CalendarDays,
   Target,
   FileText,
-  BarChart3,
   Sliders,
   ChevronLeft,
   ChevronRight,
@@ -63,7 +62,6 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
     { id: 'citas', etiqueta: 'Calendario de Citas', icono: CalendarDays, conteo: null, esUrgente: false },
     { id: 'campanas', etiqueta: 'Auto-Segmentación', icono: Target, conteo: null, esUrgente: false },
     { id: 'plantillas', etiqueta: 'Plantillas', icono: FileText, conteo: null, esUrgente: false },
-    { id: 'analitica', etiqueta: 'Analítica & Reportes', icono: BarChart3, conteo: null, esUrgente: false },
     { id: 'configuracion', etiqueta: 'Configuración', icono: Settings, conteo: null, esUrgente: false },
   ];
 
@@ -144,7 +142,7 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
           posicion={colapsado ? 'derecha' : 'abajo'}
         >
           <div
-            className="panel-logo-caja"
+            className={`panel-logo-caja ${optica?.logo_url && !errorCargaLogo ? 'con-foto' : 'sin-foto'}`}
             onClick={alAlternarColapso}
             role="button"
           >
@@ -165,7 +163,14 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
                 }}
               />
             ) : (
-              <div className="panel-logo-avatar-iniciales">
+              <div
+                className="panel-logo-avatar-iniciales"
+                style={{
+                  background: optica?.color_primario
+                    ? `linear-gradient(135deg, ${optica.color_primario} 0%, ${optica.color_secundario || optica.color_primario} 100%)`
+                    : 'linear-gradient(135deg, var(--color-primario, #0284c7) 0%, var(--color-primario-oscuro, #0369a1) 100%)',
+                }}
+              >
                 {inicialesOptica}
               </div>
             )}
@@ -266,17 +271,32 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
                   <Settings className="panel-popover-item-icono" />
                   <span>Configuración</span>
                 </button>
-                <button
-                  type="button"
-                  className={`panel-popover-btn-item ${vistaActiva === 'consumo' ? 'activo' : ''}`}
-                  onClick={() => {
-                    alCambiarVista('consumo');
-                    setMenuUsuarioAbierto(false);
-                  }}
-                >
-                  <Zap className="panel-popover-item-icono" />
-                  <span>Consumo</span>
-                </button>
+                {usuario?.rol === 'admin' && (
+                  <button
+                    type="button"
+                    className={`panel-popover-btn-item ${vistaActiva === 'consumo' ? 'activo' : ''}`}
+                    onClick={() => {
+                      alCambiarVista('consumo');
+                      setMenuUsuarioAbierto(false);
+                    }}
+                  >
+                    <Zap className="panel-popover-item-icono" />
+                    <span>Consumo</span>
+                  </button>
+                )}
+                {usuario?.rol === 'admin' && (
+                  <button
+                    type="button"
+                    className={`panel-popover-btn-item ${vistaActiva === 'usuarios' ? 'activo' : ''}`}
+                    onClick={() => {
+                      alCambiarVista('usuarios');
+                      setMenuUsuarioAbierto(false);
+                    }}
+                  >
+                    <Users className="panel-popover-item-icono" />
+                    <span>Usuarios</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   className="panel-popover-btn-logout"

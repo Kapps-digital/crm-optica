@@ -116,6 +116,8 @@ export interface Optica {
   color_secundario: string;
   telefono: string | null;
   activo?: boolean;
+  ia_habilitada?: boolean;
+  total_usuarios?: number;
   duracion_cita_minutos?: number;
   control_meses_defecto?: number;
   especialista_defecto?: string;
@@ -156,7 +158,29 @@ export interface Usuario {
   usuario: string;
   correo?: string | null;
   rol: RolUsuario | string;
+  activo?: boolean;
+  ultimo_acceso?: string | null;
+  creado_en?: string;
+  optica_nombre?: string;
+  optica_color?: string;
   optica?: Optica;
+}
+
+export interface EstadisticasUsuarios {
+  total_usuarios: number;
+  total_activos: number;
+  total_inactivos: number;
+  total_opticas: number;
+  total_admins: number;
+  total_admins_optica: number;
+}
+
+export interface DatosRespuestaUsuarios {
+  exito: boolean;
+  usuarios?: Usuario[];
+  opticas?: Array<{ id: number; nombre: string; total_usuarios?: number } & Partial<Optica>>;
+  estadisticas?: EstadisticasUsuarios;
+  error?: string;
 }
 
 export interface RespuestaLogin {

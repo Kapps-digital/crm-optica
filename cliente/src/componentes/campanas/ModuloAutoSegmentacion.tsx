@@ -21,10 +21,13 @@ import {
   AlertCircle,
   RefreshCw,
   Pencil,
+  Layers,
 } from 'lucide-react';
 import type { Segmento, PlantillaWhatsApp, CuotaDiariaWhatsApp } from '@/tipos/crm';
 import { obtenerSegmentos, eliminarSegmentoPersonalizado, obtenerPlantillasYCuota } from '@/servicios/api_crm';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
+import { FiltroBusqueda } from '../comunes/FiltroBusqueda';
+import { BarraPestanas, ElementoPestana } from '../comunes/BarraPestanas';
 import { ModalCrearSegmento } from './ModalCrearSegmento';
 import { ModalVerPacientesSegmento } from './ModalVerPacientesSegmento';
 import { ModalLanzarLote } from '../plantillas/ModalLanzarLote';
@@ -147,6 +150,31 @@ export const ModuloAutoSegmentacion: React.FC<PropiedadesModuloAutoSegmentacion>
   const totalPacientesSegmentados = useMemo(() => {
     return segmentos.reduce((acc, curr) => acc + (curr.total_pacientes || 0), 0);
   }, [segmentos]);
+
+  // Configuración de pestañas con componente estandarizado BarraPestanas
+  const pestanasSegmentacion = useMemo<ElementoPestana<'todos' | 'sistema' | 'personalizados'>[]>(
+    () => [
+      {
+        id: 'todos',
+        etiqueta: 'Todos',
+        icono: Layers,
+        conteo: segmentos.length,
+      },
+      {
+        id: 'sistema',
+        etiqueta: 'Predeterminados',
+        icono: Sparkles,
+        conteo: totalSistema,
+      },
+      {
+        id: 'personalizados',
+        etiqueta: 'Personalizados',
+        icono: Sliders,
+        conteo: totalPersonalizados,
+      },
+    ],
+    [segmentos.length, totalSistema, totalPersonalizados]
+  );
 
   // Manejador de eliminación
   const manejarConfirmarEliminar = async () => {
@@ -292,85 +320,22 @@ export const ModuloAutoSegmentacion: React.FC<PropiedadesModuloAutoSegmentacion>
           padding: '0.65rem 1rem',
         }}
       >
-        {/* Pestañas */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <button
-            onClick={() => setFiltroTipo('todos')}
-            style={{
-              padding: '0.4rem 0.85rem',
-              borderRadius: 'var(--radio-sm)',
-              border: 'none',
-              backgroundColor: filtroTipo === 'todos' ? 'var(--fondo-hover)' : 'transparent',
-              color: filtroTipo === 'todos' ? 'var(--texto-principal)' : 'var(--texto-atenuado)',
-              fontWeight: filtroTipo === 'todos' ? 700 : 500,
-              fontSize: '0.78rem',
-              cursor: 'pointer',
-            }}
-          >
-            Todos ({segmentos.length})
-          </button>
-          <button
-            onClick={() => setFiltroTipo('sistema')}
-            style={{
-              padding: '0.4rem 0.85rem',
-              borderRadius: 'var(--radio-sm)',
-              border: 'none',
-              backgroundColor: filtroTipo === 'sistema' ? 'var(--fondo-hover)' : 'transparent',
-              color: filtroTipo === 'sistema' ? 'var(--texto-principal)' : 'var(--texto-atenuado)',
-              fontWeight: filtroTipo === 'sistema' ? 700 : 500,
-              fontSize: '0.78rem',
-              cursor: 'pointer',
-            }}
-          >
-            Predeterminados ({totalSistema})
-          </button>
-          <button
-            onClick={() => setFiltroTipo('personalizados')}
-            style={{
-              padding: '0.4rem 0.85rem',
-              borderRadius: 'var(--radio-sm)',
-              border: 'none',
-              backgroundColor: filtroTipo === 'personalizados' ? 'var(--fondo-hover)' : 'transparent',
-              color: filtroTipo === 'personalizados' ? 'var(--texto-principal)' : 'var(--texto-atenuado)',
-              fontWeight: filtroTipo === 'personalizados' ? 700 : 500,
-              fontSize: '0.78rem',
-              cursor: 'pointer',
-            }}
-          >
-            Personalizados ({totalPersonalizados})
-          </button>
-        </div>
+        {/* Pestañas de Filtrado con componente estandarizado BarraPestanas */}
+        <BarraPestanas<'todos' | 'sistema' | 'personalizados'>
+          pestanas={pestanasSegmentacion}
+          pestanaActiva={filtroTipo}
+          alCambiarPestana={setFiltroTipo}
+        />
 
         {/* Búsqueda, Actualizar y Crear Segmento */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <div style={{ position: 'relative', width: '250px' }}>
-            <Search
-              size={14}
-              style={{
-                position: 'absolute',
-                left: '10px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--texto-atenuado)',
-              }}
-            />
-            <input
-              type="text"
-              placeholder="Buscar segmento..."
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.42rem 0.65rem 0.42rem 1.9rem',
-                backgroundColor: 'var(--fondo-base)',
-                border: '1px solid var(--borde-tarjeta)',
-                borderRadius: 'var(--radio-md)',
-                color: 'var(--texto-principal)',
-                fontSize: '0.8rem',
-                outline: 'none',
-              }}
-            />
-          </div>
+          {/* Buscador de Segmentos */}
+          <FiltroBusqueda
+            valor={busqueda}
+            alCambiar={setBusqueda}
+            placeholder="Buscar segmento..."
+            ancho="250px"
+          />
 
           {/* Botón Actualizar (Solo ícono con EtiquetaTooltip) */}
           <EtiquetaTooltip texto="Actualizar segmentos" posicion="abajo">

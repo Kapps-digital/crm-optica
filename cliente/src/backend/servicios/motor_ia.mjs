@@ -237,7 +237,7 @@ export async function obtenerMetricasConsumoIA(argumentoOpciones = {}) {
 export async function obtenerConfiguracionIA(opticaId) {
   const idOpticaNumerico = Number(opticaId) || 1;
   const res = await pool.query(
-    `SELECT id, nombre, ia_activa, ia_nombre, ia_tono, ia_instrucciones, 
+    `SELECT id, nombre, ia_activa, COALESCE(ia_habilitada, true) AS ia_habilitada, ia_nombre, ia_tono, ia_instrucciones, 
             ia_preguntas_frecuentes,
             dias_atencion, hora_inicio_atencion, hora_fin_atencion, duracion_cita_minutos,
             especialista_defecto, motivo_cita_defecto
@@ -251,6 +251,7 @@ export async function obtenerConfiguracionIA(opticaId) {
 
   if (res.rows.length === 0) {
     return {
+      ia_habilitada: false,
       ia_activa: false,
       ia_nombre: 'Asistente Óptico',
       ia_tono: 'cercano',
@@ -264,6 +265,7 @@ export async function obtenerConfiguracionIA(opticaId) {
   const row = res.rows[0];
   return {
     ...row,
+    ia_habilitada: row.ia_habilitada !== false,
     ia_activa: Boolean(row.ia_activa),
     ia_nombre: row.ia_nombre || 'Asistente Óptico',
     ia_tono: row.ia_tono || 'cercano',
@@ -1426,8 +1428,11 @@ export async function procesarMensajeConIA({ conversacion_id, mensaje_id, contac
     console.warn('[Motor IA] Aviso al consolidar ráfaga:', e.message);
   }
 
-  // 3. Validar si la IA está activa globalmente y para este chat
+  // 3. Validar si la IA está contratada/habilitada y activa globalmente y para este chat
   const configOptica = await obtenerConfiguracionIA(optica_id);
+  if (configOptica.ia_habilitada === false) {
+    return { respondido: false, motivo: 'ia_no_habilitada_optica' };
+  }
   if (!configOptica.ia_activa) {
     return { respondido: false, motivo: 'ia_inactiva_optica' };
   }

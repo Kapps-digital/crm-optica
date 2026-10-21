@@ -23,6 +23,7 @@ import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import { ModalRegistrarPaciente } from './ModalRegistrarPaciente';
 import { ModalHistorialClinico } from './ModalHistorialClinico';
 import { BarraPaginacionTabla } from '../comunes/BarraPaginacionTabla';
+import { FiltroBusqueda } from '../comunes/FiltroBusqueda';
 import type { Contacto, Conversacion } from '@/tipos/crm';
 import { formatearTelefono, formatearSeparadorMiles, esFichaIncompleta } from '@/utilidades/formato';
 
@@ -372,62 +373,17 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
           {/* Grupo Derecho: Buscador + Botón Nuevo Paciente (Solo Icono) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             {/* Buscador de Contactos y Pacientes */}
-            <div style={{ position: 'relative', width: '280px' }}>
-              <Search
-                size={14}
-                style={{
-                  position: 'absolute',
-                  left: '10px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--texto-atenuado)',
-                  pointerEvents: 'none',
-                }}
-              />
-              <input
-                type="text"
-                placeholder={
-                  pestañaActiva === 'pacientes'
-                    ? 'Buscar por nombre, cédula o teléfono...'
-                    : 'Buscar prospecto o WhatsApp...'
-                }
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                style={{
-                  width: '100%',
-                  height: '34px',
-                  padding: '0 0.75rem 0 2.1rem',
-                  borderRadius: 'var(--radio-md, 8px)',
-                  background: 'var(--fondo-elevado)',
-                  border: '1px solid var(--borde-tarjeta)',
-                  fontSize: '0.78rem',
-                  color: 'var(--texto-principal)',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                  transition: 'all 0.15s ease',
-                }}
-              />
-              {busqueda && (
-                <button
-                  type="button"
-                  onClick={() => setBusqueda('')}
-                  style={{
-                    position: 'absolute',
-                    right: '8px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--texto-atenuado)',
-                    cursor: 'pointer',
-                    fontSize: '1rem',
-                    lineHeight: 1,
-                  }}
-                >
-                  ×
-                </button>
-              )}
-            </div>
+            <FiltroBusqueda
+              valor={busqueda}
+              alCambiar={setBusqueda}
+              placeholder={
+                pestañaActiva === 'pacientes'
+                  ? 'Buscar por nombre, cédula o teléfono...'
+                  : 'Buscar prospecto o WhatsApp...'
+              }
+              ancho="280px"
+              alto="34px"
+            />
 
             {/* Botón Principal Nuevo Paciente: Solo Icono con Tooltip */}
             <EtiquetaTooltip texto="Crear nuevo paciente" posicion="abajo">

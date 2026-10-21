@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
+import { FiltroBusqueda } from '../comunes/FiltroBusqueda';
 import { ModalAgendarCita, type DatosNuevaCita } from './ModalAgendarCita';
 import { ModalReprogramarCita, type DatosReprogramarCita } from './ModalReprogramarCita';
 import { ModalConfirmarCancelarCita } from './ModalConfirmarCancelarCita';
@@ -43,6 +44,7 @@ import {
   actualizarCita,
   cancelarCita,
   registrarCita,
+  obtenerUsuarioSesion,
 } from '@/servicios/api_crm';
 import {
   formatearTelefono,
@@ -56,6 +58,7 @@ interface PropiedadesCalendarioCitas {
   contactos: Contacto[];
   conversaciones: Conversacion[];
   nombreOptica?: string;
+  esAdmin?: boolean;
   alSeleccionarContactoChat?: (contactoId: number) => void;
   alEnviarMensajeWhatsApp?: (texto: string, conversacionDestino?: Conversacion | null) => Promise<void>;
 }
@@ -99,9 +102,13 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
   contactos,
   conversaciones,
   nombreOptica,
+  esAdmin: esAdminProp,
   alSeleccionarContactoChat,
   alEnviarMensajeWhatsApp,
 }) => {
+  const usuarioSesion = useMemo(() => obtenerUsuarioSesion(), []);
+  const esAdmin = esAdminProp ?? (usuarioSesion?.rol === 'admin');
+
   const [citas, setCitas] = useState<Cita[]>([]);
   const [cargando, setCargando] = useState(true);
   const [recargando, setRecargando] = useState(false);
@@ -825,25 +832,14 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
         {/* 3. Filtros: Buscador de Texto y Selectores Desplegables */}
         <div className="calendario-filtros-grupo">
           {/* Buscador de Paciente / Motivo */}
-          <div className="calendario-buscador">
-            <Search size={14} className="icono-busqueda" />
-            <input
-              type="text"
-              placeholder="Buscar paciente..."
-              value={terminoBusqueda}
-              onChange={(e) => setTerminoBusqueda(e.target.value)}
-              className="calendario-input-busqueda"
-            />
-            {terminoBusqueda && (
-              <button
-                type="button"
-                className="btn-limpiar-busqueda"
-                onClick={() => setTerminoBusqueda('')}
-              >
-                ×
-              </button>
-            )}
-          </div>
+          <FiltroBusqueda
+            valor={terminoBusqueda}
+            alCambiar={setTerminoBusqueda}
+            placeholder="Buscar paciente..."
+            flex="1 1 210px"
+            anchoMinimo="175px"
+            anchoMaximo="300px"
+          />
 
           {/* Filtro de Especialista */}
           <div style={{ minWidth: '150px', flex: '0 0 auto' }}>
@@ -880,33 +876,35 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
           </div>
         </div>
 
-        {/* Botón Temporal: Probar 25 registros en la tabla agenda (Solo Icono) */}
-        <EtiquetaTooltip
-          texto={simulando25Citas ? 'Quitar simulación de 25 citas' : 'Probar simulación de 25 citas'}
-          posicion="abajo"
-        >
-          <button
-            type="button"
-            onClick={alternarSimulacion25}
-            style={{
-              width: '32px',
-              height: '32px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 'var(--radio-sm)',
-              background: simulando25Citas ? 'rgba(16, 185, 129, 0.15)' : 'rgba(2, 132, 199, 0.1)',
-              border: `1px solid ${simulando25Citas ? '#10b981' : 'var(--color-primario)'}`,
-              color: simulando25Citas ? '#059669' : 'var(--color-primario)',
-              cursor: 'pointer',
-              transition: 'all 0.18s ease',
-              flexShrink: 0,
-            }}
-            aria-label={simulando25Citas ? 'Quitar simulación de 25 citas' : 'Probar 25 citas'}
+        {/* Botón Temporal: Probar 25 registros en la tabla agenda (Solo Visible para Rol Admin) */}
+        {esAdmin && (
+          <EtiquetaTooltip
+            texto={simulando25Citas ? 'Quitar simulación de 25 citas' : 'Probar simulación de 25 citas'}
+            posicion="abajo"
           >
-            {simulando25Citas ? <CheckCircle2 size={16} /> : <CalendarClock size={16} />}
-          </button>
-        </EtiquetaTooltip>
+            <button
+              type="button"
+              onClick={alternarSimulacion25}
+              style={{
+                width: '32px',
+                height: '32px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 'var(--radio-sm)',
+                background: simulando25Citas ? 'rgba(16, 185, 129, 0.15)' : 'rgba(2, 132, 199, 0.1)',
+                border: `1px solid ${simulando25Citas ? '#10b981' : 'var(--color-primario)'}`,
+                color: simulando25Citas ? '#059669' : 'var(--color-primario)',
+                cursor: 'pointer',
+                transition: 'all 0.18s ease',
+                flexShrink: 0,
+              }}
+              aria-label={simulando25Citas ? 'Quitar simulación de 25 citas' : 'Probar 25 citas'}
+            >
+              {simulando25Citas ? <CheckCircle2 size={16} /> : <CalendarClock size={16} />}
+            </button>
+          </EtiquetaTooltip>
+        )}
 
         {/* 4. Botón Principal Nueva Cita (Ubicado de último a la derecha) */}
         <button

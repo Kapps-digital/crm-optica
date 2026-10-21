@@ -113,7 +113,7 @@ export default function PaginaLogin() {
           {/* Campo Usuario */}
           <div className="login-campo-grupo">
             <label htmlFor="campo-usuario" className="login-etiqueta">
-              Usuario del sistema
+              Usuario
             </label>
             <div className="login-input-caja">
               <User className="login-input-icono" />
@@ -124,7 +124,7 @@ export default function PaginaLogin() {
                 required
                 value={usuario}
                 onChange={(e) => setUsuario(e.target.value)}
-                placeholder="ej. samir"
+                placeholder="ej. usuario"
                 className="login-input-control"
                 disabled={cargando}
               />

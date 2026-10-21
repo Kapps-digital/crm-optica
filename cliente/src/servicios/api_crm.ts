@@ -18,6 +18,7 @@ import type {
   CuentaCanalWhatsApp,
   EstadoCanalesRespuesta,
   ConfiguracionIA,
+  DatosRespuestaUsuarios,
 } from '@/tipos/crm';
 
 const CLAVE_TOKEN = 'crm_token';
@@ -1276,5 +1277,221 @@ export async function obtenerMotivosCitasApi(): Promise<string[]> {
   } catch (error) {
     registrarErrorApi('obtenerMotivosCitasApi', error);
     return [];
+  }
+}
+
+// -------------------------------------------------------------
+// GESTIÓN DE USUARIOS Y ÓPTICAS (Solo Administrador Global)
+// -------------------------------------------------------------
+export async function obtenerUsuariosApi(): Promise<DatosRespuestaUsuarios> {
+  try {
+    const res = await fetch(`/api/usuarios?_t=${Date.now()}`, {
+      headers: crearEncabezados(),
+      cache: 'no-store',
+    });
+    const texto = await res.text();
+    try {
+      return JSON.parse(texto);
+    } catch {
+      return { exito: false, error: `Error del servidor (${res.status}): ${texto || res.statusText}` };
+    }
+  } catch (error) {
+    registrarErrorApi('obtenerUsuariosApi', error);
+    return { exito: false, error: 'Error de red al consultar usuarios' };
+  }
+}
+
+export async function crearUsuarioApi(datos: {
+  optica_id?: number | null;
+  nombre: string;
+  usuario: string;
+  correo?: string | null;
+  contrasena: string;
+  rol: 'admin' | 'admin_optica';
+  activo?: boolean;
+}): Promise<{ exito: boolean; usuario?: Usuario; error?: string }> {
+  try {
+    const res = await fetch('/api/usuarios', {
+      method: 'POST',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(datos),
+    });
+    const texto = await res.text();
+    try {
+      return JSON.parse(texto);
+    } catch {
+      return { exito: false, error: `Error del servidor (${res.status}): ${texto || res.statusText}` };
+    }
+  } catch (error) {
+    registrarErrorApi('crearUsuarioApi', error);
+    return { exito: false, error: 'Error de red al crear usuario' };
+  }
+}
+
+export async function actualizarUsuarioApi(datos: {
+  id: number;
+  optica_id?: number | null;
+  nombre?: string;
+  usuario?: string;
+  correo?: string | null;
+  contrasena?: string;
+  rol?: 'admin' | 'admin_optica';
+  activo?: boolean;
+}): Promise<{ exito: boolean; usuario?: Usuario; error?: string }> {
+  try {
+    const res = await fetch('/api/usuarios', {
+      method: 'PUT',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(datos),
+    });
+    const texto = await res.text();
+    try {
+      return JSON.parse(texto);
+    } catch {
+      return { exito: false, error: `Error del servidor (${res.status}): ${texto || res.statusText}` };
+    }
+  } catch (error) {
+    registrarErrorApi('actualizarUsuarioApi', error);
+    return { exito: false, error: 'Error de red al actualizar usuario' };
+  }
+}
+
+export async function cambiarEstadoUsuarioApi(
+  id: number,
+  activo: boolean
+): Promise<{ exito: boolean; mensaje?: string; error?: string }> {
+  try {
+    const res = await fetch('/api/usuarios/estado', {
+      method: 'PATCH',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ id, activo }),
+    });
+    const texto = await res.text();
+    try {
+      return JSON.parse(texto);
+    } catch {
+      return { exito: false, error: `Error del servidor (${res.status}): ${texto || res.statusText}` };
+    }
+  } catch (error) {
+    registrarErrorApi('cambiarEstadoUsuarioApi', error);
+    return { exito: false, error: 'Error de red al cambiar estado del usuario' };
+  }
+}
+
+export async function eliminarUsuarioApi(
+  id: number
+): Promise<{ exito: boolean; mensaje?: string; error?: string }> {
+  try {
+    const res = await fetch(`/api/usuarios?id=${id}`, {
+      method: 'DELETE',
+      headers: crearEncabezados(),
+    });
+    const texto = await res.text();
+    try {
+      return JSON.parse(texto);
+    } catch {
+      return { exito: false, error: `Error del servidor (${res.status}): ${texto || res.statusText}` };
+    }
+  } catch (error) {
+    registrarErrorApi('eliminarUsuarioApi', error);
+    return { exito: false, error: 'Error de red al eliminar usuario' };
+  }
+}
+
+/**
+ * Crea una nueva óptica/sede en la plataforma (exclusivo Administrador Global)
+ */
+export async function crearOpticaApi(
+  datos: Partial<Optica>
+): Promise<{ exito: boolean; optica?: Optica; error?: string }> {
+  try {
+    const res = await fetch('/api/opticas', {
+      method: 'POST',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(datos),
+    });
+    const texto = await res.text();
+    try {
+      return JSON.parse(texto);
+    } catch {
+      return { exito: false, error: `Error del servidor (${res.status}): ${texto || res.statusText}` };
+    }
+  } catch (error) {
+    registrarErrorApi('crearOpticaApi', error);
+    return { exito: false, error: 'Error de red al crear la óptica' };
+  }
+}
+
+/**
+ * Actualiza los datos de una óptica existente (exclusivo Administrador Global)
+ */
+export async function actualizarOpticaApi(
+  datos: Partial<Optica>
+): Promise<{ exito: boolean; optica?: Optica; error?: string }> {
+  try {
+    const res = await fetch('/api/opticas', {
+      method: 'PUT',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(datos),
+    });
+    const texto = await res.text();
+    try {
+      return JSON.parse(texto);
+    } catch {
+      return { exito: false, error: `Error del servidor (${res.status}): ${texto || res.statusText}` };
+    }
+  } catch (error) {
+    registrarErrorApi('actualizarOpticaApi', error);
+    return { exito: false, error: 'Error de red al actualizar la óptica' };
+  }
+}
+
+/**
+ * Alterna el estado activo/inactivo de una sede clínica
+ */
+export async function cambiarEstadoOpticaApi(
+  id: number,
+  activo: boolean
+): Promise<{ exito: boolean; id?: number; activo?: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/opticas/estado', {
+      method: 'PATCH',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ id, activo }),
+    });
+    const texto = await res.text();
+    try {
+      return JSON.parse(texto);
+    } catch {
+      return { exito: false, error: `Error del servidor (${res.status}): ${texto || res.statusText}` };
+    }
+  } catch (error) {
+    registrarErrorApi('cambiarEstadoOpticaApi', error);
+    return { exito: false, error: 'Error de red al cambiar estado de la óptica' };
+  }
+}
+
+/**
+ * Alterna la habilitación del servicio de IA para una óptica
+ */
+export async function cambiarIaOpticaApi(
+  id: number,
+  ia_habilitada: boolean
+): Promise<{ exito: boolean; id?: number; ia_habilitada?: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/opticas/ia', {
+      method: 'PATCH',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ id, ia_habilitada }),
+    });
+    const texto = await res.text();
+    try {
+      return JSON.parse(texto);
+    } catch {
+      return { exito: false, error: `Error del servidor (${res.status}): ${texto || res.statusText}` };
+    }
+  } catch (error) {
+    registrarErrorApi('cambiarIaOpticaApi', error);
+    return { exito: false, error: 'Error de red al cambiar servicio IA de la óptica' };
   }
 }

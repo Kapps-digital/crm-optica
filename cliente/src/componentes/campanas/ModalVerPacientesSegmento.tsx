@@ -15,6 +15,7 @@ import {
 import type { Segmento, PacienteSegmento } from '@/tipos/crm';
 import { obtenerPacientesSegmento } from '@/servicios/api_crm';
 import { formatearTelefono, obtenerNombrePaciente } from '@/utilidades/formato';
+import { FiltroBusqueda } from '../comunes/FiltroBusqueda';
 
 interface PropiedadesModalVerPacientesSegmento {
   abierto: boolean;
@@ -192,40 +193,13 @@ export const ModalVerPacientesSegmento: React.FC<PropiedadesModalVerPacientesSeg
             gap: '1rem',
           }}
         >
-          <div
-            style={{
-              position: 'relative',
-              flex: 1,
-              maxWidth: '360px',
-            }}
-          >
-            <Search
-              size={15}
-              style={{
-                position: 'absolute',
-                left: '10px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--texto-atenuado)',
-              }}
-            />
-            <input
-              type="text"
-              placeholder="Buscar por nombre, cédula, teléfono..."
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.45rem 0.75rem 0.45rem 2rem',
-                backgroundColor: 'var(--fondo-base)',
-                border: '1px solid var(--borde-tarjeta)',
-                borderRadius: 'var(--radio-md)',
-                color: 'var(--texto-principal)',
-                fontSize: '0.8rem',
-                outline: 'none',
-              }}
-            />
-          </div>
+          <FiltroBusqueda
+            valor={busqueda}
+            alCambiar={setBusqueda}
+            placeholder="Buscar por nombre, cédula, teléfono..."
+            flex="1"
+            anchoMaximo="360px"
+          />
 
           <div style={{ fontSize: '0.8rem', color: 'var(--texto-secundario)', fontWeight: 600 }}>
             {cargando ? (

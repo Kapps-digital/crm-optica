@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Phone, AlertCircle, Bot } from 'lucide-react';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
+import { FiltroBusqueda } from '../comunes/FiltroBusqueda';
 import type { Conversacion } from '@/tipos/crm';
 import { formatearTelefono } from '@/utilidades/formato';
 
@@ -110,16 +111,13 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
     <div className="columna-conversaciones">
       {/* 1. Buscador Superior */}
       <div className="buscador-conversaciones">
-        <div className="campo-busqueda-wrapper" style={{ width: '100%' }}>
-          <Search className="icono-busqueda" style={{ width: '16px', height: '16px' }} />
-          <input
-            type="text"
-            id="filtro-busqueda-chat"
-            placeholder="Buscar por número o nombre..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-          />
-        </div>
+        <FiltroBusqueda
+          id="filtro-busqueda-chat"
+          valor={busqueda}
+          alCambiar={setBusqueda}
+          placeholder="Buscar por número o nombre..."
+          ancho="100%"
+        />
       </div>
 
       {/* 2. Barra de Filtros estilo WhatsApp (Píldoras) */}

@@ -13,3 +13,5 @@ export function vincular_cuenta_whatsapp_activa(optica_id?: number): Promise<any
 export function desconectar_canal_whatsapp(optica_id?: number, opciones?: { cambiar_numero?: boolean }): Promise<any>;
 export function reconectar_canal_whatsapp(optica_id?: number): Promise<any>;
 export function actualizar_datos_optica(optica_id: number, datos: any): Promise<any>;
+export function eliminar_logo_storage_optica(optica_id?: number): Promise<any>;
+

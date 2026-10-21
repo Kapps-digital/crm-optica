@@ -16,6 +16,7 @@ import { ModuloAutoSegmentacion } from '@/componentes/campanas/ModuloAutoSegment
 import { ModuloPlantillas } from '@/componentes/plantillas/ModuloPlantillas';
 import { ModuloConfiguracion } from '@/componentes/configuracion/ModuloConfiguracion';
 import { ModuloConsumo } from '@/componentes/consumo/ModuloConsumo';
+import { ModuloUsuarios } from '@/componentes/usuarios/ModuloUsuarios';
 import { EtiquetaTooltip } from '@/componentes/comunes/EtiquetaTooltip';
 import { SelectorDesplegable } from '@/componentes/comunes/SelectorDesplegable';
 import {
@@ -54,6 +55,7 @@ const CATALOGO_OPTICAS_BASE: Optica[] = [
     telefono: '+57 313 2531694',
     activo: true,
     ia_activa: true,
+    ia_habilitada: true,
   },
   {
     id: 2,
@@ -65,6 +67,7 @@ const CATALOGO_OPTICAS_BASE: Optica[] = [
     telefono: '+57 300 9876543',
     activo: true,
     ia_activa: true,
+    ia_habilitada: false,
   },
 ];
 
@@ -194,6 +197,7 @@ export default function PaginaPrincipal() {
     const opticaNormalizada: Optica = {
       ...opticaInicial,
       ia_activa: opticaInicial.ia_activa !== false,
+      ia_habilitada: opticaInicial.ia_habilitada !== undefined ? Boolean(opticaInicial.ia_habilitada) : (Number(opticaInicial.id) === 2 ? false : true),
     };
     setOpticaActual(opticaNormalizada);
     aplicarTemaOptica(opticaNormalizada);
@@ -218,6 +222,7 @@ export default function PaginaPrincipal() {
             ...res.optica,
             id: Number(res.optica.id),
             ia_activa: res.optica.ia_activa !== false,
+            ia_habilitada: res.optica.ia_habilitada !== undefined ? Boolean(res.optica.ia_habilitada) : true,
           };
           setOpticaActual(opticaBd);
           aplicarTemaOptica(opticaBd);
@@ -234,6 +239,7 @@ export default function PaginaPrincipal() {
             const optEncontradaNorm: Optica = {
               ...encontrada,
               ia_activa: encontrada.ia_activa !== false,
+              ia_habilitada: encontrada.ia_habilitada !== undefined ? Boolean(encontrada.ia_habilitada) : true,
             };
             setOpticaActual(optEncontradaNorm);
             aplicarTemaOptica(optEncontradaNorm);
@@ -252,8 +258,31 @@ export default function PaginaPrincipal() {
         setOpticaActual((prev) => ({
           ...optGuardada,
           ia_activa: optGuardada.ia_activa !== undefined ? Boolean(optGuardada.ia_activa) : (prev?.ia_activa !== false),
+          ia_habilitada: optGuardada.ia_habilitada !== undefined ? Boolean(optGuardada.ia_habilitada) : (prev?.ia_habilitada !== false),
         }));
         aplicarTemaOptica(optGuardada);
+      }
+    };
+
+    const alRecargarCatalogoOpticas = async () => {
+      try {
+        const opts = await obtenerOpticas();
+        if (opts.length > 0) {
+          setListaOpticas(opts);
+          const idGuardado = obtenerIdOpticaActiva();
+          const actual = opts.find((o) => Number(o.id) === Number(idGuardado));
+          if (actual) {
+            const optNorm: Optica = {
+              ...actual,
+              ia_activa: actual.ia_activa !== false,
+              ia_habilitada: actual.ia_habilitada !== false,
+            };
+            setOpticaActual(optNorm);
+            guardarOpticaSesion(optNorm);
+          }
+        }
+      } catch (err) {
+        console.error('Error al recargar catálogo de ópticas:', err);
       }
     };
 
@@ -275,9 +304,11 @@ export default function PaginaPrincipal() {
     };
 
     window.addEventListener('crm_cambio_optica', alActualizarOpticaGlobal);
+    window.addEventListener('crm_recargar_opticas', alRecargarCatalogoOpticas);
     window.addEventListener('crm_cambio_ia_global', alCambiarIAGlobal);
     return () => {
       window.removeEventListener('crm_cambio_optica', alActualizarOpticaGlobal);
+      window.removeEventListener('crm_recargar_opticas', alRecargarCatalogoOpticas);
       window.removeEventListener('crm_cambio_ia_global', alCambiarIAGlobal);
     };
   }, []);
@@ -301,10 +332,16 @@ export default function PaginaPrincipal() {
     }
 
     if (seleccionada) {
-      setOpticaActual(seleccionada);
-      aplicarTemaOptica(seleccionada);
+      const opticaNorm: Optica = {
+        ...seleccionada,
+        id: Number(seleccionada.id),
+        ia_activa: seleccionada.ia_activa !== false,
+        ia_habilitada: seleccionada.ia_habilitada !== undefined ? Boolean(seleccionada.ia_habilitada) : (Number(seleccionada.id) === 2 ? false : true),
+      };
+      setOpticaActual(opticaNorm);
+      aplicarTemaOptica(opticaNorm);
       if (typeof window !== 'undefined') {
-        localStorage.setItem('crm_optica', JSON.stringify(seleccionada));
+        localStorage.setItem('crm_optica', JSON.stringify(opticaNorm));
         window.dispatchEvent(new Event('crm_cambio_optica'));
       }
     }
@@ -331,6 +368,22 @@ export default function PaginaPrincipal() {
     const nuevoTema = !temaOscuro;
     setTemaOscuro(nuevoTema);
     document.documentElement.setAttribute('data-tema', nuevoTema ? 'oscuro' : 'claro');
+  };
+
+  // Redirigir a mensajería si un usuario sin rol admin intenta ver consumo o usuarios
+  useEffect(() => {
+    if (usuarioActual && usuarioActual.rol !== 'admin') {
+      if (vistaActiva === 'consumo' || vistaActiva === 'usuarios') {
+        setVistaActiva('mensajeria');
+      }
+    }
+  }, [usuarioActual, vistaActiva]);
+
+  const manejarCambioVista = (v: string) => {
+    if ((v === 'consumo' || v === 'usuarios') && usuarioActual?.rol !== 'admin') {
+      return;
+    }
+    setVistaActiva(v);
   };
 
   const recargarConversaciones = useCallback(async () => {
@@ -902,7 +955,7 @@ export default function PaginaPrincipal() {
         colapsado={panelColapsado}
         alAlternarColapso={() => setPanelColapsado(!panelColapsado)}
         vistaActiva={vistaActiva}
-        alCambiarVista={(v) => setVistaActiva(v)}
+        alCambiarVista={manejarCambioVista}
         temaOscuro={temaOscuro}
         alAlternarTema={alternarTema}
         conteoChats={conteoBadgeConversaciones}
@@ -931,17 +984,13 @@ export default function PaginaPrincipal() {
                 </>
               )}
               {vistaActiva === 'plantillas' && 'Plantillas'}
-              {vistaActiva === 'analitica' && (
-                <>
-                  Analítica <span className="ampersand-titular">&</span> Reportes
-                </>
-              )}
               {vistaActiva === 'configuracion' && 'Configuración'}
               {vistaActiva === 'consumo' && (
                 <>
                   Auditoría <span className="ampersand-titular">&</span> Consumo de IA
                 </>
               )}
+              {vistaActiva === 'usuarios' && 'Directorio de Usuarios y Ópticas'}
             </h1>
             <p>
               {vistaActiva === 'mensajeria' && 'Gestión centralizada de mensajes y atención al cliente en tiempo real'}
@@ -949,9 +998,9 @@ export default function PaginaPrincipal() {
               {vistaActiva === 'citas' && 'Agenda clínica, programación de turnos y control de consultas'}
               {vistaActiva === 'campanas' && 'Filtros automáticos por historial clínico, fecha de control y tipo de lente'}
               {vistaActiva === 'plantillas' && 'Gestión de plantillas preaprobadas para mensajería empresarial'}
-              {vistaActiva === 'analitica' && 'Métricas de atención y desempeño del equipo de optometría'}
               {vistaActiva === 'configuracion' && 'Canales de atención, perfil de la óptica y reglas de atención clínica'}
               {vistaActiva === 'consumo' && 'Monitoreo analítico de tokens por óptica, control de gasto y proyecciones de costos mensuales'}
+              {vistaActiva === 'usuarios' && 'Gestión centralizada de cuentas de acceso, credenciales de colaboradores y administración de ópticas.'}
             </p>
           </div>
 
@@ -1107,6 +1156,7 @@ export default function PaginaPrincipal() {
             contactos={pacientes}
             conversaciones={conversaciones}
             nombreOptica={opticaActual?.nombre}
+            esAdmin={usuarioActual?.rol === 'admin'}
             alSeleccionarContactoChat={navegarAlChatContacto}
             alEnviarMensajeWhatsApp={async (texto, convDestino) => {
               await manejarEnviarMensaje(texto, convDestino || undefined);
@@ -1144,14 +1194,20 @@ export default function PaginaPrincipal() {
           />
         )}
 
-        {vistaActiva === 'consumo' && (
+        {vistaActiva === 'consumo' && usuarioActual?.rol === 'admin' && (
           <ModuloConsumo
             opticas={listaOpticas}
             opticaActual={opticaActual}
           />
         )}
 
-        {vistaActiva !== 'mensajeria' && vistaActiva !== 'pacientes' && vistaActiva !== 'citas' && vistaActiva !== 'campanas' && vistaActiva !== 'plantillas' && vistaActiva !== 'configuracion' && vistaActiva !== 'consumo' && (
+        {vistaActiva === 'usuarios' && (
+          <ModuloUsuarios
+            opticasDisponibles={listaOpticas}
+          />
+        )}
+
+        {vistaActiva !== 'mensajeria' && vistaActiva !== 'pacientes' && vistaActiva !== 'citas' && vistaActiva !== 'campanas' && vistaActiva !== 'plantillas' && vistaActiva !== 'configuracion' && vistaActiva !== 'consumo' && vistaActiva !== 'usuarios' && (
           <div style={{ flex: 1, padding: '3rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--texto-atenuado)' }}>
             <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--texto-principal)', textTransform: 'capitalize' }}>
               Módulo de {vistaActiva}

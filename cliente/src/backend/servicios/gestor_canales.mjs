@@ -105,6 +105,51 @@ export async function subir_logo_storage_optica(optica_id = 1, { buffer, tipo_mi
 }
 
 /**
+ * Elimina todos los archivos de logotipo de la carpeta de la óptica en Supabase Storage
+ */
+export async function eliminar_logo_storage_optica(optica_id = 1) {
+  try {
+    const idOpticaSeguro = Number(optica_id) > 0 ? Number(optica_id) : 1;
+    const resListar = await fetch(`${SUPABASE_URL}/storage/v1/object/list/logos-opticas`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        apiKey: SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ prefix: `optica_${idOpticaSeguro}` }),
+    });
+
+    if (resListar.ok) {
+      const archivos = await resListar.json();
+      if (Array.isArray(archivos) && archivos.length > 0) {
+        const archivosAEliminar = archivos
+          .filter((item) => item.name)
+          .map((item) => `optica_${idOpticaSeguro}/${item.name}`);
+
+        if (archivosAEliminar.length > 0) {
+          console.log(`[Storage] Eliminando ${archivosAEliminar.length} archivo(s) de logo en optica_${idOpticaSeguro}:`, archivosAEliminar);
+          await fetch(`${SUPABASE_URL}/storage/v1/object/logos-opticas`, {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              apiKey: SUPABASE_ANON_KEY,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ prefixes: archivosAEliminar }),
+          });
+        }
+      }
+    }
+
+    return { exito: true };
+  } catch (error) {
+    console.error('Error en eliminar_logo_storage_optica:', error);
+    return { exito: false, error: error.message };
+  }
+}
+
+/**
  * Obtiene el estado consolidado de los canales de la óptica
  */
 export async function obtener_canales_optica(optica_id = 1) {
@@ -117,13 +162,15 @@ export async function obtener_canales_optica(optica_id = 1) {
         duracion_cita_minutos, control_meses_defecto, especialista_defecto, 
         registro_profesional_defecto, motivo_cita_defecto, notificacion_auto_citas_whatsapp,
         dias_atencion, hora_inicio_atencion, hora_fin_atencion,
-        COALESCE(ia_activa, true) AS ia_activa
+        COALESCE(ia_activa, true) AS ia_activa,
+        COALESCE(ia_habilitada, true) AS ia_habilitada
        FROM "CRM_Opticas".opticas WHERE id = $1`,
       [optica_id]
     );
     const optica = resOptica.rows[0] ? {
       ...resOptica.rows[0],
       ia_activa: Boolean(resOptica.rows[0].ia_activa ?? true),
+      ia_habilitada: resOptica.rows[0].ia_habilitada !== false,
     } : null;
 
     // 2. Consultar línea guardada en BD

@@ -27,6 +27,9 @@ import {
 } from 'lucide-react';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
+import { FiltroBusqueda } from '../comunes/FiltroBusqueda';
+import { BarraPestanas, ElementoPestana } from '../comunes/BarraPestanas';
+import { BarraPaginacionTabla } from '../comunes/BarraPaginacionTabla';
 import { BurbujaWhatsApp } from './BurbujaWhatsApp';
 import { ModalCrearPlantilla } from './ModalCrearPlantilla';
 import { ModalLanzarLote } from './ModalLanzarLote';
@@ -89,6 +92,44 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
   const [segmentoPreseleccionadoId, setSegmentoPreseleccionadoId] = useState<number | null>(
     segmentoInicial ? segmentoInicial.id : null
   );
+
+  // Configuración de pestañas con componente estandarizado BarraPestanas
+  const pestanasModulo = useMemo<ElementoPestana<'biblioteca' | 'historial'>[]>(
+    () => [
+      {
+        id: 'biblioteca',
+        etiqueta: 'Plantillas',
+        icono: MessageSquare,
+        conteo: plantillas.length,
+      },
+      {
+        id: 'historial',
+        etiqueta: 'Historial de Envíos',
+        icono: History,
+        conteo: historialLotes.length,
+      },
+    ],
+    [plantillas.length, historialLotes.length]
+  );
+
+  // Estados de paginación para la tabla de Historial de Envíos (por defecto 5 registros)
+  const [paginaActualHistorial, setPaginaActualHistorial] = useState<number>(1);
+  const [limitePorPaginaHistorial, setLimitePorPaginaHistorial] = useState<number>(5);
+
+  // Segmentación por páginas de lotes de envío
+  const totalHistorialRegistros = historialLotes.length;
+  const historialLotesPaginados = useMemo(() => {
+    const inicio = (paginaActualHistorial - 1) * limitePorPaginaHistorial;
+    return historialLotes.slice(inicio, inicio + limitePorPaginaHistorial);
+  }, [historialLotes, paginaActualHistorial, limitePorPaginaHistorial]);
+
+  // Validar límites de página si cambia la cantidad total o el selector de límite
+  useEffect(() => {
+    const maxPaginas = Math.max(1, Math.ceil(historialLotes.length / limitePorPaginaHistorial));
+    if (paginaActualHistorial > maxPaginas) {
+      setPaginaActualHistorial(1);
+    }
+  }, [historialLotes.length, limitePorPaginaHistorial, paginaActualHistorial]);
 
   // Cargar datos principales
   const cargarDatosPrincipales = useCallback(async () => {
@@ -264,53 +305,17 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
           paddingBottom: '0.15rem',
         }}
       >
-        {/* Pestañas de Navegación */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <button
-            onClick={() => setPestanaActiva('biblioteca')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              background: 'none',
-              border: 'none',
-              borderBottom: pestanaActiva === 'biblioteca' ? '2.5px solid #10b981' : '2.5px solid transparent',
-              color: pestanaActiva === 'biblioteca' ? '#10b981' : 'var(--texto-secundario)',
-              padding: '0.45rem 0.2rem',
-              fontSize: '0.92rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <MessageSquare size={17} />
-            Biblioteca de Plantillas ({plantillas.length})
-          </button>
-
-          <button
-            onClick={() => {
-              setPestanaActiva('historial');
+        {/* Pestañas de Navegación con componente estandarizado BarraPestanas */}
+        <BarraPestanas<'biblioteca' | 'historial'>
+          pestanas={pestanasModulo}
+          pestanaActiva={pestanaActiva}
+          alCambiarPestana={(id) => {
+            setPestanaActiva(id);
+            if (id === 'historial') {
               cargarHistorial();
-            }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              background: 'none',
-              border: 'none',
-              borderBottom: pestanaActiva === 'historial' ? '2.5px solid #10b981' : '2.5px solid transparent',
-              color: pestanaActiva === 'historial' ? '#10b981' : 'var(--texto-secundario)',
-              padding: '0.45rem 0.2rem',
-              fontSize: '0.92rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <History size={17} />
-            Historial de Lotes ({historialLotes.length})
-          </button>
-        </div>
+            }
+          }}
+        />
 
         {/* Acciones al lado derecho: Indicador de cuota + Sincronizar (icono con tooltip) + Nueva Plantilla */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
@@ -363,10 +368,10 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                 justifyContent: 'center',
                 width: '36px',
                 height: '36px',
-                background: sincronizandoMeta ? 'rgba(16, 185, 129, 0.12)' : 'var(--fondo-tarjeta)',
-                border: sincronizandoMeta ? '1px solid #10b981' : '1px solid var(--borde-suave)',
+                background: sincronizandoMeta ? 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.12)' : 'var(--fondo-tarjeta)',
+                border: sincronizandoMeta ? '1px solid var(--color-primario)' : '1px solid var(--borde-suave)',
                 borderRadius: '8px',
-                color: 'var(--texto-principal)',
+                color: 'var(--color-primario)',
                 cursor: sincronizandoMeta ? 'wait' : 'pointer',
                 opacity: cargandoDatos ? 0.6 : 1,
                 transition: 'all 0.25s ease',
@@ -378,8 +383,8 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                 style={{
                   animation: sincronizandoMeta ? 'spin 0.85s linear infinite' : 'none',
                   transformOrigin: 'center center',
+                  color: 'var(--color-primario)',
                 }}
-                color="#10b981"
               />
             </button>
           </EtiquetaTooltip>
@@ -391,7 +396,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
               display: 'flex',
               alignItems: 'center',
               gap: '0.45rem',
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              background: 'var(--color-primario)',
               color: '#ffffff',
               border: 'none',
               borderRadius: '8px',
@@ -399,7 +404,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
               fontSize: '0.82rem',
               fontWeight: 700,
               cursor: 'pointer',
-              boxShadow: '0 2px 6px rgba(16, 185, 129, 0.25)',
+              boxShadow: '0 2px 8px rgba(var(--color-primario-rgb, 2, 132, 199), 0.25)',
               transition: 'all 0.2s ease',
             }}
           >
@@ -447,7 +452,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
         </div>
       )}
 
-      {/* 2. CONTENIDO: Pestaña Biblioteca de Plantillas */}
+      {/* 2. CONTENIDO: Pestaña Plantillas */}
       {pestanaActiva === 'biblioteca' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
           {/* Barra de Filtros y Búsqueda */}
@@ -464,52 +469,16 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
               padding: '0.35rem 0.75rem',
             }}
           >
-            {/* Buscador */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                background: 'var(--fondo-principal)',
-                border: '1px solid var(--borde-suave)',
-                borderRadius: '7px',
-                padding: '0.3rem 0.65rem',
-                minWidth: '240px',
-                flex: 1,
-                maxWidth: '380px',
-              }}
-            >
-              <Search size={15} color="var(--texto-secundario)" />
-              <input
-                type="text"
-                placeholder="Buscar por título, contenido o etiqueta..."
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                  color: 'var(--texto-principal)',
-                  fontSize: '0.82rem',
-                  width: '100%',
-                }}
-              />
-              {busqueda && (
-                <button
-                  onClick={() => setBusqueda('')}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--texto-secundario)',
-                    cursor: 'pointer',
-                    padding: 0,
-                    fontSize: '0.75rem',
-                  }}
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+            {/* Buscador de plantillas */}
+            <FiltroBusqueda
+              valor={busqueda}
+              alCambiar={setBusqueda}
+              placeholder="Buscar plantilla..."
+              flex="0 1 280px"
+              anchoMinimo="150px"
+              anchoMaximo="280px"
+              alto="28px"
+            />
 
             {/* Filtros */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
@@ -561,7 +530,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                 color: 'var(--texto-secundario)',
               }}
             >
-              <RefreshCw size={26} className="animate-spin" color="#10b981" />
+              <RefreshCw size={26} className="animate-spin" color="var(--color-primario)" />
               <span style={{ fontSize: '0.88rem', fontWeight: 600 }}>Cargando plantillas oficiales...</span>
             </div>
           ) : plantillasFiltradas.length === 0 ? (
@@ -592,7 +561,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.45rem',
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  background: 'var(--color-primario)',
                   color: '#ffffff',
                   border: 'none',
                   borderRadius: '8px',
@@ -601,6 +570,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                   fontWeight: 700,
                   cursor: 'pointer',
                   marginTop: '0.5rem',
+                  boxShadow: '0 2px 8px rgba(var(--color-primario-rgb, 2, 132, 199), 0.25)',
                 }}
               >
                 <Plus size={15} />
@@ -621,18 +591,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
             >
               {/* Columna Izquierda: Catálogo con al menos 3 plantillas por fila */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span
-                    style={{
-                      fontSize: '0.78rem',
-                      fontWeight: 700,
-                      color: 'var(--texto-secundario)',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.04em',
-                    }}
-                  >
-                    Plantillas ({plantillasFiltradas.length})
-                  </span>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.72rem', color: 'var(--texto-secundario)' }}>
                     Selecciona para previsualizar a la derecha
                   </span>
@@ -658,12 +617,12 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                         onClick={() => setIdPlantillaSeleccionada(plantilla.id)}
                         style={{
                           background: 'var(--fondo-tarjeta)',
-                          border: esActiva ? '2px solid #10b981' : '1px solid var(--borde-suave)',
+                          border: esActiva ? '2px solid var(--color-primario)' : '1px solid var(--borde-suave)',
                           borderRadius: '11px',
                           padding: '0.75rem 0.85rem',
                           cursor: 'pointer',
                           boxShadow: esActiva
-                            ? '0 4px 14px rgba(16, 185, 129, 0.16)'
+                            ? '0 4px 14px rgba(var(--color-primario-rgb, 2, 132, 199), 0.18)'
                             : '0 1px 3px rgba(0,0,0,0.02)',
                           transition: 'all 0.18s ease',
                           display: 'flex',
@@ -798,7 +757,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                             <span
                               style={{
                                 fontSize: '0.68rem',
-                                color: '#10b981',
+                                color: 'var(--color-primario)',
                                 fontWeight: 700,
                                 display: 'flex',
                                 alignItems: 'center',
@@ -848,7 +807,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                         fontSize: '0.58rem',
                         fontWeight: 800,
                         textTransform: 'uppercase',
-                        color: '#10b981',
+                        color: 'var(--color-primario)',
                         letterSpacing: '0.04em',
                         display: 'block',
                         lineHeight: 1,
@@ -881,7 +840,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                       gap: '0.3rem',
                       background:
                         plantillaSeleccionada.estado === 'APPROVED' || plantillaSeleccionada.estado === 'APROBADA'
-                          ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                          ? 'var(--color-primario)'
                           : 'var(--borde-suave)',
                       color:
                         plantillaSeleccionada.estado === 'APPROVED' || plantillaSeleccionada.estado === 'APROBADA'
@@ -898,12 +857,12 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                           : 'not-allowed',
                       boxShadow:
                         plantillaSeleccionada.estado === 'APPROVED' || plantillaSeleccionada.estado === 'APROBADA'
-                          ? '0 2px 5px rgba(16, 185, 129, 0.25)'
+                          ? '0 2px 8px rgba(var(--color-primario-rgb, 2, 132, 199), 0.25)'
                           : 'none',
                       flexShrink: 0,
                     }}
                   >
-                    <Send size={11} />
+                    <Send size={12} />
                     <span>Lanzar Lote</span>
                   </button>
                 </div>
@@ -927,7 +886,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
         </div>
       )}
 
-      {/* 3. CONTENIDO: Pestaña Historial de Lotes */}
+      {/* 3. CONTENIDO: Pestaña Historial de Envíos */}
       {pestanaActiva === 'historial' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div
@@ -950,7 +909,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                   color: 'var(--texto-secundario)',
                 }}
               >
-                <RefreshCw size={26} className="animate-spin" color="#10b981" />
+                <RefreshCw size={26} className="animate-spin" color="var(--color-primario)" />
                 <span style={{ fontSize: '0.88rem', fontWeight: 600 }}>Cargando registros de auditoría...</span>
               </div>
             ) : historialLotes.length === 0 ? (
@@ -984,11 +943,12 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                     marginTop: '0.5rem',
                   }}
                 >
-                  Ir a Biblioteca de Plantillas
+                  Ir a Plantillas
                 </button>
               </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
+              <>
+                <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
                   <thead>
                     <tr
@@ -1013,7 +973,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {historialLotes.map((item) => (
+                    {historialLotesPaginados.map((item) => (
                       <tr
                         key={item.id}
                         style={{
@@ -1035,11 +995,11 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                             style={{
                               padding: '0.2rem 0.5rem',
                               borderRadius: '6px',
-                              background: 'rgba(16, 185, 129, 0.1)',
-                              color: '#10b981',
+                              background: 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.1)',
+                              color: 'var(--color-primario)',
                               fontWeight: 600,
                               fontSize: '0.75rem',
-                              border: '1px solid rgba(16, 185, 129, 0.2)',
+                              border: '1px solid rgba(var(--color-primario-rgb, 2, 132, 199), 0.2)',
                             }}
                           >
                             {item.plantilla_etiqueta || 'Plantilla WhatsApp'}
@@ -1120,33 +1080,46 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                           )}
                         </td>
                         <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>
-                          <button
-                            onClick={() => manejarEliminarLote(item.id)}
-                            title="Eliminar lote del historial"
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: 'var(--texto-secundario)',
-                              cursor: 'pointer',
-                              padding: '0.3rem',
-                              borderRadius: '6px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'color 0.15s ease',
-                            }}
-                            onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-                            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--texto-secundario)')}
-                          >
-                            <Trash2 size={15} />
-                          </button>
+                          <EtiquetaTooltip texto="Eliminar lote del historial" posicion="arriba">
+                            <button
+                              onClick={() => manejarEliminarLote(item.id)}
+                              aria-label="Eliminar lote del historial"
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--texto-secundario)',
+                                cursor: 'pointer',
+                                padding: '0.3rem',
+                                borderRadius: '6px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'color 0.15s ease',
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--texto-secundario)')}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </EtiquetaTooltip>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            )}
+
+              {/* Barra de Paginación Estandarizada para Historial de Envíos */}
+              <BarraPaginacionTabla
+                totalRegistros={totalHistorialRegistros}
+                paginaActual={paginaActualHistorial}
+                limitePorPagina={limitePorPaginaHistorial}
+                alCambiarPagina={setPaginaActualHistorial}
+                alCambiarLimite={setLimitePorPaginaHistorial}
+                cantidadVisibles={historialLotesPaginados.length}
+              />
+            </>
+          )}
           </div>
         </div>
       )}

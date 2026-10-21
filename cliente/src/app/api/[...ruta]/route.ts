@@ -45,6 +45,7 @@ import {
   reconectar_canal_whatsapp,
   actualizar_datos_optica,
   subir_logo_storage_optica,
+  eliminar_logo_storage_optica,
 } from '@/backend/servicios/gestor_canales.mjs';
 import {
   obtenerConfiguracionIA,
@@ -132,7 +133,8 @@ async function procesarPeticion(
         SELECT 
           u.id, u.optica_id, u.nombre, u.usuario, u.hash_contrasena, u.rol, u.activo,
           o.nombre AS optica_nombre, o.slug AS optica_slug, o.logo_url AS optica_logo,
-          o.color_primario, o.color_secundario, o.telefono AS optica_telefono
+          o.color_primario, o.color_secundario, o.telefono AS optica_telefono,
+          COALESCE(o.ia_habilitada, true) AS optica_ia_habilitada
         FROM usuarios u
         JOIN opticas o ON u.optica_id = o.id
         WHERE LOWER(u.usuario) = ? AND u.activo = true AND o.activo = true
@@ -179,6 +181,7 @@ async function procesarPeticion(
           color_primario: usuarioDb.color_primario || '#0284c7',
           color_secundario: usuarioDb.color_secundario || '#0369a1',
           telefono: usuarioDb.optica_telefono,
+          ia_habilitada: Boolean(usuarioDb.optica_ia_habilitada ?? true),
         },
       });
     }
@@ -201,7 +204,8 @@ async function procesarPeticion(
           duracion_cita_minutos, control_meses_defecto, especialista_defecto,
           registro_profesional_defecto, motivo_cita_defecto, notificacion_auto_citas_whatsapp,
           dias_atencion, hora_inicio_atencion, hora_fin_atencion,
-          COALESCE(ia_activa, true) AS ia_activa
+          COALESCE(ia_activa, true) AS ia_activa,
+          COALESCE(ia_habilitada, true) AS ia_habilitada
         FROM opticas WHERE id = ? AND activo = true
       `).get(optica_id);
 
@@ -232,6 +236,7 @@ async function procesarPeticion(
           hora_inicio_atencion: opticaDb.hora_inicio_atencion || '08:00 AM',
           hora_fin_atencion: opticaDb.hora_fin_atencion || '06:00 PM',
           ia_activa: Boolean(opticaDb.ia_activa ?? true),
+          ia_habilitada: Boolean(opticaDb.ia_habilitada ?? true),
         } : null,
       });
     }
@@ -239,7 +244,8 @@ async function procesarPeticion(
     if (metodo === 'GET' && rutaStr === 'opticas') {
       const opticas = await base_datos.prepare(`
         SELECT id, nombre, slug, logo_url, color_primario, color_secundario, telefono, activo,
-               COALESCE(ia_activa, true) AS ia_activa
+               COALESCE(ia_activa, true) AS ia_activa,
+               COALESCE(ia_habilitada, true) AS ia_habilitada
         FROM opticas WHERE activo = true ORDER BY id ASC
       `).all();
       return NextResponse.json({
@@ -248,6 +254,7 @@ async function procesarPeticion(
           ...o,
           id: Number(o.id),
           ia_activa: Boolean(o.ia_activa ?? true),
+          ia_habilitada: Boolean(o.ia_habilitada ?? true),
         })),
       });
     }
@@ -810,16 +817,24 @@ async function procesarPeticion(
     }
 
     if (metodo === 'POST' && rutaStr === 'configuracion/optica/logo') {
-      const { imagen_base64, tipo_mime, nombre_archivo } = body;
+      const { imagen_base64, tipo_mime, nombre_archivo, optica_id: opticaIdBody } = body;
       if (!imagen_base64) return NextResponse.json({ exito: false, error: 'Imagen requerida' }, { status: 400 });
       const base64Limpio = imagen_base64.replace(/^data:image\/\w+;base64,/, '');
       const buffer = Buffer.from(base64Limpio, 'base64');
-      const resultado = await subirLogoStorage(optica_id, {
+      const idOpticaDestino = opticaIdBody ? Number(opticaIdBody) : optica_id;
+      const resultado = await subirLogoStorage(idOpticaDestino, {
         buffer,
         tipo_mime: tipo_mime || 'image/png',
         nombre_original: nombre_archivo || 'logo.png',
       });
       return NextResponse.json(resultado);
+    }
+
+    if (metodo === 'DELETE' && rutaStr === 'configuracion/optica/logo') {
+      const idOpticaDestino = body.optica_id ? Number(body.optica_id) : optica_id;
+      await eliminar_logo_storage_optica(idOpticaDestino);
+      await base_datos.prepare('UPDATE opticas SET logo_url = NULL WHERE id = ?').run(idOpticaDestino);
+      return NextResponse.json({ exito: true });
     }
 
     // 9. CONFIGURACIÓN DEL AGENTE DE INTELIGENCIA ARTIFICIAL
@@ -842,6 +857,12 @@ async function procesarPeticion(
     if (metodo === 'POST' && rutaStr === 'configuracion/ia/probar') {
       const { mensaje_prueba, prompt_personalizado, faq_personalizado, tono, api_key_prueba, modelo } = body;
       const config = await obtenerConfiguracionIA(optica_id);
+      if (config.ia_habilitada === false) {
+        return NextResponse.json(
+          { exito: false, error: 'El servicio de IA no está contratado o habilitado para esta óptica.' },
+          { status: 403 }
+        );
+      }
       const mod = modelo || config.ia_modelo || 'gemini-3.5-flash';
       let claveApi = api_key_prueba || config.ia_api_key;
 
@@ -1018,6 +1039,12 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
     }
 
     if (metodo === 'GET' && rutaStr === 'configuracion/ia/metricas-consumo') {
+      if (usuario?.rol !== 'admin') {
+        return NextResponse.json(
+          { exito: false, error: 'Acceso restringido: solo el administrador general puede consultar las métricas de consumo.' },
+          { status: 403 }
+        );
+      }
       const opticaParam = searchParams.get('optica_id');
       const opticaFiltro = opticaParam === 'todas' ? 'todas' : (opticaParam ? Number(opticaParam) : optica_id);
       const desde = searchParams.get('desde') || null;
@@ -1081,6 +1108,400 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
       } catch (errMedia: any) {
         console.error(`[Proxy Multimedia] Error al servir medio ${media_id}:`, errMedia);
         return NextResponse.json({ exito: false, error: 'Error al procesar archivo multimedia' }, { status: 502 });
+      }
+    }
+
+    // 16. GESTIÓN DE USUARIOS DEL SISTEMA (SOLO ADMINISTRADOR GLOBAL)
+    if (segmentosRuta[0] === 'usuarios') {
+      if (!usuario || usuario.rol !== 'admin') {
+        return NextResponse.json(
+          { exito: false, error: 'Acceso no autorizado. Se requiere rol de Administrador Global.' },
+          { status: 403 }
+        );
+      }
+
+      // GET /api/usuarios
+      if (metodo === 'GET' && rutaStr === 'usuarios') {
+        const usuarios = await base_datos.prepare(`
+          SELECT 
+            u.id, u.optica_id, u.nombre, u.usuario, u.correo, u.rol, u.activo, u.ultimo_acceso, u.creado_en,
+            o.nombre AS optica_nombre, o.color_primario AS optica_color
+          FROM usuarios u
+          LEFT JOIN opticas o ON u.optica_id = o.id
+          ORDER BY u.id ASC
+        `).all();
+
+        const opticas = await base_datos.prepare(`
+          SELECT 
+            o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa,
+            COALESCE(o.ia_habilitada, true) AS ia_habilitada,
+            COUNT(u.id) AS total_usuarios
+          FROM opticas o
+          LEFT JOIN usuarios u ON u.optica_id = o.id
+          GROUP BY o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa, o.ia_habilitada
+          ORDER BY o.id ASC
+        `).all();
+
+        const totalUsuarios = usuarios.length;
+        const totalActivos = usuarios.filter((u: any) => u.activo === true || u.activo === 1).length;
+        const totalInactivos = totalUsuarios - totalActivos;
+        const totalAdmins = usuarios.filter((u: any) => u.rol === 'admin').length;
+        const totalAdminsOptica = usuarios.filter((u: any) => u.rol === 'admin_optica').length;
+
+        return NextResponse.json({
+          exito: true,
+          usuarios,
+          opticas,
+          estadisticas: {
+            total_usuarios: totalUsuarios,
+            total_activos: totalActivos,
+            total_inactivos: totalInactivos,
+            total_opticas: opticas.length,
+            total_admins: totalAdmins,
+            total_admins_optica: totalAdminsOptica,
+          },
+        }, { headers: ENCABEZADOS_NO_CACHE });
+      }
+
+      // POST /api/usuarios (Crear nuevo usuario)
+      if (metodo === 'POST' && rutaStr === 'usuarios') {
+        const { nombre, usuario: uNombre, correo, contrasena, rol, optica_id: optId, activo = true } = body;
+
+        if (!nombre || !String(nombre).trim()) {
+          return NextResponse.json({ exito: false, error: 'El nombre completo es obligatorio.' }, { status: 400 });
+        }
+        if (!uNombre || !String(uNombre).trim()) {
+          return NextResponse.json({ exito: false, error: 'El nombre de usuario es obligatorio.' }, { status: 400 });
+        }
+        if (!contrasena || String(contrasena).length < 4) {
+          return NextResponse.json({ exito: false, error: 'La contraseña debe tener al menos 4 caracteres.' }, { status: 400 });
+        }
+
+        const rolValido = rol === 'admin_optica' ? 'admin_optica' : 'admin';
+        const usuarioLimpio = String(uNombre).trim().toLowerCase();
+        const idOpticaNumerico = Number(optId) || 1;
+
+        // Verificar si el username ya está ocupado
+        const usuarioExistente = await base_datos.prepare('SELECT id FROM usuarios WHERE LOWER(usuario) = ?').get(usuarioLimpio);
+        if (usuarioExistente) {
+          return NextResponse.json({ exito: false, error: `El nombre de usuario "${usuarioLimpio}" ya se encuentra registrado.` }, { status: 400 });
+        }
+
+        const hash = bcrypt.hashSync(contrasena, 10);
+        const insercion = await base_datos.prepare(`
+          INSERT INTO usuarios (optica_id, nombre, usuario, correo, hash_contrasena, rol, activo, creado_en)
+          VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        `).run(
+          idOpticaNumerico,
+          String(nombre).trim(),
+          usuarioLimpio,
+          correo ? String(correo).trim().toLowerCase() : null,
+          hash,
+          rolValido,
+          activo !== false
+        );
+
+        const nuevoId = Number(insercion.lastInsertRowid);
+        const usuarioCreado = await base_datos.prepare(`
+          SELECT u.id, u.optica_id, u.nombre, u.usuario, u.correo, u.rol, u.activo, u.ultimo_acceso, u.creado_en, o.nombre AS optica_nombre
+          FROM usuarios u LEFT JOIN opticas o ON u.optica_id = o.id WHERE u.id = ?
+        `).get(nuevoId);
+
+        return NextResponse.json({ exito: true, usuario: usuarioCreado });
+      }
+
+      // PUT /api/usuarios (Actualizar usuario existente)
+      if (metodo === 'PUT' && rutaStr === 'usuarios') {
+        const { id, nombre, usuario: uNombre, correo, contrasena, rol, optica_id: optId, activo } = body;
+        const idNum = Number(id || segmentosRuta[1]);
+
+        if (!idNum) {
+          return NextResponse.json({ exito: false, error: 'ID de usuario no especificado.' }, { status: 400 });
+        }
+
+        const actual = await base_datos.prepare('SELECT * FROM usuarios WHERE id = ?').get(idNum);
+        if (!actual) {
+          return NextResponse.json({ exito: false, error: 'Usuario no encontrado.' }, { status: 404 });
+        }
+
+        // Protección: Si es el mismo usuario en sesión
+        const esMismoUsuario = Number(usuario.id) === idNum;
+        if (esMismoUsuario && activo === false) {
+          return NextResponse.json({ exito: false, error: 'No puedes desactivar tu propia cuenta de administrador en sesión.' }, { status: 400 });
+        }
+        if (esMismoUsuario && rol !== 'admin') {
+          return NextResponse.json({ exito: false, error: 'No puedes degradar tu propio rol de Administrador Global.' }, { status: 400 });
+        }
+
+        const usuarioLimpio = uNombre !== undefined ? String(uNombre).trim().toLowerCase() : actual.usuario;
+        if (usuarioLimpio !== actual.usuario) {
+          const conflicto = await base_datos.prepare('SELECT id FROM usuarios WHERE LOWER(usuario) = ? AND id != ?').get(usuarioLimpio, idNum);
+          if (conflicto) {
+            return NextResponse.json({ exito: false, error: `El nombre de usuario "${usuarioLimpio}" ya está en uso por otra persona.` }, { status: 400 });
+          }
+        }
+
+        const rolFinal = rol === 'admin' || rol === 'admin_optica' ? rol : actual.rol;
+        const hashFinal = contrasena && String(contrasena).trim().length >= 4
+          ? bcrypt.hashSync(contrasena, 10)
+          : actual.hash_contrasena;
+
+        await base_datos.prepare(`
+          UPDATE usuarios SET
+            nombre = ?,
+            usuario = ?,
+            correo = ?,
+            hash_contrasena = ?,
+            rol = ?,
+            optica_id = ?,
+            activo = ?
+          WHERE id = ?
+        `).run(
+          nombre !== undefined ? String(nombre).trim() : actual.nombre,
+          usuarioLimpio,
+          correo !== undefined ? (correo ? String(correo).trim().toLowerCase() : null) : actual.correo,
+          hashFinal,
+          rolFinal,
+          optId !== undefined ? Number(optId) : actual.optica_id,
+          activo !== undefined ? Boolean(activo) : actual.activo,
+          idNum
+        );
+
+        const usuarioActualizado = await base_datos.prepare(`
+          SELECT u.id, u.optica_id, u.nombre, u.usuario, u.correo, u.rol, u.activo, u.ultimo_acceso, u.creado_en, o.nombre AS optica_nombre
+          FROM usuarios u LEFT JOIN opticas o ON u.optica_id = o.id WHERE u.id = ?
+        `).get(idNum);
+
+        return NextResponse.json({ exito: true, usuario: usuarioActualizado });
+      }
+
+      // PATCH /api/usuarios/estado (Alternar activo / inactivo)
+      if (metodo === 'PATCH' && rutaStr === 'usuarios/estado') {
+        const { id, activo } = body;
+        const idNum = Number(id);
+        if (!idNum) {
+          return NextResponse.json({ exito: false, error: 'ID de usuario inválido.' }, { status: 400 });
+        }
+
+        if (Number(usuario.id) === idNum && activo === false) {
+          return NextResponse.json({ exito: false, error: 'No puedes desactivar tu propia cuenta de administrador en sesión.' }, { status: 400 });
+        }
+
+        await base_datos.prepare('UPDATE usuarios SET activo = ? WHERE id = ?').run(Boolean(activo), idNum);
+        return NextResponse.json({ exito: true, id: idNum, activo: Boolean(activo) });
+      }
+
+      // DELETE /api/usuarios (Eliminar usuario)
+      if (metodo === 'DELETE' && rutaStr === 'usuarios') {
+        const idABorrar = Number(searchParams.get('id') || body.id);
+        if (!idABorrar) {
+          return NextResponse.json({ exito: false, error: 'ID de usuario obligatorio para eliminar.' }, { status: 400 });
+        }
+
+        if (Number(usuario.id) === idABorrar) {
+          return NextResponse.json({ exito: false, error: 'No puedes eliminar tu propia cuenta de administrador en sesión.' }, { status: 400 });
+        }
+
+        await base_datos.prepare('DELETE FROM usuarios WHERE id = ?').run(idABorrar);
+        return NextResponse.json({ exito: true, eliminado_id: idABorrar });
+      }
+    }
+
+    // 17. GESTIÓN DE ÓPTICAS / SEDES
+    if (segmentosRuta[0] === 'opticas') {
+      // GET /api/opticas (Listar todas las sedes registradas para selectores y módulos)
+      if (metodo === 'GET' && rutaStr === 'opticas') {
+        const opticas = await base_datos.prepare(`
+          SELECT 
+            o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa,
+            COALESCE(o.ia_habilitada, true) AS ia_habilitada,
+            COUNT(u.id) AS total_usuarios
+          FROM opticas o
+          LEFT JOIN usuarios u ON u.optica_id = o.id
+          GROUP BY o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa, o.ia_habilitada
+          ORDER BY o.id ASC
+        `).all();
+
+        return NextResponse.json({ exito: true, opticas }, { headers: ENCABEZADOS_NO_CACHE });
+      }
+
+      // Solo administradores globales pueden crear o modificar sedes
+      if (!usuario || usuario.rol !== 'admin') {
+        return NextResponse.json(
+          { exito: false, error: 'Acceso no autorizado. Se requieren privilegios de Administrador Global.' },
+          { status: 403 }
+        );
+      }
+
+      // POST /api/opticas (Crear nueva óptica)
+      if (metodo === 'POST' && rutaStr === 'opticas') {
+        const { nombre, slug, telefono, color_primario, color_secundario, logo_url, activo = true, ia_habilitada = true } = body;
+
+        if (!nombre || !String(nombre).trim()) {
+          return NextResponse.json({ exito: false, error: 'El nombre de la óptica es obligatorio.' }, { status: 400 });
+        }
+
+        const nombreLimpio = String(nombre).trim();
+        let slugBase = slug && String(slug).trim()
+          ? String(slug).trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-')
+          : nombreLimpio
+              .toLowerCase()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-+|-+$/g, '');
+
+        if (!slugBase) slugBase = 'optica';
+
+        // Asegurar que el slug sea único
+        let slugFinal = slugBase;
+        let contadorSlug = 1;
+        while (true) {
+          const existente = await base_datos.prepare('SELECT id FROM opticas WHERE slug = ?').get(slugFinal);
+          if (!existente) break;
+          contadorSlug++;
+          slugFinal = `${slugBase}-${contadorSlug}`;
+        }
+
+        const colorPrimarioLimpio = color_primario && String(color_primario).trim()
+          ? String(color_primario).trim()
+          : '#0d2167';
+
+        const colorSecundarioLimpio = color_secundario && String(color_secundario).trim()
+          ? String(color_secundario).trim()
+          : '#08133f';
+
+        const telefonoLimpio = telefono && String(telefono).trim() ? String(telefono).trim() : null;
+        const logoUrlLimpio = logo_url && String(logo_url).trim() ? String(logo_url).trim() : null;
+
+        const resultado = await base_datos.prepare(`
+          INSERT INTO opticas (nombre, slug, telefono, color_primario, color_secundario, logo_url, activo, ia_activa, ia_habilitada, creado_en)
+          VALUES (?, ?, ?, ?, ?, ?, ?, true, ?, datetime('now'))
+        `).run(
+          nombreLimpio,
+          slugFinal,
+          telefonoLimpio,
+          colorPrimarioLimpio,
+          colorSecundarioLimpio,
+          logoUrlLimpio,
+          activo !== false,
+          ia_habilitada !== false
+        );
+
+        const nuevaId = Number(resultado.lastInsertRowid);
+        const opticaCreada = await base_datos.prepare(`
+          SELECT o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa,
+                 COALESCE(o.ia_habilitada, true) AS ia_habilitada,
+                 0 AS total_usuarios
+          FROM opticas o WHERE o.id = ?
+        `).get(nuevaId);
+
+        return NextResponse.json({ exito: true, optica: opticaCreada });
+      }
+
+      // PUT /api/opticas (Actualizar óptica existente)
+      if (metodo === 'PUT' && rutaStr === 'opticas') {
+        const { id, nombre, slug, telefono, color_primario, color_secundario, logo_url, activo, ia_habilitada } = body;
+        const idNum = Number(id || segmentosRuta[1]);
+
+        if (!idNum) {
+          return NextResponse.json({ exito: false, error: 'ID de óptica obligatorio para actualizar.' }, { status: 400 });
+        }
+
+        const opticaActual = await base_datos.prepare('SELECT * FROM opticas WHERE id = ?').get(idNum);
+        if (!opticaActual) {
+          return NextResponse.json({ exito: false, error: 'La óptica especificada no existe.' }, { status: 404 });
+        }
+
+        const nombreFinal = nombre !== undefined ? String(nombre).trim() : opticaActual.nombre;
+        if (!nombreFinal) {
+          return NextResponse.json({ exito: false, error: 'El nombre de la óptica no puede estar vacío.' }, { status: 400 });
+        }
+
+        let slugFinal = opticaActual.slug;
+        if (slug !== undefined && String(slug).trim()) {
+          const slugPropuesto = String(slug).trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-');
+          const conflictoSlug = await base_datos.prepare('SELECT id FROM opticas WHERE slug = ? AND id != ?').get(slugPropuesto, idNum);
+          if (conflictoSlug) {
+            return NextResponse.json({ exito: false, error: `El identificador "${slugPropuesto}" ya está en uso por otra óptica.` }, { status: 400 });
+          }
+          slugFinal = slugPropuesto;
+        }
+
+        const telefonoFinal = telefono !== undefined ? (String(telefono).trim() || null) : opticaActual.telefono;
+        const colorPrimarioFinal = color_primario !== undefined ? String(color_primario).trim() : opticaActual.color_primario;
+        const colorSecundarioFinal = color_secundario !== undefined ? String(color_secundario).trim() : opticaActual.color_secundario;
+        const logoUrlFinal = logo_url !== undefined
+          ? (logo_url && String(logo_url).trim() !== '' && String(logo_url).trim() !== 'null' ? String(logo_url).trim() : null)
+          : opticaActual.logo_url;
+        const activoFinal = activo !== undefined ? Boolean(activo) : Boolean(opticaActual.activo);
+        const iaHabilitadaFinal = ia_habilitada !== undefined ? Boolean(ia_habilitada) : (opticaActual.ia_habilitada !== false);
+
+        // Si se eliminó el logo corporativo, purgar físicamente los archivos de Storage
+        if (logo_url !== undefined && logoUrlFinal === null && opticaActual.logo_url) {
+          try {
+            await eliminar_logo_storage_optica(idNum);
+          } catch (errStorage) {
+            console.warn('[Storage] Error purgando logo eliminado:', errStorage);
+          }
+        }
+
+        await base_datos.prepare(`
+          UPDATE opticas SET
+            nombre = ?,
+            slug = ?,
+            telefono = ?,
+            color_primario = ?,
+            color_secundario = ?,
+            logo_url = ?,
+            activo = ?,
+            ia_habilitada = ?
+          WHERE id = ?
+        `).run(nombreFinal, slugFinal, telefonoFinal, colorPrimarioFinal, colorSecundarioFinal, logoUrlFinal, activoFinal, iaHabilitadaFinal, idNum);
+
+        const opticaActualizada = await base_datos.prepare(`
+          SELECT o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa,
+                 COALESCE(o.ia_habilitada, true) AS ia_habilitada,
+                 COUNT(u.id) AS total_usuarios
+          FROM opticas o
+          LEFT JOIN usuarios u ON u.optica_id = o.id
+          WHERE o.id = ?
+          GROUP BY o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa, o.ia_habilitada
+        `).get(idNum);
+
+        return NextResponse.json({ exito: true, optica: opticaActualizada });
+      }
+
+      // PATCH /api/opticas/estado (Alternar activo / inactivo)
+      if (metodo === 'PATCH' && rutaStr === 'opticas/estado') {
+        const { id, activo } = body;
+        const idNum = Number(id);
+        if (!idNum) {
+          return NextResponse.json({ exito: false, error: 'ID de óptica inválido.' }, { status: 400 });
+        }
+
+        // Si se va a desactivar, verificar que no sea la única óptica activa
+        if (!activo) {
+          const activas = await base_datos.prepare('SELECT COUNT(*) AS total FROM opticas WHERE activo = true').get();
+          if (Number(activas?.total || 0) <= 1) {
+            return NextResponse.json({ exito: false, error: 'Debe existir al menos una óptica activa en la plataforma.' }, { status: 400 });
+          }
+        }
+
+        await base_datos.prepare('UPDATE opticas SET activo = ? WHERE id = ?').run(Boolean(activo), idNum);
+        return NextResponse.json({ exito: true, id: idNum, activo: Boolean(activo) });
+      }
+
+      // PATCH /api/opticas/ia (Alternar servicio de IA habilitado / deshabilitado)
+      if (metodo === 'PATCH' && (rutaStr === 'opticas/ia' || rutaStr === 'opticas/ia-habilitada')) {
+        const { id, ia_habilitada } = body;
+        const idNum = Number(id);
+        if (!idNum) {
+          return NextResponse.json({ exito: false, error: 'ID de óptica inválido.' }, { status: 400 });
+        }
+
+        await base_datos.prepare('UPDATE opticas SET ia_habilitada = ? WHERE id = ?').run(Boolean(ia_habilitada), idNum);
+        return NextResponse.json({ exito: true, id: idNum, ia_habilitada: Boolean(ia_habilitada) });
       }
     }
 
