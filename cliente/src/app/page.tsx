@@ -1212,6 +1212,7 @@ export default function PaginaPrincipal() {
         {vistaActiva === 'configuracion' && (
           <ModuloConfiguracion
             opticaActual={opticaActual}
+            usuarioActual={usuarioActual}
             alActualizarOptica={(opticaActualizada) => {
               setOpticaActual(opticaActualizada);
               setListaOpticas((prev) =>

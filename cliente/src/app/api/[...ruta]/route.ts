@@ -54,6 +54,7 @@ import {
   obtenerMotivosDisponiblesOpticaBD,
   registrarConsumoIA,
   obtenerMetricasConsumoIA,
+  obtenerDirectivaTonoIA,
 } from '@/backend/servicios/motor_ia.mjs';
 
 const base_datos = bdModulo as any;
@@ -1045,12 +1046,12 @@ async function procesarPeticion(
           { status: 403 }
         );
       }
-      const mod = modelo || config.ia_modelo || 'gemini-3.5-flash';
+      const mod = modelo || config.ia_modelo || 'gpt-4o-mini';
       let claveApi = api_key_prueba || config.ia_api_key;
 
       const esGemini = Boolean(
         (claveApi && (claveApi.startsWith('AQ.') || claveApi.startsWith('AIza'))) ||
-        (mod && mod.toLowerCase().includes('gemini') && !mod.toLowerCase().includes('openrouter')) ||
+        (mod && mod.toLowerCase().includes('gemini')) ||
         (process.env.GEMINI_API_KEY && claveApi === process.env.GEMINI_API_KEY)
       );
 
@@ -1058,20 +1059,20 @@ async function procesarPeticion(
         if (esGemini || (mod && mod.toLowerCase().includes('gemini'))) {
           claveApi = process.env.GEMINI_API_KEY;
         } else {
-          claveApi = process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY;
+          claveApi = process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
         }
       }
 
       if (!claveApi) {
         return NextResponse.json({
           exito: false,
-          error: 'No hay ninguna clave de API configurada. Ingresa tu clave de Google Gemini o OpenRouter para realizar pruebas.',
+          error: 'No hay ninguna clave de API configurada. Ingresa tu clave de OpenAI o Google Gemini para realizar pruebas.',
         }, { status: 400 });
       }
 
       try {
         const promptSistema = `Eres ${config.ia_nombre || 'Asistente Óptico'}, asistente virtual oficial de "${config.nombre || 'Óptica'}".
-Tono: ${tono || config.ia_tono || 'cercano'}.
+Tono y estilo de comunicación: ${obtenerDirectivaTonoIA(tono || config.ia_tono)}.
 Reglas: Temperatura 0. No inventes precios ni diagnósticos. Si no sabes, ofrece contactar con un asesor humano.
 Instrucciones del negocio: ${prompt_personalizado || config.ia_instrucciones || 'Atender amablemente.'}
 Preguntas Frecuentes y Políticas: ${faq_personalizado || config.ia_preguntas_frecuentes || 'Horario regular de atención.'}
@@ -1118,8 +1119,6 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
                 const razonamiento = Number(data.usageMetadata.thoughtsTokenCount || 0);
                 const totalApi = Number(data.usageMetadata.totalTokenCount || 0);
                 
-                // Si la API reporta tokens de razonamiento o un total superior, asegurar cuadratura matemática:
-                // Entrada + Salida = Totales (los tokens de razonamiento son facturados como generación/salida)
                 if (totalApi > (tokensEntrada + salidaTexto)) {
                   tokensSalida = totalApi - tokensEntrada;
                   tokensTotales = totalApi;
@@ -1135,7 +1134,6 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
           }
 
           if (exitoGemini) {
-            // Registrar consumo de tokens de prueba
             await registrarConsumoIA({
               optica_id,
               conversacion_id: null,
@@ -1162,17 +1160,16 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
           }
         }
 
-        const urlApi = 'https://openrouter.ai/api/v1/chat/completions';
+        const urlApi = 'https://api.openai.com/v1/chat/completions';
+        const modeloOpenAI = mod || 'gpt-4o-mini';
         const resp = await fetch(urlApi, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${claveApi}`,
-            'HTTP-Referer': 'https://crmoptica.com',
-            'X-Title': 'CRM Optica',
           },
           body: JSON.stringify({
-            model: mod,
+            model: modeloOpenAI,
             messages: [
               { role: 'system', content: promptSistema },
               { role: 'user', content: mensaje_prueba || 'Hola, ¿qué horario de atención tienen?' },
@@ -1184,7 +1181,7 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
 
         if (!resp.ok) {
           const errTxt = await resp.text();
-          return NextResponse.json({ exito: false, error: `Error de OpenRouter (${resp.status}): ${errTxt}` }, { status: 400 });
+          return NextResponse.json({ exito: false, error: `Error de OpenAI (${resp.status}): ${errTxt}` }, { status: 400 });
         }
 
         const data = await resp.json();

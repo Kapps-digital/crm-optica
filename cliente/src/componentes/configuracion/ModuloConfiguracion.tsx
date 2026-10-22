@@ -46,6 +46,7 @@ import {
   reconectarCanalWhatsAppApi,
   actualizarDatosOpticaApi,
   subirLogoOpticaApi,
+  obtenerUsuarioSesion,
   obtenerConfiguracionIAApi,
   guardarConfiguracionIAApi,
   probarAgenteIAApi,
@@ -53,12 +54,13 @@ import {
   type ResumenConsumoIA,
   type ConsumoTokensIA,
 } from '@/servicios/api_crm';
-import type { Optica, CuentaCanalWhatsApp, ConfiguracionIA } from '@/tipos/crm';
+import type { Optica, CuentaCanalWhatsApp, ConfiguracionIA, Usuario } from '@/tipos/crm';
 import { formatearTelefono, formatearNombreEspecialista } from '@/utilidades/formato';
 
 interface PropiedadesModuloConfiguracion {
   opticaActual?: Optica | null;
   alActualizarOptica?: (optica: Optica) => void;
+  usuarioActual?: Usuario | null;
 }
  
 const normalizarHoraTexto = (h?: string | null): string => {
@@ -88,6 +90,12 @@ const OPCIONES_MOTIVOS_CITA = [
   { valor: 'Control de Miopía y Astigmatismo', etiqueta: 'Control de Miopía y Astigmatismo' },
   { valor: 'Revisión de Montura y Graduación', etiqueta: 'Revisión de Montura y Graduación' },
   { valor: 'Molestia Ocular / Urgencia Visual', etiqueta: 'Molestia Ocular / Urgencia Visual' },
+];
+
+const OPCIONES_MODELOS_IA = [
+  { valor: 'gpt-4o-mini', etiqueta: 'GPT-4o Mini (OpenAI)' },
+  { valor: 'gpt-6-luna', etiqueta: 'GPT-6 Luna (OpenAI)' },
+  { valor: 'gemini-flash-latest', etiqueta: 'Gemini Flash (Google)' },
 ];
 
 const DIAS_SEMANA_OPCIONES = [
@@ -138,9 +146,16 @@ const generarTextoDias = (activos: Record<string, boolean>): string => {
 export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
   opticaActual,
   alActualizarOptica,
+  usuarioActual,
 }) => {
   // Pestañas del módulo: 'canales' | 'perfil' | 'citas' | 'ia'
   const [pestanaActiva, setPestanaActiva] = useState<'canales' | 'perfil' | 'citas' | 'ia'>('canales');
+
+  // Rol del usuario: el selector de modelo de IA solo es visible para 'admin'
+  const usuarioSesion = useMemo(() => {
+    return usuarioActual || obtenerUsuarioSesion();
+  }, [usuarioActual]);
+  const esAdmin = usuarioSesion?.rol === 'admin';
 
   // Estados de Agente IA
   const [cargandoIA, setCargandoIA] = useState(false);
@@ -148,6 +163,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
   const [iaActiva, setIaActiva] = useState(false);
   const [iaNombre, setIaNombre] = useState('Sofía - Asistente Óptico');
   const [iaTono, setIaTono] = useState('cercano');
+  const [iaModelo, setIaModelo] = useState('gpt-4o-mini');
   const [iaInstrucciones, setIaInstrucciones] = useState('');
   const [iaPreguntasFrecuentes, setIaPreguntasFrecuentes] = useState('');
 
@@ -375,6 +391,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
         setIaActiva(Boolean(res.configuracion.ia_activa));
         setIaNombre(res.configuracion.ia_nombre || 'Sofía - Asistente Óptico');
         setIaTono(res.configuracion.ia_tono || 'cercano');
+        setIaModelo(res.configuracion.ia_modelo || 'gpt-4o-mini');
         setIaInstrucciones(res.configuracion.ia_instrucciones || '');
         setIaPreguntasFrecuentes(res.configuracion.ia_preguntas_frecuentes || '');
       }
@@ -907,6 +924,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
         ia_activa: nuevoEstado,
         ia_nombre: iaNombre,
         ia_tono: iaTono,
+        ia_modelo: iaModelo,
         ia_instrucciones: iaInstrucciones,
         ia_preguntas_frecuentes: iaPreguntasFrecuentes,
       });
@@ -950,6 +968,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
         ia_activa: iaActiva,
         ia_nombre: iaNombre,
         ia_tono: iaTono,
+        ia_modelo: iaModelo,
         ia_instrucciones: iaInstrucciones,
         ia_preguntas_frecuentes: iaPreguntasFrecuentes,
       });
@@ -996,6 +1015,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
         prompt_personalizado: iaInstrucciones,
         faq_personalizado: iaPreguntasFrecuentes,
         tono: iaTono,
+        modelo: iaModelo,
       });
 
       if (res.exito && res.respuesta) {
@@ -2098,7 +2118,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                       alCambiar={setIaTono}
                       opciones={[
                         { valor: 'cercano', etiqueta: 'Cercano, cálido y empático (Recomendado)' },
-                        { valor: 'formal', etiqueta: 'Formal, clínico y profesional' },
+                        { valor: 'formal', etiqueta: 'Formal y profesional' },
                         { valor: 'comercial', etiqueta: 'Comercial, persuasivo y dinámico' },
                       ]}
                       tamano="compacto"
@@ -2108,6 +2128,40 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                       Define la manera en que el modelo redacta sus oraciones y trata al paciente.
                     </span>
                   </div>
+
+                  {/* Selector de Modelo de IA (Exclusivo Administrador Global) */}
+                  {esAdmin && (
+                    <div className="modal-campo-grupo">
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
+                        <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
+                          Modelo de Inteligencia Artificial
+                        </label>
+                        <span
+                          style={{
+                            fontSize: '0.62rem',
+                            fontWeight: 700,
+                            padding: '0.12rem 0.45rem',
+                            borderRadius: '4px',
+                            background: 'rgba(2, 132, 199, 0.12)',
+                            color: 'var(--color-primario)',
+                            letterSpacing: '0.02em',
+                          }}
+                        >
+                          Solo Admin
+                        </span>
+                      </div>
+                      <SelectorDesplegable
+                        valor={iaModelo}
+                        alCambiar={setIaModelo}
+                        opciones={OPCIONES_MODELOS_IA}
+                        tamano="compacto"
+                        anchoMinimo="100%"
+                      />
+                      <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem' }}>
+                        Motor que genera las respuestas automáticas en WhatsApp y agendamientos.
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Columna Derecha: Directrices del Negocio y Preguntas Frecuentes (FAQ) */}

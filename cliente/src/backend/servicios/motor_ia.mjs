@@ -29,12 +29,30 @@ export function cargarPlantillaInstrucciones() {
 }
 
 /**
+ * Mapa de directivas de tono y estilo de comunicación para el Agente de IA.
+ * Proporciona instrucciones completas a la IA según la selección del CRM sin mencionar productos no garantizados.
+ */
+export const MAPA_DIRECTIVAS_TONO_IA = {
+  cercano:
+    'Cálido, empático, atento y servicial. Exprésate con amabilidad y cercanía humana, haciendo sentir al cliente bienvenido y escuchado. Brinda orientación clara y sencilla sobre el cuidado de su visión y los servicios de la óptica, resolviendo sus dudas con paciencia, calidez y naturalidad.',
+  formal:
+    'Formal, respetuoso y profesional. Dirígete al paciente siempre de "Usted", manteniendo un trato sobrio, educado e institucional. Explica la información de salud visual y de la óptica de manera clara y fácil de entender para cualquier persona, sin tecnicismos complejos, transmitiendo seriedad y confianza.',
+  comercial:
+    'Comercial, dinámico, entusiasta y orientado a la acción. Destaca la importancia y los beneficios de cuidar la visión y renovar su salud visual a tiempo. Invita proactivamente al cliente a agendar su cita y a visitar la óptica para conocer las opciones disponibles, con mensajes ágiles, motivadores y llamados a la acción claros.',
+};
+
+export function obtenerDirectivaTonoIA(tono) {
+  const t = String(tono || 'cercano').trim().toLowerCase();
+  return MAPA_DIRECTIVAS_TONO_IA[t] || MAPA_DIRECTIVAS_TONO_IA.cercano;
+}
+
+/**
  * Motor del Agente de Inteligencia Artificial para CRM Óptica.
- * Procesa mensajes de clientes mediante OpenRouter (DeepSeek, Llama, Gemini, etc.)
+ * Procesa mensajes de clientes mediante OpenAI oficial (GPT-4o mini) o Google Gemini
  * con temperatura 0.0, inyección de contexto de seguridad y Function Calling para agendar citas.
  */
 
-const URL_OPENROUTER_COMPLETIONS = 'https://openrouter.ai/api/v1/chat/completions';
+const URL_OPENAI_COMPLETIONS = 'https://api.openai.com/v1/chat/completions';
 
 /**
  * Registra el consumo de tokens de una interacción de IA en la base de datos
@@ -238,7 +256,7 @@ export async function obtenerConfiguracionIA(opticaId) {
   const idOpticaNumerico = Number(opticaId) || 1;
   const res = await pool.query(
     `SELECT id, nombre, ia_activa, COALESCE(ia_habilitada, true) AS ia_habilitada, ia_nombre, ia_tono, ia_instrucciones, 
-            ia_preguntas_frecuentes,
+            ia_preguntas_frecuentes, ia_modelo,
             dias_atencion, hora_inicio_atencion, hora_fin_atencion, duracion_cita_minutos,
             especialista_defecto, motivo_cita_defecto
      FROM "CRM_Opticas".opticas 
@@ -246,8 +264,8 @@ export async function obtenerConfiguracionIA(opticaId) {
     [idOpticaNumerico]
   );
 
-  const modeloEnv = (process.env.IA_MODELO || 'gemini-3.5-flash').trim();
-  const apiKeyEnv = (process.env.GEMINI_API_KEY || process.env.OPENROUTER_API_KEY || '').trim();
+  const modeloEnv = (process.env.IA_MODELO || 'gpt-4o-mini').trim();
+  const apiKeyEnv = (process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY || '').trim();
 
   if (res.rows.length === 0) {
     return {
@@ -272,7 +290,7 @@ export async function obtenerConfiguracionIA(opticaId) {
     ia_instrucciones: row.ia_instrucciones || '',
     ia_preguntas_frecuentes: row.ia_preguntas_frecuentes || '',
     ia_api_key: apiKeyEnv,
-    ia_modelo: modeloEnv,
+    ia_modelo: row.ia_modelo || modeloEnv,
   };
 }
 
@@ -287,10 +305,13 @@ export async function guardarConfiguracionIA(opticaId, datos) {
     ia_tono,
     ia_instrucciones,
     ia_preguntas_frecuentes,
+    ia_modelo,
   } = datos;
 
   const estadoActivo = Boolean(ia_activa);
+  const modeloFinal = (ia_modelo || process.env.IA_MODELO || 'gpt-4o-mini').trim();
 
+  // 1. Actualizar configuración específica de la óptica (nombre, tono, instrucciones, FAQ)
   await pool.query(
     `UPDATE "CRM_Opticas".opticas
      SET ia_activa = $1,
@@ -308,6 +329,15 @@ export async function guardarConfiguracionIA(opticaId, datos) {
       idOpticaNumerico,
     ]
   );
+
+  // 2. El modelo de IA es una directiva GLOBAL: se actualiza en TODAS las ópticas del sistema
+  if (ia_modelo) {
+    await pool.query(
+      `UPDATE "CRM_Opticas".opticas
+       SET ia_modelo = $1`,
+      [modeloFinal]
+    );
+  }
 
   // Sincronización masiva con todas las conversaciones de esta óptica:
   // Si se activa globalmente, se activa en todos los chats y se despausa.
@@ -610,7 +640,7 @@ export function construirMensajeCitaWhatsApp({
 }
 
 /**
- * Declaraciones de herramientas (Function Calling) en formato OpenAI / OpenRouter
+ * Declaraciones de herramientas (Function Calling) en formato OpenAI
  */
 const HERRAMIENTAS_OPENAI = [
   {
@@ -1070,38 +1100,31 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId, c
 }
 
 /**
- * Detecta si una clave o modelo corresponde a Google Gemini oficial o a OpenRouter
+ * Detecta si una clave o modelo corresponde a Google Gemini oficial o a OpenAI oficial
  */
 export function detectarProveedorIA(apiKey, modelo) {
   const clave = String(apiKey || '').trim();
   const mod = String(modelo || '').trim().toLowerCase();
 
-  // 1. Si la clave es explícitamente de Google AI Studio (AQ... o AIza...)
-  if (clave.startsWith('AQ.') || clave.startsWith('AIza')) {
+  // 1. Si la clave o modelo es explícitamente de Google AI Studio / Gemini
+  if (clave.startsWith('AQ.') || clave.startsWith('AIza') || mod.includes('gemini')) {
     return 'gemini';
   }
-  // 2. Si la clave es explícitamente de OpenRouter (sk-or-v1-...)
-  if (clave.startsWith('sk-or-')) {
-    return 'openrouter';
+
+  // 2. Si la clave es de OpenAI oficial (sk-proj-... o sk-...)
+  if (clave.startsWith('sk-proj-') || clave.startsWith('sk-')) {
+    return 'openai';
   }
-  // 3. Si el modelo es explícitamente de Gemini
-  if (mod.includes('gemini') && !mod.includes('openrouter')) {
-    return 'gemini';
+
+  // 3. Si el modelo es de OpenAI oficial directo (gpt-4o, gpt-4o-mini, etc.)
+  if (mod.startsWith('gpt-') || mod.startsWith('o1') || mod.startsWith('o3')) {
+    return 'openai';
   }
-  // 4. Si el modelo apunta a proveedores de OpenRouter
-  if (
-    mod.includes('openrouter') ||
-    mod.includes('deepseek') ||
-    mod.includes('llama') ||
-    mod.includes('gpt-') ||
-    mod.includes('claude')
-  ) {
-    return 'openrouter';
-  }
-  // 5. Fallback según variables de entorno disponibles
+
+  // 4. Fallback según variables de entorno disponibles
+  if (process.env.OPENAI_API_KEY) return 'openai';
   if (process.env.GEMINI_API_KEY) return 'gemini';
-  if (process.env.OPENROUTER_API_KEY) return 'openrouter';
-  return 'gemini';
+  return 'openai';
 }
 
 /**
@@ -1113,7 +1136,7 @@ export function esProveedorGemini(apiKey, modelo) {
 
 /**
  * Normaliza nombres de modelo para Google Gemini Oficial.
- * Si el modelo no es de Gemini (ej. 'openrouter/free'), retorna automáticamente
+ * Si el modelo no es de Gemini o está vacío, retorna automáticamente
  * el modelo oficial activo 'gemini-2.5-flash'.
  */
 export function normalizarModeloGemini(modelo) {
@@ -1368,7 +1391,7 @@ async function ejecutarLlamadaGemini({
 }
 
 /**
- * Procesa un mensaje entrante de un paciente y genera una respuesta con Gemini o OpenRouter
+ * Procesa un mensaje entrante de un paciente y genera una respuesta con OpenAI o Gemini
  */
 export async function procesarMensajeConIA({ conversacion_id, mensaje_id, contacto_id, optica_id, texto_mensaje }) {
   if (!texto_mensaje || typeof texto_mensaje !== 'string' || texto_mensaje.trim() === '') {
@@ -1450,12 +1473,19 @@ export async function procesarMensajeConIA({ conversacion_id, mensaje_id, contac
     return { respondido: false, motivo: 'ia_pausada_en_chat' };
   }
 
-  let apiKey = (process.env.GEMINI_API_KEY || process.env.OPENROUTER_API_KEY || '').trim();
-  const modeloConfigurado = (process.env.IA_MODELO || 'gemini-3.5-flash').trim();
+  const modeloConfigurado = (configOptica.ia_modelo || process.env.IA_MODELO || 'gpt-4o-mini').trim();
+  let apiKey = '';
+  if (modeloConfigurado.startsWith('gpt-') || modeloConfigurado.startsWith('o1') || modeloConfigurado.startsWith('o3')) {
+    apiKey = (process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY || '').trim();
+  } else if (modeloConfigurado.includes('gemini')) {
+    apiKey = (process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || '').trim();
+  } else {
+    apiKey = (process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY || '').trim();
+  }
   const proveedorDeseado = detectarProveedorIA(apiKey, modeloConfigurado);
 
   if (!apiKey) {
-    console.warn(`[Motor IA] Óptica ${optica_id} tiene la IA activa pero no hay clave GEMINI_API_KEY en variables de entorno.`);
+    console.warn(`[Motor IA] Óptica ${optica_id} tiene la IA activa pero no hay clave de API configurada (OPENAI_API_KEY / GEMINI_API_KEY) en variables de entorno.`);
     return { respondido: false, motivo: 'sin_clave_api' };
   }
 
@@ -1550,7 +1580,7 @@ export async function procesarMensajeConIA({ conversacion_id, mensaje_id, contac
       .replace(/\{\{hora_fin_atencion\}\}/g, horaFinAtencion)
       .replace(/\{\{horario_atencion\}\}/g, horarioAtencion)
       .replace(/\{\{duracion_consulta\}\}/g, duracionConsulta)
-      .replace(/\{\{ia_tono\}\}/g, configOptica.ia_tono || 'amable y profesional')
+      .replace(/\{\{ia_tono\}\}/g, obtenerDirectivaTonoIA(configOptica.ia_tono))
       .replace(/\{\{nombre_paciente\}\}/g, nombreRealPersona || 'No identificado')
       .replace(/\{\{estado_paciente_registrado\}\}/g, estadoPacienteRegistrado)
       .replace(/\{\{instruccion_trato_nombre\}\}/g, instruccionTratoNombre)
@@ -1588,8 +1618,8 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
   }
 
   const esConsultaDisponibilidad = /horario|disponib|citas?|cu[aá]ndo|agenda|de nuevo|libres?/i.test(textoFinalParaIA);
-  const esGemini = esProveedorGemini(apiKey, configOptica.ia_modelo);
-  const modeloGeminiNormalizado = normalizarModeloGemini(configOptica.ia_modelo);
+  const esGemini = esProveedorGemini(apiKey, modeloConfigurado);
+  const modeloGeminiNormalizado = normalizarModeloGemini(modeloConfigurado);
 
   try {
     let respuestaFinalTexto = '';
@@ -1622,7 +1652,7 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
         consumoTokensFinal = resGemini.consumoTokens;
       }
     } else {
-      // 6. Ensamblar contenido de conversación en formato OpenAI / OpenRouter
+      // 6. Ensamblar contenido de conversación en formato OpenAI
       const messages = [
         { role: 'system', content: promptSistemaFinal },
       ];
@@ -1648,23 +1678,21 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
         });
       }
 
-      const modeloOpenRouter = configOptica.ia_modelo || 'openrouter/free';
-      modeloFinalUtilizado = modeloOpenRouter;
+      const modeloAInvocar = modeloConfigurado || 'gpt-4o-mini';
+      modeloFinalUtilizado = modeloAInvocar;
       let llamadasRestantes = 3;
 
       while (llamadasRestantes > 0) {
         llamadasRestantes--;
 
-        const respApi = await fetch(URL_OPENROUTER_COMPLETIONS, {
+        const respApi = await fetch(URL_OPENAI_COMPLETIONS, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`,
-            'HTTP-Referer': 'https://crmoptica.com',
-            'X-Title': 'CRM Optica',
           },
           body: JSON.stringify({
-            model: modeloOpenRouter,
+            model: modeloAInvocar,
             messages,
             tools: HERRAMIENTAS_OPENAI,
             tool_choice: 'auto',
@@ -1675,8 +1703,8 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
 
         if (!respApi.ok) {
           const errorText = await respApi.text();
-          console.error(`[Motor IA] Error de OpenRouter API (${respApi.status}):`, errorText);
-          return { respondido: false, error: `Error OpenRouter ${respApi.status}` };
+          console.error(`[Motor IA] Error de OpenAI API (${respApi.status}):`, errorText);
+          return { respondido: false, error: `Error OpenAI ${respApi.status}` };
         }
 
         const datosJson = await respApi.json();
