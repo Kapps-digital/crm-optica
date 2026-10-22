@@ -655,6 +655,188 @@ async function procesarPeticion(
       return NextResponse.json({ exito: true, citas: citasOrdenadas }, { headers: ENCABEZADOS_NO_CACHE });
     }
 
+    // 6.1. NOTIFICACIONES INTELIGENTES CALCULADAS AL VUELO (HORA COLOMBIA)
+    if (metodo === 'GET' && rutaStr === 'notificaciones') {
+      try {
+        const ahora = new Date();
+        const fechaHoyCol = ahora.toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+
+        const partesManana = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'America/Bogota',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).formatToParts(ahora);
+        const ano = parseInt(partesManana.find((p) => p.type === 'year')?.value || '2026', 10);
+        const mes = parseInt(partesManana.find((p) => p.type === 'month')?.value || '1', 10) - 1;
+        const dia = parseInt(partesManana.find((p) => p.type === 'day')?.value || '1', 10);
+        const fechaMananaObj = new Date(Date.UTC(ano, mes, dia));
+        fechaMananaObj.setUTCDate(fechaMananaObj.getUTCDate() + 1);
+        const fechaMananaCol = fechaMananaObj.toISOString().slice(0, 10);
+
+        const notificaciones: any[] = [];
+
+        // 1. Resumen de citas de HOY en Colombia (Solo si total > 0)
+        const resHoy = await base_datos.prepare(
+          `SELECT COUNT(*)::int AS total FROM citas WHERE optica_id = ? AND fecha_cita = ? AND estado != 'cancelada'`
+        ).get(optica_id, fechaHoyCol);
+        const totalCitasHoy = Number(resHoy?.total || 0);
+
+        if (totalCitasHoy > 0) {
+          notificaciones.push({
+            id: `resumen_hoy_${fechaHoyCol}`,
+            clave: `resumen_hoy_${fechaHoyCol}`,
+            tipo: 'resumen_hoy',
+            titulo: 'Citas programadas para hoy',
+            subtitulo: totalCitasHoy === 1 ? '1 cita en agenda' : `${totalCitasHoy} citas en agenda`,
+            mensaje: totalCitasHoy === 1
+              ? 'Tienes 1 cita programada para el día de hoy.'
+              : `Tienes ${totalCitasHoy} citas programadas para el día de hoy.`,
+            etiqueta: 'Hoy',
+            nivel_alerta: 'VERDE',
+            es_urgente: false,
+            es_resumen_diario: true,
+            fecha_referencia: fechaHoyCol,
+            fecha_creado: new Date().toISOString(),
+            fecha_texto: 'Hoy',
+            enlace_vista: 'citas',
+            datos: { fecha: fechaHoyCol, total: totalCitasHoy },
+          });
+        }
+
+        // 2. Resumen de citas de MAÑANA en Colombia (Solo si total > 0)
+        const resManana = await base_datos.prepare(
+          `SELECT COUNT(*)::int AS total FROM citas WHERE optica_id = ? AND fecha_cita = ? AND estado != 'cancelada'`
+        ).get(optica_id, fechaMananaCol);
+        const totalCitasManana = Number(resManana?.total || 0);
+
+        if (totalCitasManana > 0) {
+          notificaciones.push({
+            id: `resumen_manana_${fechaMananaCol}`,
+            clave: `resumen_manana_${fechaMananaCol}`,
+            tipo: 'resumen_manana',
+            titulo: 'Citas agendadas para mañana',
+            subtitulo: totalCitasManana === 1 ? '1 cita programada' : `${totalCitasManana} citas programadas`,
+            mensaje: totalCitasManana === 1
+              ? 'Tienes 1 cita agendada para el día de mañana.'
+              : `Tienes ${totalCitasManana} citas agendadas para el día de mañana.`,
+            etiqueta: 'Mañana',
+            nivel_alerta: 'AZUL',
+            es_urgente: false,
+            es_resumen_diario: true,
+            fecha_referencia: fechaMananaCol,
+            fecha_creado: new Date().toISOString(),
+            fecha_texto: 'Mañana',
+            enlace_vista: 'citas',
+            datos: { fecha: fechaMananaCol, total: totalCitasManana },
+          });
+        }
+
+        // 3. Pacientes que requieren asesor humano URGENTE (Chats en WhatsApp)
+        const chatsUrgentes = await base_datos.prepare(`
+          SELECT conv.id, conv.contacto_id, conv.actualizado_en,
+            co.nombre_completo AS contacto_nombre, co.telefono AS contacto_telefono,
+            (SELECT texto FROM mensajes WHERE conversacion_id = conv.id ORDER BY id DESC LIMIT 1) AS ultimo_texto
+          FROM conversaciones conv
+          LEFT JOIN contactos co ON co.id = conv.contacto_id
+          WHERE conv.optica_id = ? AND conv.requiere_asesor_humano = TRUE
+          ORDER BY conv.actualizado_en DESC
+          LIMIT 8
+        `).all(optica_id);
+
+        for (const chat of (chatsUrgentes || [])) {
+          const textoCorto = chat.ultimo_texto
+            ? (chat.ultimo_texto.length > 70 ? `${chat.ultimo_texto.substring(0, 70)}...` : chat.ultimo_texto)
+            : 'El paciente solicitó atención de un asesor humano.';
+
+          notificaciones.push({
+            id: `asesor_chat_${chat.id}`,
+            clave: `asesor_chat_${chat.id}`,
+            tipo: 'ia_requiere_asesor',
+            titulo: chat.contacto_nombre || 'Paciente por WhatsApp',
+            subtitulo: 'Requiere asesor humano',
+            mensaje: textoCorto,
+            etiqueta: 'Urgente',
+            nivel_alerta: 'ROJO',
+            es_urgente: true,
+            fecha_creado: chat.actualizado_en,
+            fecha_texto: 'Atención requerida',
+            enlace_vista: 'mensajeria',
+            datos: { conversacion_id: chat.id },
+          });
+        }
+
+        // 4. Citas agendadas o reprogramadas recientemente por la IA
+        const citasIa = await base_datos.prepare(`
+          SELECT c.id, c.fecha_cita, c.hora_cita, c.motivo, c.especialista, c.creado_en, c.observaciones,
+            co.nombre_completo AS contacto_nombre, co.telefono AS contacto_telefono
+          FROM citas c
+          LEFT JOIN contactos co ON co.id = c.contacto_id
+          WHERE c.optica_id = ?
+            AND (c.observaciones ILIKE '%Asistente Virtual%' OR c.observaciones ILIKE '%IA%')
+            AND c.estado != 'cancelada'
+          ORDER BY c.creado_en DESC, c.id DESC
+          LIMIT 12
+        `).all(optica_id);
+
+        const formatearFechaLegible = (fechaIso: string): string => {
+          if (!fechaIso) return '';
+          const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+          const partes = String(fechaIso).split('-');
+          if (partes.length === 3) {
+            const ano = partes[0];
+            const mes = meses[parseInt(partes[1], 10) - 1] || partes[1];
+            const dia = parseInt(partes[2], 10);
+            return `${dia} ${mes} ${ano}`;
+          }
+          return fechaIso;
+        };
+
+        const formatearFechaCorta = (fechaIso: string): string => {
+          if (!fechaIso) return '';
+          const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+          const partes = String(fechaIso).split('-');
+          if (partes.length === 3) {
+            const mes = meses[parseInt(partes[1], 10) - 1] || partes[1];
+            const dia = parseInt(partes[2], 10);
+            return `${dia} ${mes}`;
+          }
+          return fechaIso;
+        };
+
+        for (const cita of (citasIa || [])) {
+          const esReprogramada = cita.observaciones?.toLowerCase().includes('reprogramada');
+          const fechaAmigable = formatearFechaLegible(cita.fecha_cita);
+          const fechaCorta = formatearFechaCorta(cita.fecha_cita);
+          notificaciones.push({
+            id: `cita_ia_${cita.id}`,
+            clave: `cita_ia_${cita.id}`,
+            tipo: esReprogramada ? 'cita_reprogramada_ia' : 'cita_agendada_ia',
+            titulo: cita.contacto_nombre || 'Nuevo Paciente',
+            subtitulo: cita.motivo || 'Examen de optometría',
+            mensaje: `${esReprogramada ? 'Cita reprogramada para el' : 'Agendada para el'} ${fechaAmigable} a las ${cita.hora_cita}${cita.especialista ? ' con ' + cita.especialista : ''}.`,
+            etiqueta: esReprogramada ? 'Reprogramada IA' : 'Agendada IA',
+            nivel_alerta: esReprogramada ? 'AMARILLO' : 'VERDE',
+            es_urgente: false,
+            fecha_creado: cita.creado_en,
+            fecha_texto: cita.fecha_cita === fechaHoyCol ? `Hoy • ${cita.hora_cita}` : `${fechaCorta} • ${cita.hora_cita}`,
+            enlace_vista: 'citas',
+            datos: { cita_id: cita.id, fecha_cita: cita.fecha_cita, fecha: cita.fecha_cita },
+          });
+        }
+
+        return NextResponse.json({
+          exito: true,
+          notificaciones,
+          total: notificaciones.length,
+          total_urgentes: notificaciones.filter((n: any) => n.es_urgente).length,
+        }, { headers: ENCABEZADOS_NO_CACHE });
+      } catch (err: any) {
+        console.error('Error al calcular notificaciones:', err.message);
+        return NextResponse.json({ exito: false, notificaciones: [], error: err.message }, { status: 500 });
+      }
+    }
+
     if (metodo === 'POST' && (rutaStr === 'citas' || (segmentosRuta[0] === 'contactos' && segmentosRuta[2] === 'citas'))) {
       const contacto_id = segmentosRuta[1] || body.contacto_id;
       if (!contacto_id) return NextResponse.json({ exito: false, error: 'contacto_id es obligatorio' }, { status: 400 });

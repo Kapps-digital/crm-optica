@@ -61,6 +61,8 @@ interface PropiedadesCalendarioCitas {
   esAdmin?: boolean;
   alSeleccionarContactoChat?: (contactoId: number) => void;
   alEnviarMensajeWhatsApp?: (texto: string, conversacionDestino?: Conversacion | null) => Promise<void>;
+  fechaFoco?: string | null;
+  modoVistaFoco?: 'mes' | 'dia' | 'agenda' | null;
 }
 
 const MESES = [
@@ -105,6 +107,8 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
   esAdmin: esAdminProp,
   alSeleccionarContactoChat,
   alEnviarMensajeWhatsApp,
+  fechaFoco,
+  modoVistaFoco,
 }) => {
   const usuarioSesion = useMemo(() => obtenerUsuarioSesion(), []);
   const esAdmin = esAdminProp ?? (usuarioSesion?.rol === 'admin');
@@ -122,6 +126,23 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
     const hoy = new Date();
     return hoy.toISOString().split('T')[0];
   });
+
+  // Efecto: Cuando entra una fechaFoco desde notificaciones, aplicar Zoom al día exacto
+  useEffect(() => {
+    if (fechaFoco) {
+      setDiaZoom(fechaFoco);
+      setModoVista(modoVistaFoco || 'dia');
+      const partes = fechaFoco.split('-');
+      if (partes.length === 3) {
+        const ano = parseInt(partes[0], 10);
+        const mes = parseInt(partes[1], 10) - 1;
+        const dia = parseInt(partes[2], 10);
+        if (!isNaN(ano) && !isNaN(mes) && !isNaN(dia)) {
+          setFechaReferencia(new Date(ano, mes, dia));
+        }
+      }
+    }
+  }, [fechaFoco, modoVistaFoco]);
 
   // Filtros
   const [filtroEspecialista, setFiltroEspecialista] = useState<string>('todos');

@@ -361,5 +361,40 @@ export interface EstadoCanalesRespuesta {
   error?: string;
 }
 
+export type TipoNotificacion =
+  | 'resumen_hoy'
+  | 'resumen_manana'
+  | 'cita_agendada_ia'
+  | 'cita_reprogramada_ia'
+  | 'ia_requiere_asesor';
+
+export type NivelAlertaNotificacion = 'VERDE' | 'AZUL' | 'AMARILLO' | 'ROJO';
+
+export interface NotificacionCRM {
+  id: string;
+  clave: string;
+  tipo: TipoNotificacion;
+  titulo: string;
+  subtitulo?: string | null;
+  mensaje: string;
+  etiqueta: string;
+  nivel_alerta: NivelAlertaNotificacion;
+  es_urgente: boolean;
+  es_resumen_diario?: boolean;
+  fecha_referencia?: string;
+  fecha_creado?: string;
+  fecha_texto: string;
+  enlace_vista?: 'citas' | 'mensajeria' | 'pacientes' | 'configuracion';
+  datos?: Record<string, any>;
+}
+
+export interface RespuestaNotificaciones {
+  exito: boolean;
+  notificaciones: NotificacionCRM[];
+  total_no_leidas?: number;
+  total_urgentes?: number;
+  error?: string;
+}
+
 
 

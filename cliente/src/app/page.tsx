@@ -2,8 +2,11 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Moon, Sun, Building2 } from 'lucide-react';
+import { Moon, Sun, Building2, MessageSquare } from 'lucide-react';
 import { PanelLateral } from '@/componentes/navegacion/PanelLateral';
+import { CentroNotificaciones } from '@/componentes/navegacion/CentroNotificaciones';
+import { PerfilUsuarioCabecera } from '@/componentes/navegacion/PerfilUsuarioCabecera';
+import { IndicadorCanalWhatsApp } from '@/componentes/navegacion/IndicadorCanalWhatsApp';
 import { ListaConversaciones } from '@/componentes/chat/ListaConversaciones';
 import { VentanaChat } from '@/componentes/chat/VentanaChat';
 import { FichaOptometrica } from '@/componentes/chat/FichaOptometrica';
@@ -42,7 +45,7 @@ import {
   obtenerConfiguracionIAApi,
 } from '@/servicios/api_crm';
 import type { Contacto, Conversacion, Mensaje, FormulaOptica, Usuario, Optica, Segmento } from '@/tipos/crm';
-import { formatearTelefono, estaEnVentana24Horas } from '@/utilidades/formato';
+import { formatearTelefono, formatearTelefonoSinPrefijo, estaEnVentana24Horas } from '@/utilidades/formato';
 
 const CATALOGO_OPTICAS_BASE: Optica[] = [
   {
@@ -82,6 +85,12 @@ export default function PaginaPrincipal() {
   const [panelColapsado, setPanelColapsado] = useState(false);
   const [vistaActiva, setVistaActiva] = useState('mensajeria');
   const [temaOscuro, setTemaOscuro] = useState(false);
+
+  // Foco de fecha y modo para navegación directa a turnos desde notificaciones
+  const [citasFoco, setCitasFoco] = useState<{ fecha: string | null; modo: 'mes' | 'dia' | 'agenda' | null }>({
+    fecha: null,
+    modo: null,
+  });
 
   // Ficha colapsada por defecto para máxima ganancia de espacio
   const [fichaAbierta, setFichaAbierta] = useState(false);
@@ -1027,21 +1036,31 @@ export default function PaginaPrincipal() {
               </div>
             )}
 
-            {estadoCanalWhatsApp.conectado && estadoCanalWhatsApp.numero ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--fondo-elevado)', padding: '0.35rem 0.85rem', borderRadius: 'var(--radio-completo)', border: '1px solid var(--borde-tarjeta)' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }}></span>
-                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--texto-secundario)', whiteSpace: 'nowrap' }}>
-                  Canal Activo: {formatearTelefono(estadoCanalWhatsApp.numero) || estadoCanalWhatsApp.numero}
-                </span>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--fondo-elevado)', padding: '0.35rem 0.85rem', borderRadius: 'var(--radio-completo)', border: '1px solid var(--borde-tarjeta)' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#94a3b8' }}></span>
-                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--texto-atenuado)', whiteSpace: 'nowrap' }}>
-                  Sin número conectado
-                </span>
-              </div>
-            )}
+            {/* Indicador de Canal WhatsApp (Interactivo con 3 diseños) */}
+            <IndicadorCanalWhatsApp
+              conectado={Boolean(estadoCanalWhatsApp.conectado)}
+              numero={estadoCanalWhatsApp.numero}
+            />
+
+            {/* Centro de Notificaciones Corporativo (A la izquierda del selector de modo oscuro/claro) */}
+            <CentroNotificaciones
+              usuario={usuarioActual}
+              alNavegarVista={(vista, datos) => {
+                manejarCambioVista(vista);
+                if (vista === 'citas') {
+                  const fechaDestino = datos?.fecha || datos?.fecha_cita || null;
+                  if (fechaDestino) {
+                    setCitasFoco({ fecha: fechaDestino, modo: 'dia' });
+                  }
+                }
+                if (vista === 'mensajeria' && datos?.conversacion_id) {
+                  const convEncontrada = conversaciones.find((c) => c.id === Number(datos.conversacion_id));
+                  if (convEncontrada) {
+                    manejarSeleccionarConversacion(convEncontrada);
+                  }
+                }
+              }}
+            />
 
             <EtiquetaTooltip
               texto={temaOscuro ? 'Modo Claro' : 'Modo Oscuro'}
@@ -1060,6 +1079,14 @@ export default function PaginaPrincipal() {
                 )}
               </button>
             </EtiquetaTooltip>
+
+            {/* Perfil del Usuario en Cabecera */}
+            <PerfilUsuarioCabecera
+              usuario={usuarioActual}
+              optica={opticaActual}
+              vistaActiva={vistaActiva}
+              alCambiarVista={manejarCambioVista}
+            />
           </div>
         </header>
 
@@ -1161,6 +1188,8 @@ export default function PaginaPrincipal() {
             alEnviarMensajeWhatsApp={async (texto, convDestino) => {
               await manejarEnviarMensaje(texto, convDestino || undefined);
             }}
+            fechaFoco={citasFoco.fecha}
+            modoVistaFoco={citasFoco.modo}
           />
         )}
 

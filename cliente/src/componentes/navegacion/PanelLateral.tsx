@@ -7,29 +7,20 @@ import {
   CalendarDays,
   Target,
   FileText,
-  Sliders,
   ChevronLeft,
-  ChevronRight,
-  ChevronUp,
-  ChevronDown,
   Eye,
-  LogOut,
-  Power,
   Settings,
-  Zap,
 } from 'lucide-react';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
-import { ModalConfirmarCierreSesion } from './ModalConfirmarCierreSesion';
 import type { Optica, Usuario } from '@/tipos/crm';
-import { cerrarSesion } from '@/servicios/api_crm';
 
 interface PropiedadesPanelLateral {
   colapsado: boolean;
   alAlternarColapso: () => void;
   vistaActiva: string;
   alCambiarVista: (vista: string) => void;
-  temaOscuro: boolean;
-  alAlternarTema: () => void;
+  temaOscuro?: boolean;
+  alAlternarTema?: () => void;
   conteoChats?: number | null;
   requiereAsesorChats?: boolean;
   conteoPacientes?: number | null;
@@ -42,11 +33,8 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
   alAlternarColapso,
   vistaActiva,
   alCambiarVista,
-  temaOscuro,
-  alAlternarTema,
   conteoChats = 0,
   requiereAsesorChats = false,
-  conteoPacientes = null,
   optica,
   usuario,
 }) => {
@@ -66,20 +54,6 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
   ];
 
   const [errorCargaLogo, setErrorCargaLogo] = React.useState(false);
-  const [menuUsuarioAbierto, setMenuUsuarioAbierto] = React.useState(false);
-  const [mostrarModalCierre, setMostrarModalCierre] = React.useState(false);
-  const refMenuUsuario = React.useRef<HTMLDivElement>(null);
-
-  // Cerrar el popover del usuario al hacer clic en cualquier parte fuera de él
-  React.useEffect(() => {
-    function manejarClickFuera(e: MouseEvent) {
-      if (refMenuUsuario.current && !refMenuUsuario.current.contains(e.target as Node)) {
-        setMenuUsuarioAbierto(false);
-      }
-    }
-    document.addEventListener('mousedown', manejarClickFuera);
-    return () => document.removeEventListener('mousedown', manejarClickFuera);
-  }, []);
 
   // Iniciales dinámicas para avatar de óptica
   const inicialesOptica = React.useMemo(() => {
@@ -90,41 +64,6 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
     }
     return optica.nombre.substring(0, 2).toUpperCase();
   }, [optica?.nombre]);
-
-  // Nombre a mostrar (Samir Bolívar según la foto de referencia)
-  const nombreMostrar = React.useMemo(() => {
-    if (!usuario?.nombre) return 'Samir Bolívar';
-    if (
-      usuario.nombre.toLowerCase().includes('super') ||
-      usuario.nombre.toLowerCase().includes('administrador') ||
-      usuario.usuario === 'admin'
-    ) {
-      return 'Samir Bolívar';
-    }
-    return usuario.nombre.replace(/^(Dr\.|Dra\.)\s+/i, '');
-  }, [usuario]);
-
-  // Iniciales dinámicas para avatar del usuario (ej. SA para Samir Bolívar)
-  const inicialesUsuario = React.useMemo(() => {
-    if (!nombreMostrar) return 'SA';
-    const limpio = nombreMostrar.trim();
-    if (limpio.toLowerCase().includes('samir')) return 'SA';
-    const partes = limpio.split(/\s+/);
-    if (partes.length >= 2) {
-      return (partes[0][0] + partes[1][0]).toUpperCase();
-    }
-    return limpio.substring(0, 2).toUpperCase();
-  }, [nombreMostrar]);
-
-  // Formato de rol para subtítulo del botón
-  const etiquetaRol = React.useMemo(() => {
-    if (!usuario?.rol) return 'Administrador';
-    if (usuario.rol === 'admin' || usuario.rol === 'admin_optica') return 'Administrador';
-    return 'Especialista';
-  }, [usuario?.rol]);
-
-  // Correo de visualización en cabecera de popover (admin@fscr.com.co según la referencia)
-  const correoUsuario = usuario?.correo || (usuario?.usuario === 'admin' || !usuario?.usuario ? 'admin@fscr.com.co' : `${usuario.usuario}@fscr.com.co`);
 
   React.useEffect(() => {
     setErrorCargaLogo(false);
@@ -247,124 +186,6 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
           );
         })}
       </nav>
-
-      {/* Información del usuario y popover de perfil/cerrar sesión */}
-      {usuario && (
-        <div className="panel-usuario-seccion" ref={refMenuUsuario}>
-          {/* Popover flotante del usuario (Diseño corporativo premium idéntico a referencia) */}
-          {menuUsuarioAbierto && (
-            <div className={`panel-usuario-popover ${colapsado ? 'colapsado' : ''}`}>
-              <div className="panel-popover-cabecera">
-                <span className="panel-popover-nombre">{nombreMostrar}</span>
-                <span className="panel-popover-correo">{correoUsuario}</span>
-              </div>
-              <div className="panel-popover-divisor" />
-              <div className="panel-popover-acciones">
-                <button
-                  type="button"
-                  className={`panel-popover-btn-item ${vistaActiva === 'configuracion' ? 'activo' : ''}`}
-                  onClick={() => {
-                    alCambiarVista('configuracion');
-                    setMenuUsuarioAbierto(false);
-                  }}
-                >
-                  <Settings className="panel-popover-item-icono" />
-                  <span>Configuración</span>
-                </button>
-                {usuario?.rol === 'admin' && (
-                  <button
-                    type="button"
-                    className={`panel-popover-btn-item ${vistaActiva === 'consumo' ? 'activo' : ''}`}
-                    onClick={() => {
-                      alCambiarVista('consumo');
-                      setMenuUsuarioAbierto(false);
-                    }}
-                  >
-                    <Zap className="panel-popover-item-icono" />
-                    <span>Consumo</span>
-                  </button>
-                )}
-                {usuario?.rol === 'admin' && (
-                  <button
-                    type="button"
-                    className={`panel-popover-btn-item ${vistaActiva === 'usuarios' ? 'activo' : ''}`}
-                    onClick={() => {
-                      alCambiarVista('usuarios');
-                      setMenuUsuarioAbierto(false);
-                    }}
-                  >
-                    <Users className="panel-popover-item-icono" />
-                    <span>Usuarios</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="panel-popover-btn-logout"
-                  onClick={() => {
-                    setMenuUsuarioAbierto(false);
-                    setMostrarModalCierre(true);
-                  }}
-                >
-                  <Power className="panel-popover-logout-icono" />
-                  <span>Cerrar sesión</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Botón trigger del usuario con avatar, punto online verde y chevron */}
-          <EtiquetaTooltip
-            texto={colapsado ? `${nombreMostrar} (${etiquetaRol})` : ''}
-            posicion="derecha"
-          >
-            <div
-              className={`panel-usuario-caja ${menuUsuarioAbierto ? 'abierto' : ''}`}
-              onClick={() => setMenuUsuarioAbierto((prev) => !prev)}
-              role="button"
-              tabIndex={0}
-            >
-              <div className="panel-usuario-avatar-wrapper">
-                <div
-                  className="panel-usuario-avatar"
-                  style={{
-                    background: optica?.color_primario
-                      ? `linear-gradient(135deg, ${optica.color_primario} 0%, ${optica.color_secundario || optica.color_primario} 100%)`
-                      : 'var(--color-primario, #0284c7)',
-                  }}
-                >
-                  {inicialesUsuario}
-                </div>
-                <span className="panel-usuario-punto-online" />
-              </div>
-
-              {!colapsado && (
-                <>
-                  <div className="panel-usuario-detalles">
-                    <span className="panel-usuario-nombre" title={nombreMostrar}>{nombreMostrar}</span>
-                    <span className="panel-usuario-rol">{etiquetaRol}</span>
-                  </div>
-                  <div className="panel-usuario-flecha-toggle">
-                    {menuUsuarioAbierto ? (
-                      <ChevronUp style={{ width: '16px', height: '16px' }} />
-                    ) : (
-                      <ChevronDown style={{ width: '16px', height: '16px' }} />
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          </EtiquetaTooltip>
-        </div>
-      )}
-
-      {/* Modal Corporativo de Confirmación de Cierre de Sesión */}
-      <ModalConfirmarCierreSesion
-        abierto={mostrarModalCierre}
-        alCerrar={() => setMostrarModalCierre(false)}
-        alConfirmar={cerrarSesion}
-        usuario={usuario}
-        optica={optica}
-      />
     </aside>
   );
 };

@@ -45,6 +45,29 @@ export function formatearTelefono(telefono?: string | null): string {
 }
 
 /**
+ * Formatea un número telefónico sin prefijo internacional ni código +57 (ej. 313 253 1694)
+ */
+export function formatearTelefonoSinPrefijo(telefono?: string | null): string {
+  if (!telefono) return '';
+  const textoLimpio = String(telefono).trim();
+  let soloDigitos = textoLimpio.replace(/\D/g, '');
+  if (!soloDigitos) return textoLimpio;
+
+  if (soloDigitos.length === 12 && soloDigitos.startsWith('57')) {
+    soloDigitos = soloDigitos.substring(2);
+  }
+
+  if (soloDigitos.length === 10) {
+    const area = soloDigitos.substring(0, 3);
+    const grupo1 = soloDigitos.substring(3, 6);
+    const grupo2 = soloDigitos.substring(6, 10);
+    return `${area} ${grupo1} ${grupo2}`;
+  }
+
+  return textoLimpio.replace(/^\+?57\s*/, '');
+}
+
+/**
  * Formatea un número o texto numérico con separador de miles (estándar Colombia con puntos: 1.002.021.660)
  */
 export function formatearSeparadorMiles(valor?: string | number | null): string {

@@ -19,6 +19,8 @@ import type {
   EstadoCanalesRespuesta,
   ConfiguracionIA,
   DatosRespuestaUsuarios,
+  NotificacionCRM,
+  RespuestaNotificaciones,
 } from '@/tipos/crm';
 
 const CLAVE_TOKEN = 'crm_token';
@@ -1493,5 +1495,29 @@ export async function cambiarIaOpticaApi(
   } catch (error) {
     registrarErrorApi('cambiarIaOpticaApi', error);
     return { exito: false, error: 'Error de red al cambiar servicio IA de la óptica' };
+  }
+}
+
+/**
+ * Consulta las notificaciones inteligentes calculadas al vuelo para la óptica activa
+ */
+export async function obtenerNotificacionesApi(): Promise<RespuestaNotificaciones> {
+  try {
+    const res = await fetch('/api/notificaciones', {
+      headers: crearEncabezados(),
+    });
+    if (!res.ok) {
+      return { exito: false, notificaciones: [], error: `Error del servidor (${res.status})` };
+    }
+    const datos: RespuestaNotificaciones = await res.json();
+    return {
+      exito: Boolean(datos.exito),
+      notificaciones: Array.isArray(datos.notificaciones) ? datos.notificaciones : [],
+      total_no_leidas: datos.total_no_leidas || 0,
+      total_urgentes: datos.total_urgentes || 0,
+    };
+  } catch (error) {
+    registrarErrorApi('obtenerNotificacionesApi', error);
+    return { exito: false, notificaciones: [], error: 'Error de red al obtener notificaciones' };
   }
 }
