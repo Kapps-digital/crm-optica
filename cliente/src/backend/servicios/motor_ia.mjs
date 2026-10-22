@@ -1685,20 +1685,26 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
       while (llamadasRestantes > 0) {
         llamadasRestantes--;
 
+        const cuerpoOpenAI = {
+          model: modeloAInvocar,
+          messages,
+          tools: HERRAMIENTAS_OPENAI,
+          tool_choice: 'auto',
+          temperature: 0.0,
+          max_completion_tokens: 1500,
+        };
+
+        if (modeloAInvocar.includes('luna') || modeloAInvocar.startsWith('o1') || modeloAInvocar.startsWith('o3')) {
+          cuerpoOpenAI.reasoning_effort = 'none';
+        }
+
         const respApi = await fetch(URL_OPENAI_COMPLETIONS, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`,
           },
-          body: JSON.stringify({
-            model: modeloAInvocar,
-            messages,
-            tools: HERRAMIENTAS_OPENAI,
-            tool_choice: 'auto',
-            temperature: 0.0,
-            max_tokens: 1500,
-          }),
+          body: JSON.stringify(cuerpoOpenAI),
         });
 
         if (!respApi.ok) {

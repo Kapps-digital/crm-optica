@@ -1162,21 +1162,26 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
 
         const urlApi = 'https://api.openai.com/v1/chat/completions';
         const modeloOpenAI = mod || 'gpt-4o-mini';
+        const cuerpoPrueba: Record<string, any> = {
+          model: modeloOpenAI,
+          messages: [
+            { role: 'system', content: promptSistema },
+            { role: 'user', content: mensaje_prueba || 'Hola, ¿qué horario de atención tienen?' },
+          ],
+          temperature: 0.0,
+          max_completion_tokens: 1500,
+        };
+        if (modeloOpenAI.includes('luna') || modeloOpenAI.startsWith('o1') || modeloOpenAI.startsWith('o3')) {
+          cuerpoPrueba.reasoning_effort = 'none';
+        }
+
         const resp = await fetch(urlApi, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${claveApi}`,
           },
-          body: JSON.stringify({
-            model: modeloOpenAI,
-            messages: [
-              { role: 'system', content: promptSistema },
-              { role: 'user', content: mensaje_prueba || 'Hola, ¿qué horario de atención tienen?' },
-            ],
-            temperature: 0.0,
-            max_tokens: 1500,
-          }),
+          body: JSON.stringify(cuerpoPrueba),
         });
 
         if (!resp.ok) {
