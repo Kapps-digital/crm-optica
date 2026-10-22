@@ -647,7 +647,7 @@ const HERRAMIENTAS_OPENAI = [
     type: 'function',
     function: {
       name: 'consultar_citas_paciente',
-      description: 'Consulta únicamente las citas pendientes vigentes (de hoy en adelante) del paciente. Las citas pasadas ya no son relevantes y no deben mostrarse.',
+      description: 'Consulta citas pendientes vigentes del paciente en el CRM si se requiere refrescar en vivo.',
       parameters: {
         type: 'object',
         properties: {},
@@ -659,13 +659,13 @@ const HERRAMIENTAS_OPENAI = [
     type: 'function',
     function: {
       name: 'consultar_horarios_disponibles',
-      description: 'Consulta los horarios disponibles para agendar una cita en una fecha determinada.',
+      description: 'Consulta turnos disponibles para una fecha específica (formato YYYY-MM-DD).',
       parameters: {
         type: 'object',
         properties: {
           fecha: {
             type: 'string',
-            description: 'Fecha deseada en formato YYYY-MM-DD (ejemplo: "2026-10-16").',
+            description: 'Fecha deseada YYYY-MM-DD.',
           },
         },
         required: ['fecha'],
@@ -676,25 +676,25 @@ const HERRAMIENTAS_OPENAI = [
     type: 'function',
     function: {
       name: 'agendar_cita',
-      description: 'Agenda y confirma una nueva cita en el CRM una vez que el cliente ha confirmado la fecha, la hora, el motivo de la consulta Y su nombre y apellido (en caso de no estar registrado como paciente). ¡ATENCIÓN!: NUNCA ejecutes esta herramienta sin haber confirmado previamente el motivo de la cita con el cliente, ni sin haberle pedido su nombre y apellido si el cliente no está registrado como paciente.',
+      description: 'Agenda una cita en el CRM tras confirmar fecha, hora, motivo y nombre completo si el paciente no estaba registrado.',
       parameters: {
         type: 'object',
         properties: {
           fecha: {
             type: 'string',
-            description: 'Fecha confirmada en formato YYYY-MM-DD.',
+            description: 'Fecha en formato YYYY-MM-DD.',
           },
           hora: {
             type: 'string',
-            description: 'Hora confirmada (ejemplo: "10:30 AM" o "11:00 AM").',
+            description: 'Hora confirmada (ej: "10:30 AM", "03:00 PM").',
           },
           motivo: {
             type: 'string',
-            description: 'Motivo de la cita elegido o confirmado por el paciente (ejemplo: "Examen Visual y Control Anual", "Primera Vez - Examen Computarizado", "Adaptación de Lentes de Contacto", etc.). OBLIGATORIO.',
+            description: 'Motivo confirmado por el paciente.',
           },
           nombre_apellido: {
             type: 'string',
-            description: 'Nombre y apellido completo del cliente proporcionados durante la conversación si el cliente no estaba previamente registrado como paciente en el sistema (ejemplo: "Carlos Mendoza").',
+            description: 'Nombre y apellido si no estaba registrado.',
           },
         },
         required: ['fecha', 'hora', 'motivo'],
@@ -705,25 +705,25 @@ const HERRAMIENTAS_OPENAI = [
     type: 'function',
     function: {
       name: 'reprogramar_cita',
-      description: 'Mueve o reprograma la cita pendiente existente de un paciente hacia una nueva fecha y hora CONFIRMADA por el paciente. ¡ATENCIÓN!: NUNCA ejecutes esta herramienta si el paciente solo mencionó el día sin confirmar la hora exacta. Primero pregúntale si prefiere jornada de mañana o tarde y espera su confirmación.',
+      description: 'Mueve una cita existente a una nueva fecha y hora confirmada explícitamente por el paciente.',
       parameters: {
         type: 'object',
         properties: {
           cita_id: {
             type: 'number',
-            description: 'ID de la cita a reprogramar (opcional, si se omite se reprograma la cita pendiente futura más próxima).',
+            description: 'ID de la cita (opcional).',
           },
           nueva_fecha: {
             type: 'string',
-            description: 'Nueva fecha acordada en formato YYYY-MM-DD.',
+            description: 'Nueva fecha YYYY-MM-DD.',
           },
           nueva_hora: {
             type: 'string',
-            description: 'Nueva hora acordada y confirmada explícitamente por el paciente (ejemplo: "10:30 AM", "04:00 PM"). OBLIGATORIO.',
+            description: 'Nueva hora confirmada (ej: "10:30 AM").',
           },
           motivo: {
             type: 'string',
-            description: 'Motivo de la cita (opcional, si se omite conserva el motivo anterior).',
+            description: 'Motivo (opcional).',
           },
         },
         required: ['nueva_fecha', 'nueva_hora'],
@@ -734,13 +734,13 @@ const HERRAMIENTAS_OPENAI = [
     type: 'function',
     function: {
       name: 'transferir_a_asesor',
-      description: 'Transfiere de inmediato el chat a un asesor humano cuando: 1) El cliente solicite cotizaciones, precios de consultas/exámenes/lentes/monturas, stock, qué debe llevar o especificaciones técnicas de exámenes o productos que NO estén explícitamente definidos en las instrucciones o preguntas frecuentes (FAQ) de la óptica; 2) El cliente realice una pregunta cuya información no esté en la base de datos o el sistema y la IA no pueda responder con certeza; 3) El paciente solicite expresamente hablar con un asesor o persona humana ("quiero hablar con un asesor", "pásame con alguien"); 4) Se presente una duda médica especializada o reclamo complejo. Marca el chat con alerta urgente en el CRM.',
+      description: 'Transfiere el chat a un asesor humano ante cotizaciones/precios no definidos en FAQ, solicitudes de atención humana, quejas o dudas médicas complejas.',
       parameters: {
         type: 'object',
         properties: {
           motivo: {
             type: 'string',
-            description: 'Motivo de la transferencia a asesor humano.',
+            description: 'Razón de la transferencia.',
           },
         },
         required: ['motivo'],
