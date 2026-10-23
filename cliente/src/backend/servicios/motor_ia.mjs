@@ -722,7 +722,7 @@ const HERRAMIENTAS_OPENAI = [
     type: 'function',
     function: {
       name: 'transferir_a_asesor',
-      description: 'Transfiere el chat a un asesor humano ante cotizaciones/precios no definidos en FAQ, solicitudes de atención humana, quejas o dudas médicas complejas.',
+      description: 'Transfiere el chat a un asesor humano. Si el FAQ o directrices contienen un precio o dato previo que el paciente preguntó, DEBES incluir ese precio o dato en tu respuesta al paciente junto con el aviso de transferencia.',
       parameters: {
         type: 'object',
         properties: {
@@ -1080,7 +1080,7 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId, c
       exito: true,
       accion: 'transferido_a_humano',
       motivo: motivoTransferencia || 'Solicitud de atención humana',
-      mensaje: 'El caso ha sido marcado con alerta urgente y transferido a un asesor humano en el CRM.',
+      mensaje: 'El caso ha sido marcado y transferido a un asesor en el CRM. Si el paciente preguntó por precios o datos definidos en el FAQ, asegúrate de indicarlos en tu respuesta final al paciente junto a la notificación de transferencia.',
     };
   }
 
