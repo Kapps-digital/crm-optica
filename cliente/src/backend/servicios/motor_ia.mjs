@@ -646,18 +646,6 @@ const HERRAMIENTAS_OPENAI = [
   {
     type: 'function',
     function: {
-      name: 'consultar_citas_paciente',
-      description: 'Consulta citas pendientes vigentes del paciente en el CRM si se requiere refrescar en vivo.',
-      parameters: {
-        type: 'object',
-        properties: {},
-        required: [],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
       name: 'consultar_horarios_disponibles',
       description: 'Consulta turnos disponibles para una fecha específica (formato YYYY-MM-DD).',
       parameters: {
