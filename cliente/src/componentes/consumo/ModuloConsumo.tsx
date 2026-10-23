@@ -17,6 +17,11 @@ import {
   HelpCircle,
   Clock,
   ChevronDown,
+  Save,
+  CheckCircle2,
+  RotateCcw,
+  Lock,
+  BookmarkCheck,
 } from 'lucide-react';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
 import { SelectorFecha } from '../comunes/SelectorFecha';
@@ -36,6 +41,68 @@ interface PropiedadesModuloConsumo {
 }
 
 type PeriodoFiltro = 'hoy' | '7d' | '30d' | 'este_mes' | 'mes_pasado' | 'este_ano' | 'todo' | 'personalizado';
+
+// Clave y configuración para persistir las tarifas del simulador y mantenerlas fijas
+const CLAVE_STORAGE_SIMULADOR_TARIFAS = 'crm_optica_simulador_ia_tarifas';
+
+interface ConfiguracionTarifasSimulador {
+  precioEntrada1M: number;
+  precioSalida1M: number;
+  tasaCambioCop: number;
+  conversacionesMensualesSimuladas: number;
+  mensajesPorConversacionSimulados: number;
+  presetSeleccionado: string;
+}
+
+const PRESETS_TARIFAS_MODELOS: Record<string, { nombre: string; entrada: number; salida: number }> = {
+  gemini_flash: {
+    nombre: 'Gemini Flash',
+    entrada: 0.075,
+    salida: 0.30,
+  },
+  gpt4o_mini: {
+    nombre: 'GPT-4o Mini',
+    entrada: 0.150,
+    salida: 0.600,
+  },
+  gpt6_luna: {
+    nombre: 'GPT-6 Luna (OpenAI)',
+    entrada: 0.300,
+    salida: 1.200,
+  },
+};
+
+const obtenerTarifasPersistidas = (): ConfiguracionTarifasSimulador => {
+  const porDefecto: ConfiguracionTarifasSimulador = {
+    precioEntrada1M: 0.075,
+    precioSalida1M: 0.30,
+    tasaCambioCop: 4200,
+    conversacionesMensualesSimuladas: 500,
+    mensajesPorConversacionSimulados: 4,
+    presetSeleccionado: 'gemini_flash',
+  };
+
+  if (typeof window === 'undefined') return porDefecto;
+
+  try {
+    const raw = localStorage.getItem(CLAVE_STORAGE_SIMULADOR_TARIFAS);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        precioEntrada1M: typeof parsed.precioEntrada1M === 'number' ? parsed.precioEntrada1M : porDefecto.precioEntrada1M,
+        precioSalida1M: typeof parsed.precioSalida1M === 'number' ? parsed.precioSalida1M : porDefecto.precioSalida1M,
+        tasaCambioCop: typeof parsed.tasaCambioCop === 'number' ? parsed.tasaCambioCop : porDefecto.tasaCambioCop,
+        conversacionesMensualesSimuladas: typeof parsed.conversacionesMensualesSimuladas === 'number' ? parsed.conversacionesMensualesSimuladas : porDefecto.conversacionesMensualesSimuladas,
+        mensajesPorConversacionSimulados: typeof parsed.mensajesPorConversacionSimulados === 'number' ? parsed.mensajesPorConversacionSimulados : porDefecto.mensajesPorConversacionSimulados,
+        presetSeleccionado: parsed.presetSeleccionado || 'personalizado',
+      };
+    }
+  } catch (e) {
+    console.warn('Error leyendo tarifas del simulador:', e);
+  }
+
+  return porDefecto;
+};
 
 export const ModuloConsumo: React.FC<PropiedadesModuloConsumo> = ({
   opticas,
@@ -58,13 +125,80 @@ export const ModuloConsumo: React.FC<PropiedadesModuloConsumo> = ({
   const [historial, setHistorial] = useState<RegistroConsumoIA[]>([]);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
 
-  // Estados de la Calculadora de Costos
-  // Precios por 1 Millón de tokens (Valores oficiales de referencia Gemini 1.5/2.5 Flash)
-  const [precioEntrada1M, setPrecioEntrada1M] = useState<number>(0.075); // $0.075 USD por 1M tokens entrada
-  const [precioSalida1M, setPrecioSalida1M] = useState<number>(0.30);   // $0.30 USD por 1M tokens salida
-  const [tasaCambioCop, setTasaCambioCop] = useState<number>(4200);     // 1 USD = 4,200 COP
-  const [conversacionesMensualesSimuladas, setConversacionesMensualesSimuladas] = useState<number>(500);
-  const [mensajesPorConversacionSimulados, setMensajesPorConversacionSimulados] = useState<number>(4);
+  // Estados de la Calculadora de Costos con persistencia fija
+  const [tarifasIniciales] = useState<ConfiguracionTarifasSimulador>(obtenerTarifasPersistidas);
+  const [precioEntrada1M, setPrecioEntrada1M] = useState<number>(tarifasIniciales.precioEntrada1M);
+  const [precioSalida1M, setPrecioSalida1M] = useState<number>(tarifasIniciales.precioSalida1M);
+  const [tasaCambioCop, setTasaCambioCop] = useState<number>(tarifasIniciales.tasaCambioCop);
+  const [conversacionesMensualesSimuladas, setConversacionesMensualesSimuladas] = useState<number>(tarifasIniciales.conversacionesMensualesSimuladas);
+  const [mensajesPorConversacionSimulados, setMensajesPorConversacionSimulados] = useState<number>(tarifasIniciales.mensajesPorConversacionSimulados);
+  const [presetTarifa, setPresetTarifa] = useState<string>(tarifasIniciales.presetSeleccionado);
+  const [alertaGuardadoFijo, setAlertaGuardadoFijo] = useState<boolean>(false);
+
+  // Guardar automáticamente cada vez que cambien para mantenerlos fijos y permanentes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(
+          CLAVE_STORAGE_SIMULADOR_TARIFAS,
+          JSON.stringify({
+            precioEntrada1M,
+            precioSalida1M,
+            tasaCambioCop,
+            conversacionesMensualesSimuladas,
+            mensajesPorConversacionSimulados,
+            presetSeleccionado: presetTarifa,
+          })
+        );
+      } catch (e) {
+        console.error('Error guardando tarifas en localStorage:', e);
+      }
+    }
+  }, [precioEntrada1M, precioSalida1M, tasaCambioCop, conversacionesMensualesSimuladas, mensajesPorConversacionSimulados, presetTarifa]);
+
+  const aplicarPresetTarifa = (clavePreset: 'gemini_flash' | 'gpt4o_mini' | 'gpt6_luna') => {
+    const config = PRESETS_TARIFAS_MODELOS[clavePreset];
+    if (config) {
+      setPrecioEntrada1M(config.entrada);
+      setPrecioSalida1M(config.salida);
+      setPresetTarifa(clavePreset);
+      setAlertaGuardadoFijo(true);
+      setTimeout(() => setAlertaGuardadoFijo(false), 2500);
+    }
+  };
+
+  const fijarParametrosManualmente = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(
+        CLAVE_STORAGE_SIMULADOR_TARIFAS,
+        JSON.stringify({
+          precioEntrada1M,
+          precioSalida1M,
+          tasaCambioCop,
+          conversacionesMensualesSimuladas,
+          mensajesPorConversacionSimulados,
+          presetSeleccionado: presetTarifa,
+        })
+      );
+      setAlertaGuardadoFijo(true);
+      setTimeout(() => setAlertaGuardadoFijo(false), 3000);
+    }
+  };
+
+  const restablecerValoresDefecto = () => {
+    const def = PRESETS_TARIFAS_MODELOS.gemini_flash;
+    setPrecioEntrada1M(def.entrada);
+    setPrecioSalida1M(def.salida);
+    setTasaCambioCop(4200);
+    setConversacionesMensualesSimuladas(500);
+    setMensajesPorConversacionSimulados(4);
+    setPresetTarifa('gemini_flash');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(CLAVE_STORAGE_SIMULADOR_TARIFAS);
+    }
+    setAlertaGuardadoFijo(true);
+    setTimeout(() => setAlertaGuardadoFijo(false), 2500);
+  };
 
   // Calcular fechas según el período seleccionado
   const fechasCalculadas = useMemo(() => {
@@ -135,10 +269,13 @@ export const ModuloConsumo: React.FC<PropiedadesModuloConsumo> = ({
           setTiposEventoDisponibles(res.tipos_evento_disponibles);
         }
 
-        // Si hay datos reales, sugerir los mensajes promedio por conversación
+        // Si hay datos reales y el usuario no tiene una configuración guardada fija, sugerir mensajes promedio
         if (res.resumen && res.resumen.total_conversaciones > 0) {
-          const promedioMsgs = Math.max(1, Math.round(res.resumen.total_mensajes_respondidos / res.resumen.total_conversaciones));
-          setMensajesPorConversacionSimulados(promedioMsgs);
+          const configGuardada = typeof window !== 'undefined' ? localStorage.getItem(CLAVE_STORAGE_SIMULADOR_TARIFAS) : null;
+          if (!configGuardada) {
+            const promedioMsgs = Math.max(1, Math.round(res.resumen.total_mensajes_respondidos / res.resumen.total_conversaciones));
+            setMensajesPorConversacionSimulados(promedioMsgs);
+          }
         }
       } else {
         setErrorCarga(res.error || 'No se pudieron obtener las métricas de consumo.');
@@ -805,9 +942,106 @@ export const ModuloConsumo: React.FC<PropiedadesModuloConsumo> = ({
                 border: '1px solid var(--borde-tarjeta)',
               }}
             >
-              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--texto-principal)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Sliders size={15} style={{ color: 'var(--color-primario)' }} />
-                <span>Parámetros de Tarifa y Volumen</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.4rem' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--texto-principal)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Sliders size={15} style={{ color: 'var(--color-primario)' }} />
+                  <span>Parámetros de Tarifa y Volumen</span>
+                </div>
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    fontSize: '0.68rem',
+                    color: alertaGuardadoFijo ? '#10b981' : 'var(--texto-atenuado)',
+                    background: alertaGuardadoFijo ? 'rgba(16, 185, 129, 0.15)' : 'var(--fondo-tarjeta)',
+                    border: alertaGuardadoFijo ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--borde-tarjeta)',
+                    padding: '0.2rem 0.5rem',
+                    borderRadius: '12px',
+                    fontWeight: 600,
+                    transition: 'all 0.25s ease',
+                  }}
+                >
+                  {alertaGuardadoFijo ? <CheckCircle2 size={12} style={{ color: '#10b981' }} /> : <BookmarkCheck size={12} />}
+                  <span>{alertaGuardadoFijo ? 'Parámetros fijados y guardados' : 'Valores fijos en tu navegador'}</span>
+                </div>
+              </div>
+
+              {/* Selector de Presets Rápidos de Modelos */}
+              <div className="modal-campo-grupo">
+                <label className="modal-label" style={{ fontSize: '0.72rem', fontWeight: 600, marginBottom: '0.35rem', display: 'block' }}>
+                  Plantilla de Tarifas Rápidas por Modelo:
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => aplicarPresetTarifa('gemini_flash')}
+                    style={{
+                      padding: '0.25rem 0.55rem',
+                      fontSize: '0.69rem',
+                      borderRadius: '6px',
+                      border: '1px solid var(--borde-tarjeta)',
+                      background: presetTarifa === 'gemini_flash' ? 'var(--color-primario)' : 'var(--fondo-tarjeta)',
+                      color: presetTarifa === 'gemini_flash' ? '#fff' : 'var(--texto-principal)',
+                      cursor: 'pointer',
+                      fontWeight: presetTarifa === 'gemini_flash' ? 700 : 500,
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    Gemini Flash ($0.075 / $0.30)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => aplicarPresetTarifa('gpt4o_mini')}
+                    style={{
+                      padding: '0.25rem 0.55rem',
+                      fontSize: '0.69rem',
+                      borderRadius: '6px',
+                      border: '1px solid var(--borde-tarjeta)',
+                      background: presetTarifa === 'gpt4o_mini' ? 'var(--color-primario)' : 'var(--fondo-tarjeta)',
+                      color: presetTarifa === 'gpt4o_mini' ? '#fff' : 'var(--texto-principal)',
+                      cursor: 'pointer',
+                      fontWeight: presetTarifa === 'gpt4o_mini' ? 700 : 500,
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    GPT-4o Mini ($0.15 / $0.60)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => aplicarPresetTarifa('gpt6_luna')}
+                    style={{
+                      padding: '0.25rem 0.55rem',
+                      fontSize: '0.69rem',
+                      borderRadius: '6px',
+                      border: '1px solid var(--borde-tarjeta)',
+                      background: presetTarifa === 'gpt6_luna' ? 'var(--color-primario)' : 'var(--fondo-tarjeta)',
+                      color: presetTarifa === 'gpt6_luna' ? '#fff' : 'var(--texto-principal)',
+                      cursor: 'pointer',
+                      fontWeight: presetTarifa === 'gpt6_luna' ? 700 : 500,
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    GPT-6 Luna ($0.30 / $1.20)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPresetTarifa('personalizado')}
+                    style={{
+                      padding: '0.25rem 0.55rem',
+                      fontSize: '0.69rem',
+                      borderRadius: '6px',
+                      border: '1px solid var(--borde-tarjeta)',
+                      background: presetTarifa === 'personalizado' ? 'var(--color-primario)' : 'var(--fondo-tarjeta)',
+                      color: presetTarifa === 'personalizado' ? '#fff' : 'var(--texto-principal)',
+                      cursor: 'pointer',
+                      fontWeight: presetTarifa === 'personalizado' ? 700 : 500,
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    Personalizado
+                  </button>
+                </div>
               </div>
 
               {/* Precio 1M Tokens Entrada */}
@@ -816,14 +1050,19 @@ export const ModuloConsumo: React.FC<PropiedadesModuloConsumo> = ({
                   <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
                     Precio 1 Millón Tokens Entrada ($ USD)
                   </label>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--texto-atenuado)' }}>Gemini Flash: $0.075</span>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)' }}>
+                    {presetTarifa === 'personalizado' ? 'Tarifa manual fija' : `Preset: ${PRESETS_TARIFAS_MODELOS[presetTarifa]?.nombre || ''}`}
+                  </span>
                 </div>
                 <input
                   type="number"
                   step="0.001"
                   min="0"
                   value={precioEntrada1M}
-                  onChange={(e) => setPrecioEntrada1M(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => {
+                    setPrecioEntrada1M(parseFloat(e.target.value) || 0);
+                    setPresetTarifa('personalizado');
+                  }}
                   className="modal-input"
                   style={{ fontSize: '0.8rem', padding: '0.45rem 0.75rem' }}
                 />
@@ -835,14 +1074,19 @@ export const ModuloConsumo: React.FC<PropiedadesModuloConsumo> = ({
                   <label className="modal-label" style={{ fontSize: '0.74rem', fontWeight: 600 }}>
                     Precio 1 Millón Tokens Salida ($ USD)
                   </label>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--texto-atenuado)' }}>Gemini Flash: $0.30</span>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)' }}>
+                    {presetTarifa === 'personalizado' ? 'Tarifa manual fija' : `Preset: ${PRESETS_TARIFAS_MODELOS[presetTarifa]?.nombre || ''}`}
+                  </span>
                 </div>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
                   value={precioSalida1M}
-                  onChange={(e) => setPrecioSalida1M(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => {
+                    setPrecioSalida1M(parseFloat(e.target.value) || 0);
+                    setPresetTarifa('personalizado');
+                  }}
                   className="modal-input"
                   style={{ fontSize: '0.8rem', padding: '0.45rem 0.75rem' }}
                 />
@@ -924,6 +1168,55 @@ export const ModuloConsumo: React.FC<PropiedadesModuloConsumo> = ({
                   className="modal-input"
                   style={{ fontSize: '0.8rem', padding: '0.45rem 0.75rem' }}
                 />
+              </div>
+
+              {/* Botones de Acción para Fijar y Guardar */}
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem', paddingTop: '0.5rem', borderTop: '1px dashed var(--borde-tarjeta)' }}>
+                <button
+                  type="button"
+                  onClick={fijarParametrosManualmente}
+                  style={{
+                    flex: 1,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.4rem',
+                    background: 'var(--color-primario)',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '0.5rem 0.75rem',
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                  }}
+                >
+                  <Save size={14} />
+                  <span>Fijar y Guardar Parámetros</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={restablecerValoresDefecto}
+                  title="Restablecer valores originales"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.35rem',
+                    background: 'var(--fondo-tarjeta)',
+                    color: 'var(--texto-atenuado)',
+                    border: '1px solid var(--borde-tarjeta)',
+                    borderRadius: '8px',
+                    padding: '0.5rem 0.75rem',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <RotateCcw size={13} />
+                  <span>Restablecer</span>
+                </button>
               </div>
             </div>
 
