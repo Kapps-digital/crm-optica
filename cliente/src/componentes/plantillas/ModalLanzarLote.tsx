@@ -16,6 +16,8 @@ import {
   UploadCloud,
   FileText,
   Trash2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
@@ -57,6 +59,8 @@ export const ModalLanzarLote: React.FC<PropiedadesModalLanzarLote> = ({
   const [archivoCargadoInfo, setArchivoCargadoInfo] = useState<{ nombre: string; total: number } | null>(null);
   const [modoEntradaCsv, setModoEntradaCsv] = useState<'archivo' | 'manual'>('archivo');
   const [nombreCampana, setNombreCampana] = useState('');
+  const [forzarReenvio, setForzarReenvio] = useState(false);
+  const [mostrarDetalleExcluidos, setMostrarDetalleExcluidos] = useState(false);
 
   const [calculando, setCalculando] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -84,6 +88,8 @@ export const ModalLanzarLote: React.FC<PropiedadesModalLanzarLote> = ({
       setTextoTelefonosCsv('');
       setArchivoCargadoInfo(null);
       setModoEntradaCsv('archivo');
+      setForzarReenvio(false);
+      setMostrarDetalleExcluidos(false);
 
       if (segmentoPreseleccionadoId) {
         setSegmentoSeleccionadoId(String(segmentoPreseleccionadoId));
@@ -93,7 +99,7 @@ export const ModalLanzarLote: React.FC<PropiedadesModalLanzarLote> = ({
     }
   }, [abierto, plantilla, plantillaActiva, segmentoPreseleccionadoId, segmentos]);
 
-  // Recalcular audiencia cuando cambia el segmento, la plantilla o los teléfonos
+  // Recalcular audiencia cuando cambia el segmento, la plantilla, los teléfonos o la opción de forzar reenvío
   useEffect(() => {
     if (!abierto || !plantillaActiva) return;
 
@@ -114,7 +120,8 @@ export const ModalLanzarLote: React.FC<PropiedadesModalLanzarLote> = ({
           plantillaId: plantillaActiva.id,
           segmentoId: origenTipo === 'segmento' && segmentoSeleccionadoId ? Number(segmentoSeleccionadoId) : null,
           telefonosDirectos: origenTipo === 'csv' ? telefonosArray : undefined,
-          diasExclusion: 30,
+          diasExclusion: 7,
+          forzarReenvio: forzarReenvio,
         });
 
         if (res.exito !== false && (res.exito || res.plantilla)) {
@@ -134,7 +141,7 @@ export const ModalLanzarLote: React.FC<PropiedadesModalLanzarLote> = ({
     };
 
     ejecutarCalculo();
-  }, [abierto, plantillaActiva?.id, origenTipo, segmentoSeleccionadoId, textoTelefonosCsv]);
+  }, [abierto, plantillaActiva?.id, origenTipo, segmentoSeleccionadoId, textoTelefonosCsv, forzarReenvio]);
 
   // Descargar plantilla base oficial en formato Excel (.xlsx)
   const descargarPlantillaBase = () => {
@@ -275,8 +282,9 @@ export const ModalLanzarLote: React.FC<PropiedadesModalLanzarLote> = ({
         segmentoId: origenTipo === 'segmento' ? Number(segmentoSeleccionadoId) : null,
         telefonosDirectos: origenTipo === 'csv' ? telefonosArray : undefined,
         nombreCampana: nombreFinalCampana,
-        diasExclusion: 30,
+        diasExclusion: 7,
         tamanoLoteDeseado: limiteDiarioOptica,
+        forzarReenvio: forzarReenvio,
       });
 
       if (!res.exito) {
@@ -780,10 +788,15 @@ export const ModalLanzarLote: React.FC<PropiedadesModalLanzarLote> = ({
                   </div>
 
                   <div style={{ padding: '0.5rem', backgroundColor: 'var(--fondo-tarjeta)', borderRadius: 'var(--radio-sm)', border: '1px solid var(--borde-tarjeta)' }}>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)' }}>Excluidos (Recientes)</div>
-                    <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#ea580c' }}>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)' }}>Excluidos (&lt; 7 días)</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 700, color: resultadoCalculo.forzar_reenvio_activo ? '#10b981' : '#ea580c' }}>
                       {resultadoCalculo.ya_contactados_recientes}
                     </div>
+                    {resultadoCalculo.forzar_reenvio_activo && (
+                      <span style={{ fontSize: '0.62rem', color: '#10b981', display: 'block', fontWeight: 600, marginTop: '2px' }}>
+                        Reenvío forzado
+                      </span>
+                    )}
                   </div>
 
                   <div style={{ padding: '0.5rem', backgroundColor: 'var(--fondo-tarjeta)', borderRadius: 'var(--radio-sm)', border: '1px solid var(--borde-tarjeta)' }}>
@@ -793,6 +806,188 @@ export const ModalLanzarLote: React.FC<PropiedadesModalLanzarLote> = ({
                     </div>
                   </div>
                 </div>
+
+                {/* Detalle de Excluidos, Desglose y Forzar Reenvío */}
+                {resultadoCalculo.ya_contactados_recientes > 0 && (
+                  <div
+                    style={{
+                      backgroundColor: 'var(--fondo-tarjeta)',
+                      border: '1px solid rgba(234, 88, 12, 0.25)',
+                      borderRadius: 'var(--radio-sm)',
+                      padding: '0.75rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.6rem',
+                    }}
+                  >
+                    {/* Encabezado con toggle de detalle */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <AlertTriangle size={15} style={{ color: '#ea580c', flexShrink: 0 }} />
+                        <span style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--texto-principal)' }}>
+                          {resultadoCalculo.ya_contactados_recientes} {resultadoCalculo.ya_contactados_recientes === 1 ? 'paciente recibió' : 'pacientes recibieron'} esta plantilla hace menos de 7 días
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setMostrarDetalleExcluidos(!mostrarDetalleExcluidos)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--color-primario)',
+                          fontSize: '0.72rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.2rem',
+                          padding: '0.2rem 0.4rem',
+                          borderRadius: '4px',
+                        }}
+                      >
+                        <span>{mostrarDetalleExcluidos ? 'Ocultar detalle' : 'Ver quiénes y por qué'}</span>
+                        {mostrarDetalleExcluidos ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                      </button>
+                    </div>
+
+                    {/* Lista desplegable con scroll de quiénes y por qué */}
+                    {mostrarDetalleExcluidos && (
+                      <div
+                        style={{
+                          maxHeight: '160px',
+                          overflowY: 'auto',
+                          borderRadius: 'var(--radio-sm)',
+                          border: '1px solid var(--borde-tarjeta)',
+                          backgroundColor: 'var(--fondo-base)',
+                          padding: '0.4rem',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.35rem',
+                        }}
+                      >
+                        {resultadoCalculo.excluidos_detalle && resultadoCalculo.excluidos_detalle.length > 0 ? (
+                          resultadoCalculo.excluidos_detalle.map((exc, idx) => (
+                            <div
+                              key={`${exc.telefono}-${idx}`}
+                              style={{
+                                padding: '0.35rem 0.5rem',
+                                backgroundColor: 'var(--fondo-tarjeta)',
+                                borderRadius: '4px',
+                                border: '1px solid var(--borde-tarjeta)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                fontSize: '0.72rem',
+                                gap: '0.5rem',
+                              }}
+                            >
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <strong style={{ color: 'var(--texto-principal)' }}>{exc.nombre || 'Paciente'}</strong>
+                                <span
+                                  style={{
+                                    color: 'var(--texto-atenuado)',
+                                    fontFamily: "'SF Mono', Consolas, monospace",
+                                    fontSize: '0.68rem',
+                                  }}
+                                >
+                                  {exc.telefono}
+                                </span>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <span
+                                  style={{
+                                    display: 'inline-block',
+                                    padding: '0.15rem 0.4rem',
+                                    backgroundColor: 'rgba(234, 88, 12, 0.1)',
+                                    color: '#ea580c',
+                                    borderRadius: '3px',
+                                    fontSize: '0.66rem',
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {exc.dias_hace === 0 ? 'Hoy' : `Hace ${exc.dias_hace} días`}
+                                </span>
+                                {exc.motivo && (
+                                  <div style={{ fontSize: '0.65rem', color: 'var(--texto-atenuado)', marginTop: '2px' }}>
+                                    {exc.motivo}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div style={{ padding: '0.5rem', textAlign: 'center', fontSize: '0.72rem', color: 'var(--texto-atenuado)' }}>
+                            No hay información disponible de exclusiones.
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Casilla opcional para forzar reenvío */}
+                    <div
+                      style={{
+                        paddingTop: '0.4rem',
+                        borderTop: '1px dashed var(--borde-tarjeta)',
+                      }}
+                    >
+                      <label
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '0.55rem',
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={forzarReenvio}
+                          onChange={(e) => setForzarReenvio(e.target.checked)}
+                          style={{
+                            marginTop: '2px',
+                            cursor: 'pointer',
+                            accentColor: 'var(--color-primario)',
+                            width: '15px',
+                            height: '15px',
+                          }}
+                        />
+                        <div>
+                          <span style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--texto-principal)' }}>
+                            Forzar reenvío a los {resultadoCalculo.ya_contactados_recientes} pacientes contactados recientemente (&lt; 7 días)
+                          </span>
+                          <span style={{ display: 'block', fontSize: '0.69rem', color: 'var(--texto-atenuado)', marginTop: '1px' }}>
+                            Bypasea la regla de protección e incluye a estos números en la lista de envío de este lote.
+                          </span>
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* Disclaimer de Meta cuando se activa el forzado */}
+                    {forzarReenvio && (
+                      <div
+                        style={{
+                          padding: '0.6rem 0.75rem',
+                          backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                          border: '1px solid rgba(239, 68, 68, 0.25)',
+                          borderRadius: 'var(--radio-sm)',
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '0.5rem',
+                          marginTop: '0.2rem',
+                          animation: 'aparecerSuave 0.2s ease',
+                        }}
+                      >
+                        <AlertTriangle size={16} style={{ color: '#ef4444', flexShrink: 0, marginTop: '1px' }} />
+                        <div style={{ fontSize: '0.71rem', color: 'var(--texto-principal)', lineHeight: '1.4' }}>
+                          <strong style={{ color: '#ef4444', display: 'block', marginBottom: '0.15rem' }}>
+                            Advertencia de Políticas de Calidad de WhatsApp (Meta):
+                          </strong>
+                          Enviar plantillas masivas repetidas a un mismo destinatario en lapsos menores a 7 días eleva drásticamente la tasa de bloqueos y reportes de <strong>SPAM</strong>. Si los usuarios reportan tus mensajes, Meta bajará la calificación de tu número a nivel <strong style={{ color: '#ef4444' }}>Rojo (Bajo)</strong> o podrá <strong>suspender de forma temporal o permanente la línea de WhatsApp de la óptica</strong>.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Explicación de Lote */}
                 <div

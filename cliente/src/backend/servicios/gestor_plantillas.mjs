@@ -469,7 +469,7 @@ export async function obtenerCuotaDiaria(opticaId) {
 /**
  * Calcula la audiencia de un lote antes de enviar
  */
-export async function calcularAudienciaLote(opticaId, { plantillaId, segmentoId, telefonosDirectos = [], diasExclusion = 30 }) {
+export async function calcularAudienciaLote(opticaId, { plantillaId, segmentoId, telefonosDirectos = [], diasExclusion = 7, forzarReenvio = false }) {
   const idOpticaNumerico = Number(opticaId) || 1;
   const idPlantillaNumerico = Number(plantillaId);
 
@@ -533,31 +533,62 @@ export async function calcularAudienciaLote(opticaId, { plantillaId, segmentoId,
 
   // 3. Consultar quiénes ya recibieron esta plantilla en los últimos `diasExclusion`
   const resHistorial = await pool.query(
-    `SELECT DISTINCT contacto_id, telefono
-     FROM "CRM_Opticas".campanas_destinatarios
-     WHERE optica_id = $1
-       AND plantilla_id = $2
-       AND enviado_en >= (NOW() - make_interval(days => $3))`,
-    [idOpticaNumerico, idPlantillaNumerico, Number(diasExclusion) || 30]
+    `SELECT cd.contacto_id, cd.telefono, cd.enviado_en, c.nombre AS campana_nombre
+     FROM "CRM_Opticas".campanas_destinatarios cd
+     LEFT JOIN "CRM_Opticas".campanas c ON c.id = cd.campana_id
+     WHERE cd.optica_id = $1
+       AND cd.plantilla_id = $2
+       AND cd.enviado_en >= (NOW() - make_interval(days => $3))
+     ORDER BY cd.enviado_en DESC`,
+    [idOpticaNumerico, idPlantillaNumerico, Number(diasExclusion) || 7]
   );
 
-  const setIdsYaContactados = new Set(
-    resHistorial.rows.filter((r) => r.contacto_id).map((r) => Number(r.contacto_id))
-  );
-  const setTelefonosYaContactados = new Set(
-    resHistorial.rows.map((r) => normalizarTelefono(r.telefono))
-  );
+  const mapaHistorial = new Map();
+  for (const row of resHistorial.rows) {
+    const telNorm = normalizarTelefono(row.telefono);
+    const datosEnvio = {
+      enviado_en: row.enviado_en,
+      campana_nombre: row.campana_nombre || 'Campaña previa',
+    };
+    if (row.contacto_id && !mapaHistorial.has(`id_${row.contacto_id}`)) {
+      mapaHistorial.set(`id_${row.contacto_id}`, datosEnvio);
+    }
+    if (telNorm && !mapaHistorial.has(`tel_${telNorm}`)) {
+      mapaHistorial.set(`tel_${telNorm}`, datosEnvio);
+    }
+  }
 
   // 4. Separar audiencia
   const yaContactados = [];
   const pendientesElegibles = [];
 
   for (const c of candidatos) {
-    const yaRecibioPorId = c.contacto_id && setIdsYaContactados.has(c.contacto_id);
-    const yaRecibioPorTel = setTelefonosYaContactados.has(c.telefono);
+    const envioPrevio =
+      (c.contacto_id && mapaHistorial.get(`id_${c.contacto_id}`)) ||
+      (c.telefono && mapaHistorial.get(`tel_${c.telefono}`));
 
-    if (yaRecibioPorId || yaRecibioPorTel) {
-      yaContactados.push(c);
+    if (envioPrevio) {
+      const fechaEnvio = new Date(envioPrevio.enviado_en);
+      const diasHace = Math.max(0, Math.floor((Date.now() - fechaEnvio.getTime()) / (24 * 60 * 60 * 1000)));
+      const fechaStr = fechaEnvio.toLocaleDateString('es-CO', { timeZone: 'America/Bogota', day: '2-digit', month: '2-digit', year: 'numeric' });
+      const horaStr = fechaEnvio.toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', hour12: true });
+
+      const excluidoItem = {
+        ...c,
+        fecha_previo: envioPrevio.enviado_en,
+        fecha_texto: `${fechaStr} a las ${horaStr}`,
+        dias_hace: diasHace,
+        motivo: diasHace === 0
+          ? `Recibió esta plantilla hoy (${horaStr}) en "${envioPrevio.campana_nombre}"`
+          : diasHace === 1
+          ? `Recibió esta plantilla ayer (${horaStr}) en "${envioPrevio.campana_nombre}"`
+          : `Recibió esta plantilla hace ${diasHace} días (${fechaStr}) en "${envioPrevio.campana_nombre}"`,
+      };
+      yaContactados.push(excluidoItem);
+
+      if (forzarReenvio) {
+        pendientesElegibles.push(c);
+      }
     } else {
       pendientesElegibles.push(c);
     }
@@ -590,8 +621,11 @@ export async function calcularAudienciaLote(opticaId, { plantillaId, segmentoId,
       encabezado_contenido: plantilla.encabezado_contenido,
     },
     lote_numero: loteNumero,
+    dias_exclusion_aplicados: Number(diasExclusion) || 7,
+    forzar_reenvio_activo: Boolean(forzarReenvio),
     total_audiencia_inicial: candidatos.length,
     ya_contactados_recientes: yaContactados.length,
+    excluidos_detalle: yaContactados,
     pendientes_elegibles: pendientesElegibles.length,
     limite_diario_disponible: cuota.disponibles_hoy,
     limite_diario_total: cuota.limite_diario,
@@ -612,7 +646,8 @@ export async function lanzarLoteCampana(opticaId, datos) {
     segmentoId = null,
     telefonosDirectos = [],
     nombreCampana,
-    diasExclusion = 30,
+    diasExclusion = 7,
+    forzarReenvio = false,
     tamanoLoteDeseado = null,
   } = datos;
 
@@ -622,6 +657,7 @@ export async function lanzarLoteCampana(opticaId, datos) {
     segmentoId,
     telefonosDirectos,
     diasExclusion,
+    forzarReenvio,
   });
 
   if (calculo.pendientes_elegibles === 0) {

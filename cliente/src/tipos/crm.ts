@@ -305,6 +305,13 @@ export interface DestinatarioLote {
   telefono: string;
 }
 
+export interface ExcluidoLoteDetalle extends DestinatarioLote {
+  fecha_previo?: string | null;
+  fecha_texto?: string;
+  dias_hace?: number | null;
+  motivo?: string;
+}
+
 export interface CalculoAudienciaLote {
   plantilla: {
     id: number;
@@ -320,6 +327,9 @@ export interface CalculoAudienciaLote {
   cantidad_a_enviar_hoy: number;
   destinatarios_lote_hoy: DestinatarioLote[];
   muestra_destinatarios: DestinatarioLote[];
+  dias_exclusion_aplicados?: number;
+  forzar_reenvio_activo?: boolean;
+  excluidos_detalle?: ExcluidoLoteDetalle[];
 }
 
 export interface CampanaEnvioHistorial {

@@ -743,6 +743,7 @@ export async function calcularAudienciaLoteCampana(parametros: {
   segmentoId?: number | null;
   telefonosDirectos?: (string | { nombre?: string; telefono: string })[];
   diasExclusion?: number;
+  forzarReenvio?: boolean;
 }): Promise<{ exito: boolean; error?: string } & Partial<CalculoAudienciaLote>> {
   try {
     const res = await fetch('/api/plantillas/calcular-lote', {
@@ -769,6 +770,7 @@ export async function lanzarLoteCampanaApi(parametros: {
   nombreCampana?: string;
   diasExclusion?: number;
   tamanoLoteDeseado?: number;
+  forzarReenvio?: boolean;
 }): Promise<{
   exito: boolean;
   campana_id?: number;
