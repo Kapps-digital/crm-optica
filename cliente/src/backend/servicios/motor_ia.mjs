@@ -125,13 +125,13 @@ export async function obtenerMetricasConsumoIA(argumentoOpciones = {}) {
 
     if (desde) {
       contador++;
-      condiciones.push(`c.creado_en >= $${contador}::timestamp`);
+      condiciones.push(`(c.creado_en AT TIME ZONE 'America/Bogota')::date >= $${contador}::date`);
       parametros.push(desde);
     }
 
     if (hasta) {
       contador++;
-      condiciones.push(`c.creado_en <= ($${contador}::timestamp + interval '1 day' - interval '1 second')`);
+      condiciones.push(`(c.creado_en AT TIME ZONE 'America/Bogota')::date <= $${contador}::date`);
       parametros.push(hasta);
     }
 
@@ -167,14 +167,14 @@ export async function obtenerMetricasConsumoIA(argumentoOpciones = {}) {
 
     const sqlTendencia = `
       SELECT 
-        TO_CHAR(c.creado_en, 'YYYY-MM-DD') AS fecha,
+        TO_CHAR(c.creado_en AT TIME ZONE 'America/Bogota', 'YYYY-MM-DD') AS fecha,
         COUNT(*)::int AS total_mensajes,
         COALESCE(SUM(c.tokens_entrada), 0)::bigint AS tokens_entrada,
         COALESCE(SUM(c.tokens_salida), 0)::bigint AS tokens_salida,
         COALESCE(SUM(c.tokens_totales), 0)::bigint AS tokens_totales
       FROM "CRM_Opticas".consumo_ia c
       ${clausulaWhere}
-      GROUP BY TO_CHAR(c.creado_en, 'YYYY-MM-DD')
+      GROUP BY TO_CHAR(c.creado_en AT TIME ZONE 'America/Bogota', 'YYYY-MM-DD')
       ORDER BY fecha ASC
       LIMIT 60
     `;

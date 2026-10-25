@@ -1512,6 +1512,7 @@ export const ModuloConsumo: React.FC<PropiedadesModuloConsumo> = ({
                       >
                         <td style={{ padding: '0.65rem 0.85rem', whiteSpace: 'nowrap', color: 'var(--texto-principal)' }}>
                           {new Date(reg.creado_en).toLocaleString('es-CO', {
+                            timeZone: 'America/Bogota',
                             dateStyle: 'short',
                             timeStyle: 'medium',
                           })}
