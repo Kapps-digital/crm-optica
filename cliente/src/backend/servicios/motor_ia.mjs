@@ -418,6 +418,18 @@ export async function obtenerMotivosDisponiblesOpticaBD(opticaId) {
  * Genera ranuras de horario disponibles para una fecha específica respetando jornada y horario hábil
  */
 export async function obtenerHorariosDisponibles(opticaId, fechaStr, jornada = 'todas') {
+  // 1. Blindaje estricto: si la fecha consultada es anterior a HOY en Colombia, rechazar de inmediato
+  const hoyStr = obtenerFechaHoyColombia();
+  if (fechaStr && fechaStr < hoyStr) {
+    return {
+      exito: false,
+      error: `La fecha solicitada (${fechaStr}) ya pasó. Hoy es ${hoyStr}. Por favor consulta disponibilidad para el día de hoy o una fecha posterior.`,
+      disponible: false,
+      fecha: fechaStr,
+      horarios: [],
+    };
+  }
+
   const resOptica = await pool.query(
     `SELECT hora_inicio_atencion, hora_fin_atencion, duracion_cita_minutos 
      FROM "CRM_Opticas".opticas WHERE id = $1`,
@@ -464,7 +476,6 @@ export async function obtenerHorariosDisponibles(opticaId, fechaStr, jornada = '
   };
 
   // Si la fecha consultada es HOY en Colombia, descartar horas pasadas o inmediatas
-  const hoyStr = obtenerFechaHoyColombia();
   let limiteMinutosHoy = -1;
   if (fechaStr === hoyStr) {
     const ahora = new Date();
@@ -804,6 +815,14 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId, c
     const { fecha, hora, motivo, nombre_apellido } = argumentos;
     const hoyStr = obtenerFechaHoyColombia();
 
+    // 1. Blindaje estricto: no permitir agendar citas en fechas pasadas
+    if (fecha < hoyStr) {
+      return {
+        exito: false,
+        error: `No es posible agendar la cita para el día ${fecha} porque es una fecha que ya pasó. La fecha actual es ${hoyStr}. Por favor ofrece al paciente agendar para el día de hoy o una fecha futura.`,
+      };
+    }
+
     // Validar motivo obligatorio confirmado por el paciente
     if (!motivo || typeof motivo !== 'string' || motivo.trim() === '') {
       return {
@@ -918,6 +937,14 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId, c
   if (nombre === 'reprogramar_cita') {
     const { cita_id, nueva_fecha, nueva_hora, motivo } = argumentos;
     const hoyStr = obtenerFechaHoyColombia();
+
+    // 1. Blindaje estricto: no permitir reprogramar citas para fechas pasadas
+    if (nueva_fecha < hoyStr) {
+      return {
+        exito: false,
+        error: `No es posible reprogramar la cita para el día ${nueva_fecha} porque es una fecha que ya pasó. La fecha actual es ${hoyStr}. Por favor ofrece al paciente una fecha de hoy en adelante.`,
+      };
+    }
 
     // Validar hora obligatoria y confirmada
     if (!nueva_hora || typeof nueva_hora !== 'string' || nueva_hora.trim() === '') {
