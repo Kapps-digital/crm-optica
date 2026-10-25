@@ -10,6 +10,7 @@ export interface PropiedadesEtiquetaTooltip {
   posicion?: PosicionTooltip;
   children: ReactNode;
   className?: string;
+  style?: React.CSSProperties;
   soloSiTruncado?: boolean;
   soloEnPuntos?: boolean;
 }
@@ -19,6 +20,7 @@ export function EtiquetaTooltip({
   posicion = 'arriba',
   children,
   className = '',
+  style,
   soloSiTruncado = false,
   soloEnPuntos = false,
 }: PropiedadesEtiquetaTooltip) {
@@ -238,6 +240,7 @@ export function EtiquetaTooltip({
     <div
       ref={disparadorRef}
       className={`etiqueta-tooltip-contenedor ${className}`}
+      style={style}
       onMouseEnter={manejarMouseEnter}
       onMouseMove={manejarMouseMove}
       onMouseLeave={manejarMouseLeave}

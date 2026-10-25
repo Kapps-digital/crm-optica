@@ -54,6 +54,7 @@ import {
   esFichaIncompleta,
   obtenerFechaHoyColombia,
   obtenerFechaObjetoColombia,
+  formatearNombrePildoraCita,
 } from '@/utilidades/formato';
 
 interface PropiedadesCalendarioCitas {
@@ -65,6 +66,7 @@ interface PropiedadesCalendarioCitas {
   alEnviarMensajeWhatsApp?: (texto: string, conversacionDestino?: Conversacion | null) => Promise<void>;
   fechaFoco?: string | null;
   modoVistaFoco?: 'mes' | 'dia' | 'agenda' | null;
+  alLimpiarFoco?: () => void;
 }
 
 const MESES = [
@@ -111,6 +113,7 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
   alEnviarMensajeWhatsApp,
   fechaFoco,
   modoVistaFoco,
+  alLimpiarFoco,
 }) => {
   const usuarioSesion = useMemo(() => obtenerUsuarioSesion(), []);
   const esAdmin = esAdminProp ?? (usuarioSesion?.rol === 'admin');
@@ -825,7 +828,10 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
           <button
             type="button"
             className={`conmutador-btn ${modoVista === 'mes' || modoVista === 'dia' ? 'activo' : ''}`}
-            onClick={() => setModoVista('mes')}
+            onClick={() => {
+              setModoVista('mes');
+              alLimpiarFoco?.();
+            }}
           >
             Calendario
           </button>
@@ -1047,7 +1053,7 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
                               <span className="pildora-punto-estado" />
                               <span className="pildora-hora">{cita.hora_cita.replace(' ', '')}</span>
                               <span className="pildora-paciente">
-                                {cita.contacto_nombre || 'Paciente'}
+                                {formatearNombrePildoraCita(cita.contacto_nombre)}
                               </span>
                               {!cita.contacto_cedula && (
                                 <span
@@ -1100,7 +1106,10 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
                 <button
                   type="button"
                   className="btn-volver-mes"
-                  onClick={() => setModoVista('mes')}
+                  onClick={() => {
+                    setModoVista('mes');
+                    alLimpiarFoco?.();
+                  }}
                 >
                   <ChevronLeft size={16} />
                   <span>Volver al Mes</span>

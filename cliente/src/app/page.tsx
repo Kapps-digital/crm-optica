@@ -93,6 +93,10 @@ export default function PaginaPrincipal() {
     modo: null,
   });
 
+  const limpiarCitasFoco = useCallback(() => {
+    setCitasFoco((prev) => (prev.fecha !== null || prev.modo !== null ? { fecha: null, modo: null } : prev));
+  }, []);
+
   // Ficha colapsada por defecto para máxima ganancia de espacio
   const [fichaAbierta, setFichaAbierta] = useState(false);
   const [conversaciones, setConversaciones] = useState<Conversacion[]>([]);
@@ -394,6 +398,7 @@ export default function PaginaPrincipal() {
     if ((v === 'consumo' || v === 'usuarios') && usuarioActual?.rol !== 'admin') {
       return;
     }
+    limpiarCitasFoco();
     setVistaActiva(v);
   };
 
@@ -1367,6 +1372,7 @@ export default function PaginaPrincipal() {
             }}
             fechaFoco={citasFoco.fecha}
             modoVistaFoco={citasFoco.modo}
+            alLimpiarFoco={limpiarCitasFoco}
           />
         )}
 

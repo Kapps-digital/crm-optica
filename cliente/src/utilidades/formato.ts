@@ -116,6 +116,25 @@ export function obtenerNombrePaciente(contacto?: {
 }
 
 /**
+ * Formatea el nombre del paciente exclusivamente para la píldora compacta del calendario mensual:
+ * - 4 nombres/palabras (ej. "Moises Enrique Leguizamo Barrios") -> muestra 1er y 3er nombre ("Moises Leguizamo").
+ * - 3 nombres/palabras (ej. "Samir Bolívar Barrios") -> muestra 1er y 2do nombre ("Samir Bolívar").
+ * - 2 o menos palabras -> muestra el nombre tal cual.
+ * - Más de 4 palabras -> muestra 1er y 3er nombre.
+ */
+export function formatearNombrePildoraCita(nombre?: string | null): string {
+  if (!nombre) return 'Paciente';
+  const palabras = nombre.trim().split(/\s+/).filter(Boolean);
+  if (palabras.length === 4 || palabras.length > 4) {
+    return `${palabras[0]} ${palabras[2]}`;
+  }
+  if (palabras.length === 3) {
+    return `${palabras[0]} ${palabras[1]}`;
+  }
+  return palabras.join(' ');
+}
+
+/**
  * Determina si una conversación o interacción se encuentra dentro de la ventana de 24 horas oficial de Meta WhatsApp.
  */
 export function estaEnVentana24Horas(ultimoMensajeEntranteEn?: string | null): boolean {

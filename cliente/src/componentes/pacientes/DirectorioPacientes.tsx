@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   Plus,
+  Glasses,
   Phone,
   Mail,
   Calendar,
@@ -274,26 +275,26 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
               const colorTexto = tieneIncompletos
                 ? '#d97706'
                 : estaActivo
-                ? 'var(--color-primario)'
-                : 'var(--texto-secundario)';
+                  ? 'var(--color-primario)'
+                  : 'var(--texto-secundario)';
 
               const colorIcono = tieneIncompletos
                 ? '#d97706'
                 : estaActivo
-                ? 'var(--color-primario)'
-                : 'var(--texto-atenuado)';
+                  ? 'var(--color-primario)'
+                  : 'var(--texto-atenuado)';
 
               const fondoBadge = tieneIncompletos
                 ? 'rgba(245, 158, 11, 0.16)'
                 : estaActivo
-                ? 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.14)'
-                : 'rgba(0, 0, 0, 0.06)';
+                  ? 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.14)'
+                  : 'rgba(0, 0, 0, 0.06)';
 
               const colorBadge = tieneIncompletos
                 ? '#d97706'
                 : estaActivo
-                ? 'var(--color-primario)'
-                : 'var(--texto-atenuado)';
+                  ? 'var(--color-primario)'
+                  : 'var(--texto-atenuado)';
 
               return (
                 <button
@@ -456,7 +457,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <AlertTriangle size={15} style={{ color: '#d97706', flexShrink: 0 }} />
               <span>
-                <strong>Pacientes con Datos Incompletos:</strong> Pacientes con citas agendadas o historial clínico que aún no tienen registrada su cédula o información completa. Pulsa <strong>&quot;Completar Datos&quot;</strong> en recepción para diligenciar su información.
+                <strong>Pacientes con Datos Incompletos:</strong> Pacientes con citas agendadas o historial clínico que aún no tienen registrada su cédula o información completa. Pulsa el botón de edición <strong>(icono ámbar)</strong> para diligenciar su información.
               </span>
             </div>
           </div>
@@ -477,21 +478,21 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                   letterSpacing: '0.04em',
                 }}
               >
-                <th style={{ padding: '0.65rem 0.85rem' }}>
+                <th style={{ padding: '0.65rem 0.85rem', width: pestañaActiva === 'contactos' ? '40%' : '28%' }}>
                   {pestañaActiva === 'contactos' ? (
                     'Contacto'
                   ) : (
                     <>
-                      Paciente <span className="ampersand-titular">&</span> Documento
+                      Nombre <span className="ampersand-titular">&</span> Documento
                     </>
                   )}
                 </th>
-                <th style={{ padding: '0.65rem 0.85rem' }}>Teléfono / Celular</th>
-                {pestañaActiva !== 'contactos' && <th style={{ padding: '0.65rem 0.85rem' }}>Edad / Sexo</th>}
-                <th style={{ padding: '0.65rem 0.85rem' }}>
+                <th style={{ padding: '0.65rem 0.85rem', width: pestañaActiva === 'contactos' ? '30%' : '20%' }}>Teléfono / Celular</th>
+                {pestañaActiva !== 'contactos' && <th style={{ padding: '0.65rem 0.85rem', width: '12%', minWidth: '85px' }}>Edad / Sexo</th>}
+                <th style={{ padding: '0.65rem 0.85rem', width: pestañaActiva === 'contactos' ? '18%' : '26%' }}>
                   {pestañaActiva === 'contactos' ? 'Estado' : 'Historial Clínico'}
                 </th>
-                <th style={{ padding: '0.65rem 0.85rem', textAlign: 'center' }}>Acciones</th>
+                <th style={{ padding: '0.65rem 0.85rem', textAlign: 'center', width: pestañaActiva === 'contactos' ? '12%' : '14%', minWidth: '100px' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -507,10 +508,10 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                     {busqueda
                       ? 'No se encontraron resultados para la búsqueda.'
                       : pestañaActiva === 'contactos'
-                      ? 'No hay contactos pendientes de registrar como paciente.'
-                      : pestañaActiva === 'incompletos'
-                      ? '¡Excelente! No hay pacientes con datos incompletos pendientes por registrar.'
-                      : 'No hay pacientes registrados aún. Pulsa "+ Nuevo Paciente" para crear el primero.'}
+                        ? 'No hay contactos pendientes de registrar como paciente.'
+                        : pestañaActiva === 'incompletos'
+                          ? '¡Excelente! No hay pacientes con datos incompletos pendientes por registrar.'
+                          : 'No hay pacientes registrados aún. Pulsa "+ Nuevo Paciente" para crear el primero.'}
                   </td>
                 </tr>
               ) : (
@@ -566,21 +567,6 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                               >
                                 {item.nombre_completo || item.nombre || 'Contacto sin nombre'}
                               </strong>
-                              {item.es_paciente && (
-                                <span
-                                  style={{
-                                    fontSize: '0.62rem',
-                                    fontWeight: 700,
-                                    padding: '0.08rem 0.35rem',
-                                    borderRadius: '4px',
-                                    background: 'rgba(16, 185, 129, 0.12)',
-                                    color: '#059669',
-                                    border: '1px solid rgba(16, 185, 129, 0.25)',
-                                  }}
-                                >
-                                  Paciente
-                                </span>
-                              )}
                             </div>
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginTop: '0.15rem' }}>
@@ -598,27 +584,36 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                                   <span>{(item.tipo_documento || 'CC').toUpperCase()}: {formatearSeparadorMiles(item.cedula || item.documento)}</span>
                                 </span>
                               ) : esPacienteClinico ? (
-                                <span
-                                  style={{
-                                    fontSize: '0.67rem',
-                                    fontWeight: 600,
-                                    color: '#d97706',
-                                    background: 'rgba(245, 158, 11, 0.12)',
-                                    padding: '0.12rem 0.45rem',
-                                    borderRadius: '5px',
-                                    border: '1px solid rgba(245, 158, 11, 0.28)',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.25rem',
-                                  }}
+                                <EtiquetaTooltip
+                                  texto={
+                                    Number(item.total_citas || 0) > 0
+                                      ? 'Paciente con cita agendada en recepción, pendiente registrar documento y datos clínicos'
+                                      : 'Ficha clínica incompleta: falta registrar documento de identidad'
+                                  }
+                                  posicion="arriba"
                                 >
-                                  <AlertTriangle size={11} />
-                                  <span>
-                                    {Number(item.total_citas || 0) > 0
-                                      ? 'Cita agendada · Datos incompletos'
-                                      : 'Datos incompletos'}
+                                  <span
+                                    style={{
+                                      fontSize: '0.67rem',
+                                      fontWeight: 600,
+                                      color: '#d97706',
+                                      background: 'rgba(245, 158, 11, 0.12)',
+                                      padding: '0.12rem 0.45rem',
+                                      borderRadius: '5px',
+                                      border: '1px solid rgba(245, 158, 11, 0.28)',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '0.25rem',
+                                    }}
+                                  >
+                                    <AlertTriangle size={11} />
+                                    <span>
+                                      {Number(item.total_citas || 0) > 0
+                                        ? '⚠️ Cita · Datos incompletos'
+                                        : '⚠️ Datos incompletos'}
+                                    </span>
                                   </span>
-                                </span>
+                                </EtiquetaTooltip>
                               ) : (
                                 <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)' }}>
                                   Contacto ID #{item.id}
@@ -631,7 +626,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
 
                       {/* 2. Columna Contacto: Teléfono y Correo */}
                       <td style={{ padding: '0.75rem 0.85rem' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', minWidth: 0, alignItems: 'flex-start' }}>
                           {item.telefono ? (
                             <span
                               style={{
@@ -643,7 +638,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                                 fontWeight: 500,
                               }}
                             >
-                              <Phone size={12} style={{ color: '#10b981' }} />
+                              <Phone size={12} style={{ color: '#10b981', flexShrink: 0 }} />
                               {formatearTelefono(item.telefono)}
                             </span>
                           ) : (
@@ -651,18 +646,34 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                           )}
 
                           {item.correo ? (
-                            <span
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.35rem',
-                                color: 'var(--texto-atenuado)',
-                                fontSize: '0.71rem',
-                              }}
+                            <EtiquetaTooltip
+                              texto={item.correo}
+                              posicion="arriba"
+                              style={{ justifyContent: 'flex-start', width: 'fit-content', maxWidth: '100%' }}
                             >
-                              <Mail size={11} />
-                              {item.correo}
-                            </span>
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.35rem',
+                                  color: 'var(--texto-atenuado)',
+                                  fontSize: '0.71rem',
+                                  maxWidth: '175px',
+                                  cursor: 'default',
+                                }}
+                              >
+                                <Mail size={12} style={{ flexShrink: 0 }} />
+                                <span
+                                  style={{
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {item.correo}
+                                </span>
+                              </span>
+                            </EtiquetaTooltip>
                           ) : null}
                         </div>
                       </td>
@@ -680,13 +691,14 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                                   color: 'var(--texto-secundario)',
                                   fontSize: '0.78rem',
                                   fontWeight: 600,
+                                  whiteSpace: 'nowrap',
                                 }}
                               >
-                                <Calendar size={12} style={{ color: 'var(--texto-atenuado)' }} />
-                                <span>{item.edad} años</span>
+                                <Calendar size={12} style={{ color: 'var(--texto-atenuado)', flexShrink: 0 }} />
+                                <span style={{ whiteSpace: 'nowrap' }}>{item.edad} años</span>
                               </span>
                             ) : (
-                              <span style={{ color: 'var(--texto-atenuado)', fontSize: '0.74rem', fontStyle: 'italic' }}>
+                              <span style={{ color: 'var(--texto-atenuado)', fontSize: '0.74rem', fontStyle: 'italic', whiteSpace: 'nowrap' }}>
                                 --
                               </span>
                             )}
@@ -697,6 +709,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                                   fontWeight: 600,
                                   color: item.sexo === 'femenino' ? '#db2777' : 'var(--color-primario)',
                                   textTransform: 'capitalize',
+                                  whiteSpace: 'nowrap',
                                 }}
                               >
                                 {item.sexo === 'femenino' ? 'Femenino' : 'Masculino'}
@@ -709,31 +722,47 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                       {/* 4. Columna Historial Clínico o Estado de Prospecto */}
                       <td style={{ padding: '0.75rem 0.85rem' }}>
                         {esPacienteClinico ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0 }}>
                               <span
                                 style={{
                                   fontSize: '0.72rem',
                                   fontWeight: 600,
                                   color: (item.total_formulas || 0) > 0 ? 'var(--color-primario)' : 'var(--texto-atenuado)',
+                                  whiteSpace: 'nowrap',
+                                  flexShrink: 0,
                                 }}
                               >
-                                {(item.total_formulas || 0) > 0 ? `${item.total_formulas} fórmulas` : 'Sin fórmulas'}
+                                {(item.total_formulas || 0) > 0
+                                  ? `${item.total_formulas} ${Number(item.total_formulas) === 1 ? 'fórmula' : 'fórmulas'}`
+                                  : 'Sin fórmulas'}
                               </span>
 
                               {item.ultimo_tipo_lente && (
-                                <span
-                                  style={{
-                                    background: 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.08)',
-                                    color: 'var(--color-primario)',
-                                    padding: '0.08rem 0.4rem',
-                                    borderRadius: '4px',
-                                    fontSize: '0.68rem',
-                                    fontWeight: 600,
-                                  }}
+                                <EtiquetaTooltip
+                                  texto={item.ultimo_tipo_lente}
+                                  posicion="arriba"
+                                  style={{ minWidth: 0, maxWidth: '100%', justifyContent: 'flex-start' }}
                                 >
-                                  {item.ultimo_tipo_lente}
-                                </span>
+                                  <span
+                                    style={{
+                                      background: 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.08)',
+                                      color: 'var(--color-primario)',
+                                      padding: '0.08rem 0.4rem',
+                                      borderRadius: '4px',
+                                      fontSize: '0.68rem',
+                                      fontWeight: 600,
+                                      whiteSpace: 'nowrap',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      display: 'inline-block',
+                                      maxWidth: '150px',
+                                      cursor: 'default',
+                                    }}
+                                  >
+                                    {item.ultimo_tipo_lente}
+                                  </span>
+                                </EtiquetaTooltip>
                               )}
                             </div>
 
@@ -795,100 +824,94 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                                   abrirModalConvertirOEditar(item);
                                 }}
                                 style={{
+                                  width: '28px',
                                   height: '28px',
-                                  padding: '0 0.65rem',
-                                  borderRadius: 'var(--radio-sm, 6px)',
-                                  border: '1px solid #10b981',
-                                  background: 'rgba(16, 185, 129, 0.12)',
-                                  color: '#059669',
-                                  fontSize: '0.72rem',
-                                  fontWeight: 600,
+                                  padding: 0,
+                                  borderRadius: '6px',
+                                  border: 'none',
+                                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                  color: '#ffffff',
                                   cursor: 'pointer',
                                   display: 'inline-flex',
                                   alignItems: 'center',
-                                  gap: '0.35rem',
+                                  justifyContent: 'center',
+                                  boxShadow: '0 2px 6px rgba(16, 185, 129, 0.25)',
                                   transition: 'all 0.15s ease',
                                 }}
+                                aria-label="Completar datos personales y registrar como paciente"
                               >
-                                <UserPlus size={13} />
-                                <span>Registrar Paciente</span>
+                                <UserPlus size={14} />
                               </button>
                             </EtiquetaTooltip>
                           ) : (
                             <>
-                              {/* Botón Completar Datos si no tiene documento */}
-                              {esFichaIncompleta(item) && (
-                                <EtiquetaTooltip texto="Completar cédula y datos clínicos en recepción" posicion="arriba">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      abrirModalConvertirOEditar(item);
-                                    }}
-                                    style={{
-                                      height: '28px',
-                                      padding: '0 0.55rem',
-                                      borderRadius: 'var(--radio-sm, 6px)',
-                                      border: '1px solid rgba(245, 158, 11, 0.45)',
-                                      background: 'rgba(245, 158, 11, 0.12)',
-                                      color: '#d97706',
-                                      fontSize: '0.70rem',
-                                      fontWeight: 600,
-                                      cursor: 'pointer',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '0.3rem',
-                                      transition: 'all 0.15s ease',
-                                    }}
-                                  >
-                                    <IdCard size={12} />
-                                    <span>Completar Datos</span>
-                                  </button>
-                                </EtiquetaTooltip>
-                              )}
-
-                              {/* Botón Nueva Fórmula */}
+                              {/* Botón Nueva Fórmula con Icono Gafas */}
                               <EtiquetaTooltip texto={`Registrar fórmula óptica para ${item.nombre || 'el paciente'}`} posicion="arriba">
                                 <button
                                   type="button"
                                   className="btn-primario-optica"
-                                  style={{ padding: '0.22rem 0.55rem', fontSize: '0.70rem', height: '28px' }}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    alAbrirNuevaFormula(item);
-                                  }}
-                                >
-                                  <Plus size={12} />
-                                  <span>Fórmula</span>
-                                </button>
-                              </EtiquetaTooltip>
-
-                              {/* Botón Editar Datos del Paciente */}
-                              <EtiquetaTooltip texto="Editar datos del paciente" posicion="arriba">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    abrirModalConvertirOEditar(item);
-                                  }}
                                   style={{
                                     width: '28px',
                                     height: '28px',
+                                    padding: 0,
                                     borderRadius: '6px',
-                                    border: '1px solid var(--borde-tarjeta)',
-                                    background: 'var(--fondo-elevado)',
-                                    color: 'var(--texto-secundario)',
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     cursor: 'pointer',
-                                    transition: 'all 0.15s ease',
                                   }}
-                                  aria-label="Editar datos del paciente"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    alAbrirNuevaFormula(item);
+                                  }}
+                                  aria-label={`Registrar fórmula óptica para ${item.nombre || 'el paciente'}`}
                                 >
-                                  <Edit size={13} />
+                                  <Glasses size={14} />
                                 </button>
                               </EtiquetaTooltip>
+
+                              {/* Botón Editar Datos del Paciente / Alerta de Datos Incompletos */}
+                              {(() => {
+                                const fichaIncompleta = esFichaIncompleta(item);
+                                return (
+                                  <EtiquetaTooltip
+                                    texto={
+                                      fichaIncompleta
+                                        ? '⚠️ Ficha incompleta: pulsar para registrar documento y datos clínicos'
+                                        : 'Editar datos del paciente'
+                                    }
+                                    posicion="arriba"
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        abrirModalConvertirOEditar(item);
+                                      }}
+                                      style={{
+                                        width: '28px',
+                                        height: '28px',
+                                        borderRadius: '6px',
+                                        border: fichaIncompleta
+                                          ? '1px solid rgba(245, 158, 11, 0.5)'
+                                          : '1px solid var(--borde-tarjeta)',
+                                        background: fichaIncompleta
+                                          ? 'rgba(245, 158, 11, 0.14)'
+                                          : 'var(--fondo-elevado)',
+                                        color: fichaIncompleta ? '#d97706' : 'var(--texto-secundario)',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s ease',
+                                      }}
+                                      aria-label={fichaIncompleta ? 'Completar datos de ficha incompleta' : 'Editar datos del paciente'}
+                                    >
+                                      <Edit size={13} />
+                                    </button>
+                                  </EtiquetaTooltip>
+                                );
+                              })()}
                             </>
                           )}
 

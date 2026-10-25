@@ -20,11 +20,14 @@ import {
   Sparkles,
   ChevronDown,
   ChevronUp,
+  Glasses,
 } from 'lucide-react';
 import type { Contacto, FormulaOptica, Cita } from '@/tipos/crm';
 import { obtenerDetalleContacto } from '@/servicios/api_crm';
 import { formatearTelefono, formatearSeparadorMiles, obtenerNombrePaciente, formatearEjeVisual } from '@/utilidades/formato';
 import { BarraPaginacionTabla } from '../comunes/BarraPaginacionTabla';
+import { BarraPestanas, ElementoPestana } from '../comunes/BarraPestanas';
+import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 
 interface PropiedadesModalHistorialClinico {
   abierto: boolean;
@@ -120,6 +123,25 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
     return citas.slice(inicio, inicio + limiteCitas);
   }, [citas, paginaCitas, limiteCitas]);
 
+  // Configuración de pestañas con componente estandarizado BarraPestanas
+  const pestanasHistorial = useMemo<ElementoPestana<'formulas' | 'citas'>[]>(
+    () => [
+      {
+        id: 'formulas',
+        etiqueta: 'Fórmulas Ópticas',
+        icono: Eye,
+        conteo: totalFormulas,
+      },
+      {
+        id: 'citas',
+        etiqueta: 'Citas y Consultas',
+        icono: CalendarDays,
+        conteo: totalCitas,
+      },
+    ],
+    [totalFormulas, totalCitas]
+  );
+
   if (!montado || !abierto || !contacto) return null;
 
   const esPaciente = Boolean(contacto.es_paciente || totalFormulas > 0 || totalCitas > 0);
@@ -210,21 +232,22 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
           animation: 'fadeInUp 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
-        {/* 1. Cabecera Corporativa del Paciente */}
+        {/* 1. Cabecera Corporativa del Paciente (Fija en una sola fila) */}
         <div
           style={{
             flexShrink: 0,
-            padding: '1.2rem 1.6rem',
+            padding: '1rem 1.6rem',
             borderBottom: '1px solid var(--borde-tarjeta)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             background: 'var(--fondo-elevado)',
-            flexWrap: 'wrap',
+            flexWrap: 'nowrap',
             gap: '1rem',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+          {/* Bloque Izquierdo: Avatar e Información del Paciente */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flex: '1 1 auto', minWidth: 0, overflow: 'hidden' }}>
             <div
               style={{
                 width: '46px',
@@ -245,7 +268,7 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
               {nombreMostrar.substring(0, 2).toUpperCase()}
             </div>
 
-            <div>
+            <div style={{ flex: '1 1 auto', minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', flexWrap: 'wrap' }}>
                 <h3
                   style={{
@@ -254,6 +277,9 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                     fontWeight: 700,
                     color: 'var(--texto-principal)',
                     fontFamily: 'var(--fuente-titulos)',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                   }}
                 >
                   {nombreMostrar}
@@ -271,47 +297,69 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                     border: esPaciente
                       ? '1px solid rgba(16, 185, 129, 0.25)'
                       : '1px solid rgba(217, 119, 6, 0.25)',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
                   }}
                 >
                   {esPaciente ? 'Paciente Clínico' : 'Contacto de Chat'}
                 </span>
               </div>
 
-              {/* Fila de Datos de Identidad */}
+              {/* Fila de Datos de Identidad (Con truncado inteligente de correo largo) */}
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '1rem',
+                  gap: '0.85rem',
                   marginTop: '0.35rem',
                   fontSize: '0.76rem',
                   color: 'var(--texto-secundario)',
-                  flexWrap: 'wrap',
+                  flexWrap: 'nowrap',
+                  overflow: 'hidden',
                 }}
               >
                 {documentoMostrar && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap', flexShrink: 0 }}>
                     <IdCard size={13} style={{ color: 'var(--color-primario)' }} />
                     <strong>{tipoDocMostrar}:</strong> {formatearSeparadorMiles(documentoMostrar)}
                   </span>
                 )}
 
                 {contacto.telefono && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap', flexShrink: 0 }}>
                     <Phone size={13} style={{ color: '#10b981' }} />
                     {formatearTelefono(contacto.telefono)}
                   </span>
                 )}
 
                 {contacto.correo && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                    <Mail size={13} style={{ color: 'var(--texto-atenuado)' }} />
-                    {contacto.correo}
-                  </span>
+                  <EtiquetaTooltip texto={contacto.correo} posicion="arriba">
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        maxWidth: '220px',
+                        cursor: 'help',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Mail size={13} style={{ color: 'var(--texto-atenuado)', flexShrink: 0 }} />
+                      <span
+                        style={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {contacto.correo}
+                      </span>
+                    </span>
+                  </EtiquetaTooltip>
                 )}
 
                 {contacto.edad && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap', flexShrink: 0 }}>
                     <Calendar size={13} style={{ color: 'var(--texto-atenuado)' }} />
                     {contacto.edad} años
                   </span>
@@ -326,6 +374,8 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                       fontWeight: 600,
                       color: contacto.sexo === 'femenino' ? '#db2777' : 'var(--color-primario)',
                       textTransform: 'capitalize',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
                     }}
                   >
                     <span>{contacto.sexo === 'femenino' ? 'Femenino' : 'Masculino'}</span>
@@ -335,8 +385,8 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
             </div>
           </div>
 
-          {/* Acciones de Cabecera */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          {/* Acciones de Cabecera (Totalmente fijas en su posición original, nunca bajan) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexShrink: 0 }}>
             {alAbrirNuevaFormula && (
               <button
                 type="button"
@@ -348,16 +398,25 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                 style={{
                   height: '32px',
                   padding: '0 0.85rem',
-                  fontSize: '0.75rem',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '0.35rem',
-                  borderRadius: 'var(--radio-sm, 6px)',
+                  gap: '0.45rem',
+                  borderRadius: 'var(--radio-md, 8px)',
                   cursor: 'pointer',
+                  background: 'linear-gradient(135deg, var(--color-primario) 0%, var(--color-primario-claro, #0284c7) 100%)',
+                  color: '#ffffff',
+                  border: 'none',
+                  boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  transition: 'all 0.15s ease',
                 }}
+                aria-label="Nueva Fórmula"
               >
-                <Plus size={14} />
-                <span>+ Nueva Fórmula</span>
+                <Glasses size={15} style={{ flexShrink: 0 }} />
+                <span>Nueva Fórmula</span>
               </button>
             )}
 
@@ -374,6 +433,7 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                flexShrink: 0,
               }}
               aria-label="Cerrar modal"
             >
@@ -382,61 +442,23 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
           </div>
         </div>
 
-        {/* 2. Pestañas de Navegación del Historial */}
+        {/* 2. Pestañas de Navegación del Historial con componente estandarizado BarraPestanas */}
         <div
           style={{
             flexShrink: 0,
             display: 'flex',
             alignItems: 'center',
-            padding: '0 1.6rem',
+            padding: '0.65rem 1.6rem',
             borderBottom: '1px solid var(--borde-tarjeta)',
             background: 'var(--fondo-tarjeta)',
-            gap: '1.25rem',
           }}
         >
-          <button
-            type="button"
-            onClick={() => setPestañaActiva('formulas')}
-            style={{
-              padding: '0.75rem 0',
-              background: 'none',
-              border: 'none',
-              borderBottom: pestañaActiva === 'formulas' ? '2.5px solid var(--color-primario)' : '2.5px solid transparent',
-              color: pestañaActiva === 'formulas' ? 'var(--color-primario)' : 'var(--texto-secundario)',
-              fontWeight: pestañaActiva === 'formulas' ? 700 : 500,
-              fontSize: '0.82rem',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <Eye size={15} />
-            <span>Fórmulas Ópticas ({totalFormulas})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setPestañaActiva('citas')}
-            style={{
-              padding: '0.75rem 0',
-              background: 'none',
-              border: 'none',
-              borderBottom: pestañaActiva === 'citas' ? '2.5px solid var(--color-primario)' : '2.5px solid transparent',
-              color: pestañaActiva === 'citas' ? 'var(--color-primario)' : 'var(--texto-secundario)',
-              fontWeight: pestañaActiva === 'citas' ? 700 : 500,
-              fontSize: '0.82rem',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <CalendarDays size={15} />
-            <span>Citas y Consultas ({totalCitas})</span>
-          </button>
+          <BarraPestanas<'formulas' | 'citas'>
+            pestanas={pestanasHistorial}
+            pestanaActiva={pestañaActiva}
+            alCambiarPestana={setPestañaActiva}
+            tamano="mediano"
+          />
         </div>
 
         {/* 3. Contenedor de Contenido Scrolleable (Scroll Suave Garantizado) */}
