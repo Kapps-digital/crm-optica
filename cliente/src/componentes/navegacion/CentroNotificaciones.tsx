@@ -458,13 +458,9 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
     actualizarLeidas(nuevas);
   }, [leidas, notificacionesProcesadas, mapaLeidas, actualizarLeidas]);
 
-  // Clic en el cuerpo de la notificación: marca leída y navega si tiene vista destino
+  // Clic en el cuerpo de la notificación: ÚNICAMENTE marca como leída (sin navegar a ninguna vista)
   const manejarClicCuerpoNotificacion = (notif: NotificacionCRM) => {
     marcarUnaLeida(notif.clave);
-    if (alNavegarVista && notif.enlace_vista) {
-      setMostrarMenu(false);
-      alNavegarVista(notif.enlace_vista, notif.datos);
-    }
   };
 
   // Clic en el botón Revisar: marca leída, cierra menú y navega a la vista asociada
