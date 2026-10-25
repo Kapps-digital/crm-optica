@@ -740,6 +740,8 @@ async function procesarPeticion(
         const chatsUrgentes = await base_datos.prepare(`
           SELECT conv.id, conv.contacto_id, conv.actualizado_en,
             co.nombre_completo AS contacto_nombre, co.telefono AS contacto_telefono,
+            (SELECT id FROM mensajes WHERE conversacion_id = conv.id ORDER BY id DESC LIMIT 1) AS ultimo_mensaje_id,
+            (SELECT creado_en FROM mensajes WHERE conversacion_id = conv.id ORDER BY id DESC LIMIT 1) AS ultimo_mensaje_fecha,
             (SELECT texto FROM mensajes WHERE conversacion_id = conv.id ORDER BY id DESC LIMIT 1) AS ultimo_texto
           FROM conversaciones conv
           LEFT JOIN contactos co ON co.id = conv.contacto_id
@@ -755,9 +757,13 @@ async function procesarPeticion(
             ? (chat.ultimo_texto.length > 70 ? `${chat.ultimo_texto.substring(0, 70)}...` : chat.ultimo_texto)
             : 'El paciente solicitó atención de un asesor humano.';
 
+          const idSufijo = chat.ultimo_mensaje_id || (chat.actualizado_en ? new Date(chat.actualizado_en).getTime() : Date.now());
+          const claveUrgencia = `asesor_chat_${chat.id}_msg_${idSufijo}`;
+          const fechaCreacionNotif = chat.ultimo_mensaje_fecha || chat.actualizado_en || new Date().toISOString();
+
           notificaciones.push({
-            id: `asesor_chat_${chat.id}`,
-            clave: `asesor_chat_${chat.id}`,
+            id: claveUrgencia,
+            clave: claveUrgencia,
             tipo: 'ia_requiere_asesor',
             titulo: chat.contacto_nombre || 'Paciente por WhatsApp',
             subtitulo: 'Requiere asesor humano',
@@ -765,7 +771,7 @@ async function procesarPeticion(
             etiqueta: 'Urgente',
             nivel_alerta: 'ROJO',
             es_urgente: true,
-            fecha_creado: chat.actualizado_en,
+            fecha_creado: fechaCreacionNotif,
             fecha_texto: 'Atención requerida',
             enlace_vista: 'mensajeria',
             datos: {
@@ -775,6 +781,7 @@ async function procesarPeticion(
               telefono: chat.contacto_telefono,
               contacto_nombre: chat.contacto_nombre,
               contacto_telefono: chat.contacto_telefono,
+              ultimo_mensaje_id: chat.ultimo_mensaje_id,
             },
           });
         }

@@ -328,7 +328,14 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
 
     const filtradas = notificacionesBase.filter((item) => {
       const fechaLeidaIso = mapaLeidas.get(item.clave);
-      const estaLeida = Boolean(fechaLeidaIso);
+      let estaLeida = Boolean(fechaLeidaIso);
+
+      // Si es alerta de atención humana urgente y fue actualizada/solicitada después de la lectura, considerarla NO leída
+      if (estaLeida && item.tipo === 'ia_requiere_asesor' && item.fecha_creado && fechaLeidaIso) {
+        if (new Date(item.fecha_creado).getTime() > new Date(fechaLeidaIso).getTime()) {
+          estaLeida = false;
+        }
+      }
 
       // Regla de negocio crítica: NO mostrar notificaciones de días anteriores al día de hoy en Colombia
       // 1. Si tiene fecha de cita asociada, descartar si la fecha de la cita ya pasó (es anterior a hoy)
@@ -368,10 +375,24 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
     });
 
     // Añadir campo esLeida y ordenar
-    const procesadas = filtradas.map((item) => ({
-      ...item,
-      esLeida: mapaLeidas.has(item.clave),
-    }));
+    const procesadas = filtradas.map((item) => {
+      let esLeida = mapaLeidas.has(item.clave);
+      if (esLeida && item.tipo === 'ia_requiere_asesor' && item.fecha_creado) {
+        const fechaLeidaIso = mapaLeidas.get(item.clave);
+        if (fechaLeidaIso) {
+          const fechaLeidaMs = new Date(fechaLeidaIso).getTime();
+          const fechaCreadoMs = new Date(item.fecha_creado).getTime();
+          // Si el paciente volvió a solicitar atención después de que se leyó la clave previa, se considera NO LEÍDA
+          if (fechaCreadoMs > fechaLeidaMs) {
+            esLeida = false;
+          }
+        }
+      }
+      return {
+        ...item,
+        esLeida,
+      };
+    });
 
     // Ordenamiento:
     // 1. No leídas primero (urgentes arriba, luego por fecha)
