@@ -533,7 +533,7 @@ export async function calcularAudienciaLote(opticaId, { plantillaId, segmentoId,
 
   // 3. Consultar quiénes ya recibieron esta plantilla en los últimos `diasExclusion`
   const resHistorial = await pool.query(
-    `SELECT cd.contacto_id, cd.telefono, cd.enviado_en, c.nombre AS campana_nombre
+    `SELECT cd.contacto_id, cd.telefono, cd.enviado_en, c.nombre_campana AS campana_nombre
      FROM "CRM_Opticas".campanas_destinatarios cd
      LEFT JOIN "CRM_Opticas".campanas c ON c.id = cd.campana_id
      WHERE cd.optica_id = $1
