@@ -652,6 +652,78 @@ export default function PaginaPrincipal() {
     [conversaciones, pacientes]
   );
 
+  // Navegación universal y precisa hacia un chat desde notificaciones de atención urgente o enlaces
+  const navegarAConversacionDesdeNotificacion = useCallback(
+    async (datos: any) => {
+      // 1. Cambiar a la vista de mensajería
+      setVistaActiva('mensajeria');
+
+      if (!datos) return;
+
+      const idConv = datos.conversacion_id ? Number(datos.conversacion_id) : null;
+      const idContacto = datos.contacto_id ? Number(datos.contacto_id) : null;
+      const telLimpio = (datos.telefono || datos.contacto_telefono)
+        ? String(datos.telefono || datos.contacto_telefono).replace(/\D/g, '')
+        : null;
+
+      const coincide = (c: Conversacion) => {
+        if (idConv && Number(c.id) === idConv) return true;
+        if (idContacto && Number(c.contacto_id) === idContacto) return true;
+        if (telLimpio && c.contacto_telefono) {
+          const t = String(c.contacto_telefono).replace(/\D/g, '');
+          if (t && (t === telLimpio || t.endsWith(telLimpio) || telLimpio.endsWith(t))) return true;
+        }
+        return false;
+      };
+
+      // 2. Buscar primero en la memoria local de conversaciones
+      let encontrada = conversaciones.find(coincide);
+      if (encontrada) {
+        await manejarSeleccionarConversacion(encontrada);
+        return;
+      }
+
+      // 3. Si no está en memoria local inmediata, consultar al servidor
+      try {
+        const listaFresca = await obtenerConversaciones();
+        if (Array.isArray(listaFresca) && listaFresca.length > 0) {
+          setConversaciones(listaFresca);
+          encontrada = listaFresca.find(coincide);
+          if (encontrada) {
+            await manejarSeleccionarConversacion(encontrada);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('Error al actualizar conversaciones desde notificación:', err);
+      }
+
+      // 4. Si aún no está en la lista estándar pero tenemos id de conversación o contacto,
+      // inicializar el contexto de conversación directa y cargar sus mensajes
+      if (idConv) {
+        const convDirecta: Conversacion = {
+          id: idConv,
+          contacto_id: idContacto || 0,
+          canal: 'whatsapp',
+          id_cuenta_zernio: null,
+          id_conversacion_zernio: '',
+          ultimo_mensaje_entrante_en: new Date().toISOString(),
+          estado: 'activa',
+          creado_en: new Date().toISOString(),
+          actualizado_en: new Date().toISOString(),
+          contacto_nombre: datos.nombre || datos.contacto_nombre || 'Paciente por WhatsApp',
+          contacto_telefono: datos.telefono || datos.contacto_telefono || '',
+          requiere_asesor_humano: true,
+          atendido_por_ia: false,
+        };
+        await manejarSeleccionarConversacion(convDirecta);
+      } else if (idContacto) {
+        navegarAlChatContacto(idContacto);
+      }
+    },
+    [conversaciones, manejarSeleccionarConversacion, navegarAlChatContacto]
+  );
+
   // Sondeo en tiempo real de mensajes del chat abierto cada 1.5 segundos con preservación de mensajes en vuelo
   useEffect(() => {
     if (!conversacionActiva?.id) return;
@@ -1053,11 +1125,8 @@ export default function PaginaPrincipal() {
                     setCitasFoco({ fecha: fechaDestino, modo: 'dia' });
                   }
                 }
-                if (vista === 'mensajeria' && datos?.conversacion_id) {
-                  const convEncontrada = conversaciones.find((c) => c.id === Number(datos.conversacion_id));
-                  if (convEncontrada) {
-                    manejarSeleccionarConversacion(convEncontrada);
-                  }
+                if (vista === 'mensajeria') {
+                  navegarAConversacionDesdeNotificacion(datos);
                 }
               }}
             />

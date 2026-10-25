@@ -82,7 +82,14 @@ function obtenerNotificacionesDemo(): NotificacionCRM[] {
       fecha_creado: new Date().toISOString(),
       fecha_texto: 'Atención requerida',
       enlace_vista: 'mensajeria',
-      datos: { conversacion_id: 1 },
+      datos: {
+        conversacion_id: 1,
+        contacto_id: 1,
+        nombre: 'Sofía Ramírez Durán',
+        contacto_nombre: 'Sofía Ramírez Durán',
+        telefono: '3101234567',
+        contacto_telefono: '3101234567',
+      },
     },
     {
       id: 'demo_resumen_hoy',
@@ -419,9 +426,13 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
     actualizarLeidas(nuevas);
   }, [leidas, notificacionesProcesadas, mapaLeidas, actualizarLeidas]);
 
-  // Clic en el cuerpo de la notificación: solo marcar como leída sin navegar ni cerrar menú
+  // Clic en el cuerpo de la notificación: marca leída y navega si tiene vista destino
   const manejarClicCuerpoNotificacion = (notif: NotificacionCRM) => {
     marcarUnaLeida(notif.clave);
+    if (alNavegarVista && notif.enlace_vista) {
+      setMostrarMenu(false);
+      alNavegarVista(notif.enlace_vista, notif.datos);
+    }
   };
 
   // Clic en el botón Revisar: marca leída, cierra menú y navega a la vista asociada

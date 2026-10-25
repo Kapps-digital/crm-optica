@@ -325,6 +325,8 @@ async function procesarPeticion(
 
         return {
           ...conv,
+          id: Number(conv.id),
+          contacto_id: conv.contacto_id ? Number(conv.contacto_id) : 0,
           ultimo_mensaje_texto: ultimoTexto,
           mensajes_no_leidos: cantidad_no_leidos,
           no_leido: cantidad_no_leidos > 0,
@@ -766,7 +768,14 @@ async function procesarPeticion(
             fecha_creado: chat.actualizado_en,
             fecha_texto: 'Atención requerida',
             enlace_vista: 'mensajeria',
-            datos: { conversacion_id: chat.id },
+            datos: {
+              conversacion_id: Number(chat.id),
+              contacto_id: chat.contacto_id ? Number(chat.contacto_id) : undefined,
+              nombre: chat.contacto_nombre,
+              telefono: chat.contacto_telefono,
+              contacto_nombre: chat.contacto_nombre,
+              contacto_telefono: chat.contacto_telefono,
+            },
           });
         }
 

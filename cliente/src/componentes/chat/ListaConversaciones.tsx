@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Phone, AlertCircle, Bot } from 'lucide-react';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import { FiltroBusqueda } from '../comunes/FiltroBusqueda';
@@ -106,6 +106,23 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
       return nombre.includes(termino) || telefono.includes(termino) || ultimoMsg.includes(termino);
     });
   }, [conversaciones, busqueda, filtroSeleccionado]);
+
+  // Si cambia la conversación activa seleccionada desde el exterior (notificaciones),
+  // asegurar que quede visible en el listado ajustando la pestaña a 'urgente' o 'todos'
+  useEffect(() => {
+    if (!conversacionActivaId) return;
+    const activaIdNum = Number(conversacionActivaId);
+    const estaVisible = conversacionesFiltradas.some((c) => Number(c.id) === activaIdNum);
+    if (!estaVisible) {
+      const convObjetivo = conversaciones.find((c) => Number(c.id) === activaIdNum);
+      if (convObjetivo?.requiere_asesor_humano) {
+        setFiltroSeleccionado('urgente');
+      } else {
+        setFiltroSeleccionado('todos');
+      }
+      setBusqueda('');
+    }
+  }, [conversacionActivaId, conversaciones, conversacionesFiltradas]);
 
   return (
     <div className="columna-conversaciones">
@@ -299,7 +316,7 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
           </div>
         ) : (
           conversacionesFiltradas.map((conv) => {
-            const esActiva = conv.id === conversacionActivaId;
+            const esActiva = Number(conv.id) === Number(conversacionActivaId);
             const iniciales = (conv.contacto_nombre || 'P').substring(0, 2).toUpperCase();
 
             const enVentana24h = conv.ultimo_mensaje_entrante_en
