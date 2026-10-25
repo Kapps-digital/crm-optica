@@ -147,10 +147,6 @@ export const ModalLanzarLote: React.FC<PropiedadesModalLanzarLote> = ({
   const descargarPlantillaBase = () => {
     const datosEjemplo = [
       { Telefono: '3001234567' },
-      { Telefono: '3109876543' },
-      { Telefono: '3204567890' },
-      { Telefono: '3155554321' },
-      { Telefono: '3128765432' },
     ];
 
     const libro = XLSX.utils.book_new();
