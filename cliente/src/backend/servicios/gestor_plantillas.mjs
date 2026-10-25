@@ -529,6 +529,52 @@ export async function calcularAudienciaLote(opticaId, { plantillaId, segmentoId,
         };
       })
       .filter((c) => c.telefono && c.telefono.length >= 10);
+
+    // Enriquecer candidatos con nombre y contacto_id si ya están registrados en contactos
+    if (candidatos.length > 0) {
+      const lista10Digitos = Array.from(
+        new Set(
+          candidatos
+            .map((c) => c.telefono.replace(/[^0-9]/g, '').slice(-10))
+            .filter((t) => t.length === 10)
+        )
+      );
+
+      if (lista10Digitos.length > 0) {
+        try {
+          const resContactos = await pool.query(
+            `SELECT id, nombre_completo, telefono
+             FROM "CRM_Opticas".contactos
+             WHERE optica_id = $1
+               AND RIGHT(REGEXP_REPLACE(COALESCE(telefono, ''), '[^0-9]', '', 'g'), 10) = ANY($2::text[])`,
+            [idOpticaNumerico, lista10Digitos]
+          );
+
+          if (resContactos.rows.length > 0) {
+            const mapaContactos = new Map();
+            for (const c of resContactos.rows) {
+              const u10 = String(c.telefono || '').replace(/[^0-9]/g, '').slice(-10);
+              if (u10 && !mapaContactos.has(u10)) {
+                mapaContactos.set(u10, c);
+              }
+            }
+
+            for (const cand of candidatos) {
+              const u10Cand = cand.telefono.replace(/[^0-9]/g, '').slice(-10);
+              const contactoBD = mapaContactos.get(u10Cand);
+              if (contactoBD) {
+                if (!cand.contacto_id) cand.contacto_id = Number(contactoBD.id);
+                if ((!cand.nombre || cand.nombre === 'Paciente') && contactoBD.nombre_completo) {
+                  cand.nombre = contactoBD.nombre_completo.trim();
+                }
+              }
+            }
+          }
+        } catch (errEnriquecer) {
+          console.warn('Error al enriquecer telefonos directos con contactos de BD:', errEnriquecer.message);
+        }
+      }
+    }
   }
 
   // 3. Consultar quiénes ya recibieron esta plantilla en los últimos `diasExclusion`
