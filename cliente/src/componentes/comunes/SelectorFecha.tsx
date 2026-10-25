@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Calendar, ChevronLeft, ChevronRight, CalendarCheck2 } from 'lucide-react';
+import { obtenerFechaHoyColombia, obtenerFechaMananaColombia } from '@/utilidades/formato';
 
 interface PropiedadesSelectorFecha {
   valor: string; // Formato YYYY-MM-DD
@@ -140,7 +141,7 @@ export const SelectorFecha: React.FC<PropiedadesSelectorFecha> = ({
   // Generación de días del mes
   const primerDiaMes = new Date(anoActual, mesActual, 1).getDay(); // 0 = Domingo
   const diasEnMes = new Date(anoActual, mesActual + 1, 0).getDate();
-  const fechaHoy = new Date().toISOString().split('T')[0];
+  const fechaHoy = obtenerFechaHoyColombia();
 
   const seleccionarDia = (dia: number) => {
     const diaFormateado = String(dia).padStart(2, '0');
@@ -151,14 +152,12 @@ export const SelectorFecha: React.FC<PropiedadesSelectorFecha> = ({
   };
 
   const seleccionarHoy = () => {
-    alCambiar(fechaHoy);
+    alCambiar(obtenerFechaHoyColombia());
     setAbierto(false);
   };
 
   const seleccionarManana = () => {
-    const manana = new Date();
-    manana.setDate(manana.getDate() + 1);
-    alCambiar(manana.toISOString().split('T')[0]);
+    alCambiar(obtenerFechaMananaColombia());
     setAbierto(false);
   };
 

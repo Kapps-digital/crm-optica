@@ -203,7 +203,7 @@ export const ModuloConsumo: React.FC<PropiedadesModuloConsumo> = ({
   // Calcular fechas según el período seleccionado
   const fechasCalculadas = useMemo(() => {
     const ahora = new Date();
-    const formatoYMD = (d: Date) => d.toISOString().split('T')[0];
+    const formatoYMD = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
 
     if (periodoSeleccionado === 'personalizado') {
       return { desde: fechaDesde || undefined, hasta: fechaHasta || undefined };

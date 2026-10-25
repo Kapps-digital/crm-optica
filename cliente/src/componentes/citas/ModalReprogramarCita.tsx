@@ -17,7 +17,7 @@ import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
 import { SelectorFecha } from '../comunes/SelectorFecha';
 import { SelectorHoraPopover } from '../comunes/SelectorHoraPopover';
 import type { Cita, EstadoCita } from '@/tipos/crm';
-import { formatearTelefono, obtenerNombrePaciente } from '@/utilidades/formato';
+import { formatearTelefono, obtenerNombrePaciente, obtenerFechaHoyColombia } from '@/utilidades/formato';
 import { obtenerOpticaSesion } from '@/servicios/api_crm';
 import { obtenerMotivosDisponiblesOptica } from '@/constantes/motivos_citas';
 import { OPCIONES_MOTIVO_CITA } from './ModalAgendarCita';
@@ -135,7 +135,7 @@ export const ModalReprogramarCita: React.FC<PropiedadesModalReprogramarCita> = (
     }
   };
 
-  const fechaHoyString = new Date().toISOString().split('T')[0];
+  const fechaHoyString = obtenerFechaHoyColombia();
 
   const contenidoModal = (
     <div

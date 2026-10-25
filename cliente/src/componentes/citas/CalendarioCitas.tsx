@@ -52,6 +52,8 @@ import {
   compararCitasPorFechaYHora,
   convertirHoraAMinutos,
   esFichaIncompleta,
+  obtenerFechaHoyColombia,
+  obtenerFechaObjetoColombia,
 } from '@/utilidades/formato';
 
 interface PropiedadesCalendarioCitas {
@@ -118,14 +120,11 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
   const [recargando, setRecargando] = useState(false);
 
   // Fecha actual de navegación del calendario
-  const [fechaReferencia, setFechaReferencia] = useState(() => new Date());
+  const [fechaReferencia, setFechaReferencia] = useState(() => obtenerFechaObjetoColombia());
 
   // Modo de visualización: 'mes' (grilla mensual), 'dia' (zoom diario detallado), 'agenda' (lista cronológica)
   const [modoVista, setModoVista] = useState<'mes' | 'dia' | 'agenda'>('mes');
-  const [diaZoom, setDiaZoom] = useState<string>(() => {
-    const hoy = new Date();
-    return hoy.toISOString().split('T')[0];
-  });
+  const [diaZoom, setDiaZoom] = useState<string>(() => obtenerFechaHoyColombia());
 
   // Efecto: Cuando entra una fechaFoco desde notificaciones, aplicar Zoom al día exacto
   useEffect(() => {
@@ -365,7 +364,7 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
   }, [citasFiltradas]);
 
   // Métricas y KPIs
-  const hoyStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const hoyStr = useMemo(() => obtenerFechaHoyColombia(), []);
   const kpis = useMemo(() => {
     const hoyTotal = citas.filter((c) => c.fecha_cita === hoyStr && c.estado !== 'cancelada').length;
     const mesActual = fechaReferencia.getMonth();
@@ -401,9 +400,9 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
   };
 
   const irHoy = () => {
-    const hoy = new Date();
+    const hoy = obtenerFechaObjetoColombia();
     setFechaReferencia(hoy);
-    setDiaZoom(hoy.toISOString().split('T')[0]);
+    setDiaZoom(obtenerFechaHoyColombia());
   };
 
   // Cálculo de los días del mes para la grilla

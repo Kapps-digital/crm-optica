@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import { obtenerNotificacionesApi } from '@/servicios/api_crm';
+import { obtenerFechaHoyColombia, obtenerFechaMananaColombia } from '@/utilidades/formato';
 import type { NotificacionCRM, Usuario } from '@/tipos/crm';
 
 interface RegistroLeida {
@@ -31,96 +32,94 @@ interface PropiedadesCentroNotificaciones {
 }
 
 /**
- * Obtiene la fecha actual en zona horaria de Colombia en formato YYYY-MM-DD
+ * Notificaciones de prueba dinámicas con fechas de hoy y mañana en Colombia
  */
-function obtenerFechaHoyColombia(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
-}
+function obtenerNotificacionesDemo(): NotificacionCRM[] {
+  const hoyCol = obtenerFechaHoyColombia();
+  const mananaCol = obtenerFechaMananaColombia();
 
-/**
- * Notificaciones de prueba que abarcan los 5 tipos clínicos acordados del CRM Óptica
- */
-const NOTIFICACIONES_DEMO_5_TIPOS: NotificacionCRM[] = [
-  {
-    id: 'demo_cita_agendada',
-    clave: 'demo_cita_agendada',
-    tipo: 'cita_agendada_ia',
-    titulo: 'Laura Valentina Gómez',
-    subtitulo: 'Control de Miopía y Astigmatismo',
-    mensaje: 'Agendada para el 24 oct 2026 a las 10:00 AM con Dr. Juan Vega.',
-    etiqueta: 'Agendada IA',
-    nivel_alerta: 'VERDE',
-    es_urgente: false,
-    fecha_creado: new Date(Date.now() - 3600000).toISOString(),
-    fecha_texto: '24 oct • 10:00 AM',
-    enlace_vista: 'citas',
-    datos: { fecha_cita: '2026-10-24', fecha: '2026-10-24' },
-  },
-  {
-    id: 'demo_cita_reprogramada',
-    clave: 'demo_cita_reprogramada',
-    tipo: 'cita_reprogramada_ia',
-    titulo: 'Carlos Eduardo Mendoza',
-    subtitulo: 'Primera Vez - Examen Computarizado',
-    mensaje: 'Cita reprogramada para el 25 oct 2026 a las 02:30 PM con Dra. María Ruiz.',
-    etiqueta: 'Reprogramada IA',
-    nivel_alerta: 'AMARILLO',
-    es_urgente: false,
-    fecha_creado: new Date(Date.now() - 7200000).toISOString(),
-    fecha_texto: '25 oct • 02:30 PM',
-    enlace_vista: 'citas',
-    datos: { fecha_cita: '2026-10-25', fecha: '2026-10-25' },
-  },
-  {
-    id: 'demo_asesor_humano',
-    clave: 'demo_asesor_humano',
-    tipo: 'ia_requiere_asesor',
-    titulo: 'Sofía Ramírez Durán',
-    subtitulo: 'Requiere asesor humano',
-    mensaje: 'El paciente solicitó atención urgente en WhatsApp para cotización de montura y lentes.',
-    etiqueta: 'Urgente',
-    nivel_alerta: 'ROJO',
-    es_urgente: true,
-    fecha_creado: new Date(Date.now() - 1800000).toISOString(),
-    fecha_texto: 'Atención requerida',
-    enlace_vista: 'mensajeria',
-    datos: { conversacion_id: 1 },
-  },
-  {
-    id: 'demo_resumen_hoy',
-    clave: 'demo_resumen_hoy',
-    tipo: 'resumen_hoy',
-    titulo: 'Citas programadas para hoy',
-    subtitulo: '4 citas en agenda',
-    mensaje: 'Tienes 4 citas programadas para el día de hoy en la sede principal.',
-    etiqueta: 'Hoy',
-    nivel_alerta: 'VERDE',
-    es_urgente: false,
-    es_resumen_diario: true,
-    fecha_referencia: obtenerFechaHoyColombia(),
-    fecha_creado: new Date().toISOString(),
-    fecha_texto: 'Hoy',
-    enlace_vista: 'citas',
-    datos: { fecha: obtenerFechaHoyColombia() },
-  },
-  {
-    id: 'demo_resumen_manana',
-    clave: 'demo_resumen_manana',
-    tipo: 'resumen_manana',
-    titulo: 'Citas agendadas para mañana',
-    subtitulo: '2 citas programadas',
-    mensaje: 'Tienes 2 citas agendadas para el día de mañana con optometría general.',
-    etiqueta: 'Mañana',
-    nivel_alerta: 'AZUL',
-    es_urgente: false,
-    es_resumen_diario: true,
-    fecha_referencia: 'manana',
-    fecha_creado: new Date().toISOString(),
-    fecha_texto: 'Mañana',
-    enlace_vista: 'citas',
-    datos: {},
-  },
-];
+  return [
+    {
+      id: 'demo_cita_agendada',
+      clave: 'demo_cita_agendada',
+      tipo: 'cita_agendada_ia',
+      titulo: 'Laura Valentina Gómez',
+      subtitulo: 'Control de Miopía y Astigmatismo',
+      mensaje: `Agendada para hoy ${hoyCol} a las 10:00 AM con Dr. Juan Vega.`,
+      etiqueta: 'Agendada IA',
+      nivel_alerta: 'VERDE',
+      es_urgente: false,
+      fecha_creado: new Date().toISOString(),
+      fecha_texto: 'Hoy • 10:00 AM',
+      enlace_vista: 'citas',
+      datos: { fecha_cita: hoyCol, fecha: hoyCol },
+    },
+    {
+      id: 'demo_cita_reprogramada',
+      clave: 'demo_cita_reprogramada',
+      tipo: 'cita_reprogramada_ia',
+      titulo: 'Carlos Eduardo Mendoza',
+      subtitulo: 'Primera Vez - Examen Computarizado',
+      mensaje: `Cita reprogramada para mañana ${mananaCol} a las 02:30 PM con Dra. María Ruiz.`,
+      etiqueta: 'Reprogramada IA',
+      nivel_alerta: 'AMARILLO',
+      es_urgente: false,
+      fecha_creado: new Date().toISOString(),
+      fecha_texto: 'Mañana • 02:30 PM',
+      enlace_vista: 'citas',
+      datos: { fecha_cita: mananaCol, fecha: mananaCol },
+    },
+    {
+      id: 'demo_asesor_humano',
+      clave: 'demo_asesor_humano',
+      tipo: 'ia_requiere_asesor',
+      titulo: 'Sofía Ramírez Durán',
+      subtitulo: 'Requiere asesor humano',
+      mensaje: 'El paciente solicitó atención urgente en WhatsApp para cotización de montura y lentes.',
+      etiqueta: 'Urgente',
+      nivel_alerta: 'ROJO',
+      es_urgente: true,
+      fecha_creado: new Date().toISOString(),
+      fecha_texto: 'Atención requerida',
+      enlace_vista: 'mensajeria',
+      datos: { conversacion_id: 1 },
+    },
+    {
+      id: 'demo_resumen_hoy',
+      clave: 'demo_resumen_hoy',
+      tipo: 'resumen_hoy',
+      titulo: 'Citas programadas para hoy',
+      subtitulo: '4 citas en agenda',
+      mensaje: 'Tienes 4 citas programadas para el día de hoy en la sede principal.',
+      etiqueta: 'Hoy',
+      nivel_alerta: 'VERDE',
+      es_urgente: false,
+      es_resumen_diario: true,
+      fecha_referencia: hoyCol,
+      fecha_creado: new Date().toISOString(),
+      fecha_texto: 'Hoy',
+      enlace_vista: 'citas',
+      datos: { fecha: hoyCol },
+    },
+    {
+      id: 'demo_resumen_manana',
+      clave: 'demo_resumen_manana',
+      tipo: 'resumen_manana',
+      titulo: 'Citas agendadas para mañana',
+      subtitulo: '2 citas programadas',
+      mensaje: 'Tienes 2 citas agendadas para el día de mañana con optometría general.',
+      etiqueta: 'Mañana',
+      nivel_alerta: 'AZUL',
+      es_urgente: false,
+      es_resumen_diario: true,
+      fecha_referencia: mananaCol,
+      fecha_creado: new Date().toISOString(),
+      fecha_texto: 'Mañana',
+      enlace_vista: 'citas',
+      datos: { fecha: mananaCol },
+    },
+  ];
+}
 
 export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = ({
   usuario,
@@ -299,9 +298,9 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
   // Fecha hoy en Colombia para filtrar resúmenes diarios
   const fechaHoyCol = useMemo(() => obtenerFechaHoyColombia(), []);
 
-  // Fuente de datos activa: si está en demo, utiliza NOTIFICACIONES_DEMO_5_TIPOS; si no, remotas de BD
+  // Fuente de datos activa: si está en demo, utiliza notificaciones demo dinámicas; si no, remotas de BD
   const notificacionesBase = useMemo(() => {
-    return enModoDemo ? NOTIFICACIONES_DEMO_5_TIPOS : notificacionesRemotas;
+    return enModoDemo ? obtenerNotificacionesDemo() : notificacionesRemotas;
   }, [enModoDemo, notificacionesRemotas]);
 
   // Procesar y filtrar notificaciones según las reglas de negocio
@@ -313,14 +312,33 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
       const fechaLeidaIso = mapaLeidas.get(item.clave);
       const estaLeida = Boolean(fechaLeidaIso);
 
-      // Regla 1: Si es resumen diario y su fecha no corresponde a hoy ni mañana, descartar
+      // Regla de negocio crítica: NO mostrar notificaciones de días anteriores al día de hoy en Colombia
+      // 1. Si tiene fecha de cita asociada, descartar si la fecha de la cita ya pasó (es anterior a hoy)
+      const fechaCita = item.datos?.fecha_cita || item.datos?.fecha;
+      if (fechaCita && String(fechaCita).slice(0, 10) < fechaHoyCol) {
+        return false;
+      }
+
+      // 2. Si es resumen diario y su fecha no corresponde a hoy ni mañana en Colombia, descartar
       if (item.es_resumen_diario && item.fecha_referencia) {
         if (item.tipo === 'resumen_hoy' && item.fecha_referencia !== fechaHoyCol) {
           return false;
         }
+        if (item.fecha_referencia !== 'manana' && item.fecha_referencia < fechaHoyCol) {
+          return false;
+        }
       }
 
-      // Regla 2: Si está leída, validar que no hayan pasado 3 días desde que se leyó
+      // 3. Si fue creada en días anteriores y no es una cita futura vigente, descartar
+      if (item.fecha_creado) {
+        const fechaCreadoCol = new Date(item.fecha_creado).toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+        const esCitaFutura = fechaCita && String(fechaCita).slice(0, 10) >= fechaHoyCol;
+        if (fechaCreadoCol < fechaHoyCol && !esCitaFutura) {
+          return false;
+        }
+      }
+
+      // Regla: Si está leída, validar que no hayan pasado 3 días desde que se leyó
       if (estaLeida && fechaLeidaIso) {
         const msDesdeLectura = ahoraMs - new Date(fechaLeidaIso).getTime();
         if (msDesdeLectura > TRES_DIAS_MS) {
@@ -328,7 +346,6 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
         }
       }
 
-      // Regla 3: Si NO está leída, permanece siempre visible
       return true;
     });
 
@@ -351,7 +368,7 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
 
       return 0;
     });
-  }, [notificacionesRemotas, mapaLeidas, fechaHoyCol]);
+  }, [notificacionesBase, mapaLeidas, fechaHoyCol]);
 
   // Conteos
   const totalNoLeidas = useMemo(

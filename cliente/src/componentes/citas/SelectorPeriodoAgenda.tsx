@@ -10,6 +10,11 @@ import {
   Check,
 } from 'lucide-react';
 import type { Cita } from '@/tipos/crm';
+import {
+  obtenerFechaHoyColombia,
+  obtenerPartesFechaColombia,
+  obtenerFechaObjetoColombia,
+} from '@/utilidades/formato';
 
 export type TipoPeriodoAgenda =
   | 'todos'
@@ -56,9 +61,10 @@ export const evaluarCoincidenciaPeriodo = (
   if (filtro.tipo === 'todos') return true;
   if (!fechaIso) return false;
 
-  const hoy = new Date();
+  const hoyIso = obtenerFechaHoyColombia();
+  const [anoHoy, mesHoy, diaHoy] = hoyIso.split('-').map(Number);
+  const hoy = new Date(anoHoy, mesHoy - 1, diaHoy);
   const pad = (n: number) => String(n).padStart(2, '0');
-  const hoyIso = `${hoy.getFullYear()}-${pad(hoy.getMonth() + 1)}-${pad(hoy.getDate())}`;
 
   if (filtro.tipo === 'hoy') {
     return fechaIso === hoyIso;
@@ -135,9 +141,10 @@ export const SelectorPeriodoAgenda: React.FC<PropiedadesSelectorPeriodoAgenda> =
   const [montado, setMontado] = useState(false);
 
   // Visor de mes y año del mini calendario interactivo
-  const hoy = useMemo(() => new Date(), []);
-  const [mesVisor, setMesVisor] = useState(hoy.getMonth());
-  const [anoVisor, setAnoVisor] = useState(hoy.getFullYear());
+  const hoy = useMemo(() => obtenerFechaObjetoColombia(), []);
+  const partesHoy = useMemo(() => obtenerPartesFechaColombia(), []);
+  const [mesVisor, setMesVisor] = useState(partesHoy.mes);
+  const [anoVisor, setAnoVisor] = useState(partesHoy.ano);
 
   // Estado temporal de selección de rango interactivo
   const [rangoInicioTemp, setRangoInicioTemp] = useState<string | null>(null);

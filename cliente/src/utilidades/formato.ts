@@ -281,3 +281,40 @@ export function obtenerCamposFaltantesFicha(contacto?: {
   if (edad === undefined || edad === null || edad <= 0) faltantes.push('Edad');
   return faltantes;
 }
+
+/**
+ * Obtiene la fecha actual en la zona horaria oficial de Colombia ('America/Bogota') en formato ISO YYYY-MM-DD
+ */
+export function obtenerFechaHoyColombia(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+}
+
+/**
+ * Obtiene la fecha de mañana en la zona horaria oficial de Colombia ('America/Bogota') en formato ISO YYYY-MM-DD
+ */
+export function obtenerFechaMananaColombia(): string {
+  const hoyStr = obtenerFechaHoyColombia();
+  const [ano, mes, dia] = hoyStr.split('-').map(Number);
+  const fechaUtc = new Date(Date.UTC(ano, mes - 1, dia));
+  fechaUtc.setUTCDate(fechaUtc.getUTCDate() + 1);
+  return fechaUtc.toISOString().slice(0, 10);
+}
+
+/**
+ * Obtiene un objeto Date con la fecha local de Colombia (año, mes y día de Colombia)
+ */
+export function obtenerFechaObjetoColombia(): Date {
+  const hoyStr = obtenerFechaHoyColombia();
+  const [ano, mes, dia] = hoyStr.split('-').map(Number);
+  return new Date(ano, mes - 1, dia);
+}
+
+/**
+ * Obtiene las partes numéricas de la fecha actual en Colombia { ano, mes (0-11), dia }
+ */
+export function obtenerPartesFechaColombia(): { ano: number; mes: number; dia: number } {
+  const hoyStr = obtenerFechaHoyColombia();
+  const [ano, mes, dia] = hoyStr.split('-').map(Number);
+  return { ano, mes: mes - 1, dia };
+}
+

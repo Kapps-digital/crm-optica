@@ -9,7 +9,13 @@ import { SelectorFecha } from '../comunes/SelectorFecha';
 import { SelectorHoraPopover } from '../comunes/SelectorHoraPopover';
 import type { Contacto, Conversacion } from '@/tipos/crm';
 import { obtenerOpticaSesion } from '@/servicios/api_crm';
-import { formatearTelefono, obtenerNombrePaciente, estaEnVentana24Horas } from '@/utilidades/formato';
+import {
+  formatearTelefono,
+  obtenerNombrePaciente,
+  estaEnVentana24Horas,
+  obtenerFechaHoyColombia,
+  obtenerFechaMananaColombia,
+} from '@/utilidades/formato';
 import { MOTIVOS_CITAS_PREDETERMINADOS, obtenerMotivosDisponiblesOptica } from '@/constantes/motivos_citas';
 
 export const OPCIONES_MOTIVO_CITA = MOTIVOS_CITAS_PREDETERMINADOS;
@@ -84,9 +90,7 @@ export const ModalAgendarCita: React.FC<PropiedadesModalAgendarCita> = ({
 
   // Fecha predeterminada de mañana
   const obtenerFechaManana = () => {
-    const manana = new Date();
-    manana.setDate(manana.getDate() + 1);
-    return manana.toISOString().split('T')[0];
+    return obtenerFechaMananaColombia();
   };
 
   // Estados del formulario (inician en blanco por defecto)
@@ -224,7 +228,7 @@ export const ModalAgendarCita: React.FC<PropiedadesModalAgendarCita> = ({
     }
   };
 
-  const fechaHoyString = new Date().toISOString().split('T')[0];
+  const fechaHoyString = obtenerFechaHoyColombia();
 
   const contenidoModal = (
     <div

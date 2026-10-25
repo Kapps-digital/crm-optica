@@ -608,7 +608,7 @@ async function procesarPeticion(
         esfera_od ?? od_esfera ?? '+0.00', cilindro_od ?? od_cilindro ?? '-0.00', eje_od ?? od_eje ?? '0', adicion_od ?? od_adicion ?? '+0.00', av_od ?? od_agudeza_visual ?? '20/20',
         esfera_oi ?? oi_esfera ?? '+0.00', cilindro_oi ?? oi_cilindro ?? '-0.00', eje_oi ?? oi_eje ?? '0', adicion_oi ?? oi_adicion ?? '+0.00', av_oi ?? oi_agudeza_visual ?? '20/20',
         distancia_pupilar || '62 mm', tipo_lente || 'Monofocal Antirreflejo', observaciones || null, optometra || 'Dr. Samir Bolívar',
-        fecha_examen ? fecha_examen.split('T')[0] : new Date().toISOString().split('T')[0],
+        fecha_examen ? fecha_examen.split('T')[0] : new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }),
         proximo_control_en_meses ? String(proximo_control_en_meses) : (proximo_control || '12')
       );
 
@@ -733,17 +733,20 @@ async function procesarPeticion(
           });
         }
 
-        // 3. Pacientes que requieren asesor humano URGENTE (Chats en WhatsApp)
+        // 3. Pacientes que requieren asesor humano URGENTE (Chats en WhatsApp del día de hoy)
+        const inicioHoyCol = `${fechaHoyCol} 00:00:00`;
         const chatsUrgentes = await base_datos.prepare(`
           SELECT conv.id, conv.contacto_id, conv.actualizado_en,
             co.nombre_completo AS contacto_nombre, co.telefono AS contacto_telefono,
             (SELECT texto FROM mensajes WHERE conversacion_id = conv.id ORDER BY id DESC LIMIT 1) AS ultimo_texto
           FROM conversaciones conv
           LEFT JOIN contactos co ON co.id = conv.contacto_id
-          WHERE conv.optica_id = ? AND conv.requiere_asesor_humano = TRUE
+          WHERE conv.optica_id = ? 
+            AND conv.requiere_asesor_humano = TRUE
+            AND conv.actualizado_en >= ?::timestamp
           ORDER BY conv.actualizado_en DESC
           LIMIT 8
-        `).all(optica_id);
+        `).all(optica_id, inicioHoyCol);
 
         for (const chat of (chatsUrgentes || [])) {
           const textoCorto = chat.ultimo_texto
@@ -767,7 +770,7 @@ async function procesarPeticion(
           });
         }
 
-        // 4. Citas agendadas o reprogramadas recientemente por la IA
+        // 4. Citas agendadas o reprogramadas por IA vigentes (exclusivamente de hoy en adelante)
         const citasIa = await base_datos.prepare(`
           SELECT c.id, c.fecha_cita, c.hora_cita, c.motivo, c.especialista, c.creado_en, c.observaciones,
             co.nombre_completo AS contacto_nombre, co.telefono AS contacto_telefono
@@ -776,9 +779,10 @@ async function procesarPeticion(
           WHERE c.optica_id = ?
             AND (c.observaciones ILIKE '%Asistente Virtual%' OR c.observaciones ILIKE '%IA%')
             AND c.estado != 'cancelada'
+            AND c.fecha_cita >= ?
           ORDER BY c.creado_en DESC, c.id DESC
           LIMIT 12
-        `).all(optica_id);
+        `).all(optica_id, fechaHoyCol);
 
         const formatearFechaLegible = (fechaIso: string): string => {
           if (!fechaIso) return '';
