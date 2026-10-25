@@ -788,7 +788,7 @@ export const ModalLanzarLote: React.FC<PropiedadesModalLanzarLote> = ({
                   </div>
 
                   <div style={{ padding: '0.5rem', backgroundColor: 'var(--fondo-tarjeta)', borderRadius: 'var(--radio-sm)', border: '1px solid var(--borde-tarjeta)' }}>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)' }}>Excluidos (&lt; 7 días)</div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)' }}>Excluidos</div>
                     <div style={{ fontSize: '1.05rem', fontWeight: 700, color: resultadoCalculo.forzar_reenvio_activo ? '#10b981' : '#ea580c' }}>
                       {resultadoCalculo.ya_contactados_recientes}
                     </div>
