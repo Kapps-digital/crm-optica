@@ -15,7 +15,7 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "TU VISIÓN Óptica - CRM Omnicanal",
+  title: "CRM Óptica",
   description: "Plataforma Integral de Mensajería Omnicanal y Gestión Optométrica",
 };
 

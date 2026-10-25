@@ -44,9 +44,11 @@ import {
   registrarCita,
   obtenerEstadoCanalesApi,
   obtenerConfiguracionIAApi,
+  verificarSesionExpirada,
 } from '@/servicios/api_crm';
 import type { Contacto, Conversacion, Mensaje, FormulaOptica, Usuario, Optica, Segmento } from '@/tipos/crm';
 import { formatearTelefono, formatearTelefonoSinPrefijo, estaEnVentana24Horas } from '@/utilidades/formato';
+import { useInactividadSesion } from '@/utilidades/usoInactividadSesion';
 
 const CATALOGO_OPTICAS_BASE: Optica[] = [
   {
@@ -165,15 +167,11 @@ export default function PaginaPrincipal() {
     };
   }, [sincronizarCanalCabecera]);
 
-  // Conteo total de mensajes no leídos recibidos por el usuario
-  const totalMensajesNoLeidos = useMemo(() => {
-    return conversaciones.reduce((total, c) => {
-      const cantidad = Number(c.mensajes_no_leidos || 0);
-      if (c.no_leido || cantidad > 0) {
-        return total + Math.max(cantidad, 1);
-      }
-      return total;
-    }, 0);
+  // Conteo total de conversaciones con mensajes no leídos recibidos (chats pendientes)
+  const totalConversacionesNoLeidas = useMemo(() => {
+    return conversaciones.filter(
+      (c) => Boolean(c.no_leido) || Number(c.mensajes_no_leidos || 0) > 0
+    ).length;
   }, [conversaciones]);
 
   // Total de conversaciones que requieren asesor humano urgente
@@ -181,18 +179,31 @@ export default function PaginaPrincipal() {
     return conversaciones.filter((c) => Boolean(c.requiere_asesor_humano)).length;
   }, [conversaciones]);
 
-  // Conteo para el badge: si hay no leídos muestra total de no leídos; si no hay pero sí hay asesor, muestra el total de asesor
+  // Conteo para el badge y título: muestra total de conversaciones no leídas; si no hay pero sí hay asesor, muestra asesor
   const conteoBadgeConversaciones = useMemo(() => {
-    if (totalMensajesNoLeidos > 0) return totalMensajesNoLeidos;
+    if (totalConversacionesNoLeidas > 0) return totalConversacionesNoLeidas;
     if (totalRequiereAsesor > 0) return totalRequiereAsesor;
     return 0;
-  }, [totalMensajesNoLeidos, totalRequiereAsesor]);
+  }, [totalConversacionesNoLeidas, totalRequiereAsesor]);
+
+  // Actualización dinámica del título de la pestaña estilo WhatsApp Web: (N) CRM Óptica
+  useEffect(() => {
+    document.title = conteoBadgeConversaciones > 0 ? `(${conteoBadgeConversaciones}) CRM Óptica` : 'CRM Óptica';
+  }, [conteoBadgeConversaciones]);
+
+  // Monitoreo automático de inactividad de sesión (cierre tras tiempo configurado sin uso)
+  useInactividadSesion(Boolean(autenticado));
 
   // Verificación de autenticación y carga de datos de la óptica
   useEffect(() => {
     const token = obtenerTokenAutenticacion();
     if (!token) {
       router.push('/login');
+      return;
+    }
+
+    // Comprobación de seguridad: verificar si la sesión expiró por inactividad (> 3 horas)
+    if (verificarSesionExpirada()) {
       return;
     }
 

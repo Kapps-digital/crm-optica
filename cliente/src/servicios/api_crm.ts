@@ -22,6 +22,7 @@ import type {
   NotificacionCRM,
   RespuestaNotificaciones,
 } from '@/tipos/crm';
+import { TIEMPO_MAXIMO_INACTIVIDAD_MS, CLAVE_ULTIMA_ACTIVIDAD } from '@/constantes/sesion';
 
 const CLAVE_TOKEN = 'crm_token';
 const CLAVE_USUARIO = 'crm_usuario';
@@ -101,6 +102,32 @@ function convertirHexARgb(hex: string): string {
   return '2, 132, 199';
 }
 
+export function registrarActividadUsuario(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(CLAVE_ULTIMA_ACTIVIDAD, String(Date.now()));
+}
+
+export function verificarSesionExpirada(): boolean {
+  if (typeof window === 'undefined') return false;
+  const token = localStorage.getItem(CLAVE_TOKEN);
+  if (!token) return false;
+
+  const ultimaActividad = localStorage.getItem(CLAVE_ULTIMA_ACTIVIDAD);
+  if (!ultimaActividad) {
+    // Si hay token pero no había registro de actividad, inicializarlo
+    registrarActividadUsuario();
+    return false;
+  }
+
+  const transcurrido = Date.now() - Number(ultimaActividad);
+  if (transcurrido > TIEMPO_MAXIMO_INACTIVIDAD_MS) {
+    cerrarSesion();
+    return true;
+  }
+
+  return false;
+}
+
 export function guardarSesion(datos: RespuestaLogin): void {
   if (typeof window === 'undefined') return;
   if (datos.token) localStorage.setItem(CLAVE_TOKEN, datos.token);
@@ -110,6 +137,7 @@ export function guardarSesion(datos: RespuestaLogin): void {
     localStorage.setItem(CLAVE_OPTICA_ACTIVA, String(datos.optica.id));
     aplicarTemaOptica(datos.optica);
   }
+  registrarActividadUsuario();
 }
 
 export function restaurarTemaPorDefecto(): void {
@@ -127,10 +155,16 @@ export function cerrarSesion(): void {
   localStorage.removeItem(CLAVE_USUARIO);
   localStorage.removeItem(CLAVE_OPTICA);
   localStorage.removeItem(CLAVE_OPTICA_ACTIVA);
+  localStorage.removeItem(CLAVE_ULTIMA_ACTIVIDAD);
   window.location.href = '/login';
 }
 
 function crearEncabezados(adicionales: Record<string, string> = {}): HeadersInit {
+  if (verificarSesionExpirada()) {
+    return { ...adicionales };
+  }
+  registrarActividadUsuario();
+
   const encabezados: Record<string, string> = { ...adicionales };
   const token = obtenerTokenAutenticacion();
   if (token) {
