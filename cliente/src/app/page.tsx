@@ -22,6 +22,7 @@ import { ModuloConsumo } from '@/componentes/consumo/ModuloConsumo';
 import { ModuloUsuarios } from '@/componentes/usuarios/ModuloUsuarios';
 import { EtiquetaTooltip } from '@/componentes/comunes/EtiquetaTooltip';
 import { SelectorDesplegable } from '@/componentes/comunes/SelectorDesplegable';
+import { clienteSupabase } from '@/servicios/supabase_realtime';
 import {
   obtenerTokenAutenticacion,
   obtenerUsuarioSesion,
@@ -503,8 +504,50 @@ export default function PaginaPrincipal() {
   useEffect(() => {
     recargarConversaciones();
     recargarPacientes();
-    const intervalo = setInterval(recargarConversaciones, 1800);
-    return () => clearInterval(intervalo);
+
+    // 1. Suscripción en Tiempo Real con Supabase (WebSockets)
+    const canalConversaciones = clienteSupabase
+      .channel('realtime_conversaciones_crm')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'CRM_Opticas', table: 'conversaciones' },
+        () => {
+          recargarConversaciones();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'CRM_Opticas', table: 'mensajes' },
+        () => {
+          recargarConversaciones();
+        }
+      )
+      .subscribe();
+
+    // 2. Respaldo pasivo ultra-lento (cada 25s) SOLO si la pestaña está visible
+    const intervaloRespaldo = setInterval(() => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        recargarConversaciones();
+      }
+    }, 25000);
+
+    // 3. Reactivar al regresar a la pestaña
+    const alCambiarVisibilidad = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        recargarConversaciones();
+      }
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', alCambiarVisibilidad);
+    }
+
+    return () => {
+      clienteSupabase.removeChannel(canalConversaciones);
+      clearInterval(intervaloRespaldo);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', alCambiarVisibilidad);
+      }
+    };
   }, [recargarConversaciones, recargarPacientes]);
 
   useEffect(() => {
@@ -793,10 +836,52 @@ export default function PaginaPrincipal() {
       }
     };
 
-    const intervaloChat = setInterval(refrescarMensajesActivos, 1500);
+    // 1. Carga inicial
+    refrescarMensajesActivos();
+
+    // 2. Suscripción en Tiempo Real con Supabase para los mensajes de esta conversación
+    const canalChat = clienteSupabase
+      .channel(`chat_realtime_${idConvActual}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'CRM_Opticas',
+          table: 'mensajes',
+          filter: `conversacion_id=eq.${idConvActual}`,
+        },
+        () => {
+          if (activo) {
+            refrescarMensajesActivos();
+          }
+        }
+      )
+      .subscribe();
+
+    // 3. Respaldo pasivo ultra-lento (cada 30s) SOLO si la pestaña está activa
+    const intervaloChat = setInterval(() => {
+      if (typeof document !== 'undefined' && !document.hidden && activo) {
+        refrescarMensajesActivos();
+      }
+    }, 30000);
+
+    // 4. Refrescar de inmediato al regresar a la pestaña
+    const alCambiarVisibilidadChat = () => {
+      if (typeof document !== 'undefined' && !document.hidden && activo) {
+        refrescarMensajesActivos();
+      }
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', alCambiarVisibilidadChat);
+    }
+
     return () => {
       activo = false;
+      clienteSupabase.removeChannel(canalChat);
       clearInterval(intervaloChat);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', alCambiarVisibilidadChat);
+      }
     };
   }, [conversacionActiva?.id]);
 
