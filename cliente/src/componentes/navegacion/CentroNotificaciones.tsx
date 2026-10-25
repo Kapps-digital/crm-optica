@@ -261,14 +261,25 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
     });
   }, [reiniciarNoLeidas, cargarNotificaciones]);
 
-  // Carga inicial y sondeo suave cada 40 segundos (ignorado en modo demo)
+  // Sincronización instantánea (0ms) con el sondeo de chats en tiempo real (1.8s)
+  useEffect(() => {
+    const alRecibirSenalNotificaciones = () => {
+      if (!enModoDemoRef.current) {
+        cargarNotificaciones();
+      }
+    };
+    window.addEventListener('crm_recargar_notificaciones', alRecibirSenalNotificaciones);
+    return () => window.removeEventListener('crm_recargar_notificaciones', alRecibirSenalNotificaciones);
+  }, [cargarNotificaciones]);
+
+  // Carga inicial y sondeo periódico de respaldo cada 15 segundos (ignorado en modo demo)
   useEffect(() => {
     cargarNotificaciones();
     const intervalo = setInterval(() => {
       if (!enModoDemoRef.current) {
         cargarNotificaciones();
       }
-    }, 40000);
+    }, 15000);
     return () => clearInterval(intervalo);
   }, [cargarNotificaciones]);
 

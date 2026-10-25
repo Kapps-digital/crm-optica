@@ -113,6 +113,7 @@ export default function PaginaPrincipal() {
 
   // Caché de mensajes en memoria para cambio de chat instantáneo (0ms)
   const cacheMensajes = useRef<Record<number, Mensaje[]>>({});
+  const idsUrgentesPreviosRef = useRef<string>('');
   const idChatEnCarga = useRef<number | null>(null);
   const conversacionActivaRef = useRef<number | null>(null);
   const [cargandoMensajesChat, setCargandoMensajesChat] = useState(false);
@@ -408,6 +409,20 @@ export default function PaginaPrincipal() {
 
     setConversaciones(listaNormalizada);
     setCargandoChats(false);
+
+    // Detección en tiempo real (1.8s) de cambios en chats que requieren asesor humano para sincronizar campana
+    const idsUrgentesActuales = listaNormalizada
+      .filter((c) => Boolean(c.requiere_asesor_humano))
+      .map((c) => c.id)
+      .sort()
+      .join(',');
+
+    if (idsUrgentesActuales !== idsUrgentesPreviosRef.current) {
+      idsUrgentesPreviosRef.current = idsUrgentesActuales;
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('crm_recargar_notificaciones'));
+      }
+    }
 
     // Si hay conversación activa, sincronizarla con la versión fresca de la BD (resolución de alerta humana, IA pausada, etc.)
     if (idActiva && listaNormalizada.length > 0) {
@@ -841,6 +856,11 @@ export default function PaginaPrincipal() {
       )
     );
 
+    // Disparar sincronización inmediata de la campana de notificaciones para retirar alerta
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('crm_recargar_notificaciones'));
+    }
+
     // 2. Envío a través de la API
     const res = await enviarMensajeChat(idConv, texto, false);
     if (res.exito) {
@@ -1188,6 +1208,9 @@ export default function PaginaPrincipal() {
                 await recargarConversaciones();
                 if (conversacionActiva && Number(conversacionActiva.id) === Number(id)) {
                   setConversacionActiva((prev) => (prev ? { ...prev, requiere_asesor_humano: false } : null));
+                }
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('crm_recargar_notificaciones'));
                 }
               }}
             />
