@@ -956,7 +956,7 @@ export const ModalLanzarLote: React.FC<PropiedadesModalLanzarLote> = ({
                             Forzar reenvío a los {resultadoCalculo.ya_contactados_recientes} pacientes contactados recientemente (&lt; 7 días)
                           </span>
                           <span style={{ display: 'block', fontSize: '0.69rem', color: 'var(--texto-atenuado)', marginTop: '1px' }}>
-                            Bypasea la regla de protección e incluye a estos números en la lista de envío de este lote.
+                            Omite la pausa de 7 días e incluye a estos pacientes en la lista de envío de este lote.
                           </span>
                         </div>
                       </label>

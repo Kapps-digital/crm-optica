@@ -579,10 +579,10 @@ export async function calcularAudienciaLote(opticaId, { plantillaId, segmentoId,
         fecha_texto: `${fechaStr} a las ${horaStr}`,
         dias_hace: diasHace,
         motivo: diasHace === 0
-          ? `Recibió esta plantilla hoy (${horaStr}) en "${envioPrevio.campana_nombre}"`
+          ? 'Recibió esta plantilla hoy'
           : diasHace === 1
-          ? `Recibió esta plantilla ayer (${horaStr}) en "${envioPrevio.campana_nombre}"`
-          : `Recibió esta plantilla hace ${diasHace} días (${fechaStr}) en "${envioPrevio.campana_nombre}"`,
+          ? 'Recibió esta plantilla ayer'
+          : `Recibió esta plantilla hace ${diasHace} días`,
       };
       yaContactados.push(excluidoItem);
 
