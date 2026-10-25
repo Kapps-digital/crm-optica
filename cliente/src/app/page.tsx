@@ -49,6 +49,10 @@ import {
 import type { Contacto, Conversacion, Mensaje, FormulaOptica, Usuario, Optica, Segmento } from '@/tipos/crm';
 import { formatearTelefono, formatearTelefonoSinPrefijo, estaEnVentana24Horas } from '@/utilidades/formato';
 import { useInactividadSesion } from '@/utilidades/usoInactividadSesion';
+import {
+  reproducirSonidoMensajeEntrante,
+  reproducirSonidoAlertaAsesor,
+} from '@/utilidades/audioNotificacion';
 
 const CATALOGO_OPTICAS_BASE: Optica[] = [
   {
@@ -120,14 +124,39 @@ export default function PaginaPrincipal() {
 
   // Caché de mensajes en memoria para cambio de chat instantáneo (0ms)
   const cacheMensajes = useRef<Record<number, Mensaje[]>>({});
-  const idsUrgentesPreviosRef = useRef<string>('');
+  const idsUrgentesPreviosRef = useRef<string | null>(null);
   const idChatEnCarga = useRef<number | null>(null);
   const conversacionActivaRef = useRef<number | null>(null);
+  const conversacionesRef = useRef<Conversacion[]>([]);
+  const opticaActualRef = useRef<Optica | null>(null);
   const [cargandoMensajesChat, setCargandoMensajesChat] = useState(false);
 
   useEffect(() => {
     conversacionActivaRef.current = conversacionActiva?.id || null;
   }, [conversacionActiva]);
+
+  useEffect(() => {
+    conversacionesRef.current = conversaciones;
+  }, [conversaciones]);
+
+  useEffect(() => {
+    opticaActualRef.current = opticaActual;
+  }, [opticaActual]);
+
+  // Exponer método de prueba en consola del navegador para validación inmediata
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as unknown as {
+        crmProbarSonido?: {
+          mensaje: () => void;
+          alerta: () => void;
+        };
+      }).crmProbarSonido = {
+        mensaje: reproducirSonidoMensajeEntrante,
+        alerta: reproducirSonidoAlertaAsesor,
+      };
+    }
+  }, []);
 
   const [sincronizandoChats, setSincronizandoChats] = useState(false);
 
@@ -427,18 +456,28 @@ export default function PaginaPrincipal() {
     setConversaciones(listaNormalizada);
     setCargandoChats(false);
 
-    // Detección en tiempo real (1.8s) de cambios en chats que requieren asesor humano para sincronizar campana
+    // Detección en tiempo real de cambios en chats que requieren asesor humano para sincronizar campana y emitir alerta sonora
     const idsUrgentesActuales = listaNormalizada
       .filter((c) => Boolean(c.requiere_asesor_humano))
       .map((c) => c.id)
       .sort()
       .join(',');
 
-    if (idsUrgentesActuales !== idsUrgentesPreviosRef.current) {
-      idsUrgentesPreviosRef.current = idsUrgentesActuales;
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('crm_recargar_notificaciones'));
+    if (idsUrgentesPreviosRef.current !== null) {
+      if (idsUrgentesActuales !== idsUrgentesPreviosRef.current) {
+        const idsPrevios = new Set((idsUrgentesPreviosRef.current || '').split(',').filter(Boolean));
+        const tieneNuevoUrgente = idsUrgentesActuales.split(',').filter(Boolean).some((id) => !idsPrevios.has(id));
+        if (tieneNuevoUrgente) {
+          reproducirSonidoAlertaAsesor();
+        }
+        idsUrgentesPreviosRef.current = idsUrgentesActuales;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('crm_recargar_notificaciones'));
+        }
       }
+    } else {
+      // Registro inicial silencioso (no suena al recargar la página con alertas preexistentes)
+      idsUrgentesPreviosRef.current = idsUrgentesActuales;
     }
 
     // Si hay conversación activa, sincronizarla con la versión fresca de la BD (resolución de alerta humana, IA pausada, etc.)
@@ -534,7 +573,27 @@ export default function PaginaPrincipal() {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'CRM_Opticas', table: 'mensajes' },
-        () => {
+        (payload) => {
+          const nuevoMensaje = payload.new as Partial<Mensaje>;
+          if (nuevoMensaje && nuevoMensaje.direccion === 'entrante') {
+            const idConv = nuevoMensaje.conversacion_id;
+            const conv = conversacionesRef.current.find((c) => Number(c.id) === Number(idConv));
+            const iaActivaGlobal = opticaActualRef.current?.ia_activa !== false;
+            const iaActivaEnChat = conv ? (conv.ia_activa !== false && !conv.ia_pausada_por_humano) : iaActivaGlobal;
+            const requiereHumano = Boolean(conv?.requiere_asesor_humano);
+
+            // Regla 1: Si IA no está activa -> sonar para notificar al humano que llegó mensaje (tipo WhatsApp Web)
+            if (!iaActivaGlobal || !iaActivaEnChat) {
+              if (requiereHumano) {
+                reproducirSonidoAlertaAsesor();
+              } else {
+                reproducirSonidoMensajeEntrante();
+              }
+            } else if (requiereHumano) {
+              // Regla 2: Si IA está activa -> SOLO sonar si se necesita atención humana
+              reproducirSonidoAlertaAsesor();
+            }
+          }
           recargarConversaciones();
         }
       )

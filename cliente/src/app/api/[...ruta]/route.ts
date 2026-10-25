@@ -187,6 +187,237 @@ async function procesarPeticion(
       });
     }
 
+    // 2.1 RECUPERACIÓN DE CONTRASEÑA / AUTOGESTIÓN
+    if (metodo === 'POST' && rutaStr === 'auth/recuperar/consultar-usuario') {
+      const { usuario: uNombre } = body;
+      if (!uNombre || !String(uNombre).trim()) {
+        return NextResponse.json({ exito: false, error: 'Por favor ingresa tu nombre de usuario.' }, { status: 400 });
+      }
+      const usuarioLimpio = String(uNombre).trim().toLowerCase();
+      const usuarioDb = await base_datos.prepare(`
+        SELECT u.id, u.nombre, u.usuario, u.correo, u.activo
+        FROM usuarios u
+        WHERE LOWER(u.usuario) = ? AND u.activo = true
+      `).get(usuarioLimpio);
+
+      if (!usuarioDb) {
+        return NextResponse.json({
+          exito: false,
+          error: 'No encontramos ninguna cuenta activa asociada a este usuario.',
+        }, { status: 404 });
+      }
+
+      if (!usuarioDb.correo || !String(usuarioDb.correo).trim()) {
+        return NextResponse.json({
+          exito: false,
+          error: 'Esta cuenta no tiene un correo electrónico configurado para recuperación. Por favor contacta al administrador.',
+        }, { status: 400 });
+      }
+
+      const correoReal = String(usuarioDb.correo).trim();
+      const partes = correoReal.split('@');
+      const nombreUsuarioCorreo = partes[0] || '';
+      const dominio = partes[1] || '';
+
+      // Enmascaramiento inteligente: ej. samibol444@gmail.com -> sam***44@gmail.com
+      let enmascarado = '';
+      if (nombreUsuarioCorreo.length <= 3) {
+        enmascarado = `${nombreUsuarioCorreo[0]}***@${dominio}`;
+      } else if (nombreUsuarioCorreo.length <= 5) {
+        enmascarado = `${nombreUsuarioCorreo.slice(0, 2)}***@${dominio}`;
+      } else {
+        const prefijo = nombreUsuarioCorreo.slice(0, 3);
+        const sufijo = nombreUsuarioCorreo.slice(-2);
+        enmascarado = `${prefijo}***${sufijo}@${dominio}`;
+      }
+
+      return NextResponse.json({
+        exito: true,
+        nombre: usuarioDb.nombre,
+        correo_censurado: enmascarado,
+      });
+    }
+
+    if (metodo === 'POST' && rutaStr === 'auth/recuperar/verificar-correo') {
+      const { usuario: uNombre, correo: correoIngresado } = body;
+      if (!uNombre || !correoIngresado) {
+        return NextResponse.json({ exito: false, error: 'Datos incompletos para verificación.' }, { status: 400 });
+      }
+
+      const usuarioLimpio = String(uNombre).trim().toLowerCase();
+      const correoLimpio = String(correoIngresado).trim().toLowerCase();
+
+      const usuarioDb = await base_datos.prepare(`
+        SELECT u.id, u.nombre, u.usuario, u.correo
+        FROM usuarios u
+        WHERE LOWER(u.usuario) = ? AND u.activo = true
+      `).get(usuarioLimpio);
+
+      if (!usuarioDb || !usuarioDb.correo) {
+        return NextResponse.json({
+          exito: false,
+          error: 'No se pudo validar la cuenta solicitada.',
+        }, { status: 404 });
+      }
+
+      const correoRegistrado = String(usuarioDb.correo).trim().toLowerCase();
+      if (correoRegistrado !== correoLimpio) {
+        return NextResponse.json({
+          exito: false,
+          error: 'La dirección de correo electrónico ingresada no coincide con la registrada para esta cuenta. Por favor verifica tus datos o contacta al administrador del sistema.',
+        }, { status: 400 });
+      }
+
+      // Generar código OTP numérico de 6 dígitos
+      const codigoOtp = String(Math.floor(100000 + Math.random() * 900000));
+
+      // Validar configuración de API Key de Resend antes de cualquier operación
+      const apiKeyResend = process.env.RESEND_API_KEY;
+      if (!apiKeyResend) {
+        console.error('RESEND_API_KEY no está configurada en variables de entorno.');
+        return NextResponse.json({
+          exito: false,
+          error: 'El servicio de correo no está configurado en el servidor (falta RESEND_API_KEY).',
+        }, { status: 500 });
+      }
+
+      const htmlCorreo = `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8" /></head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; padding: 24px; margin: 0; color: #1e293b;">
+          <div style="max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; padding: 36px 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+            <div style="text-align: center; margin-bottom: 24px;">
+              <span style="font-size: 26px; font-weight: 800; color: #0284c7; letter-spacing: -0.5px;">CRM Ópticas</span>
+              <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b; font-weight: 500;">Autogestión de Seguridad</p>
+            </div>
+            <h2 style="font-size: 20px; font-weight: 700; color: #0f172a; margin: 0 0 12px 0;">Restablecimiento de contraseña</h2>
+            <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 20px 0;">
+              Hola <strong>${usuarioDb.nombre}</strong>,<br/>
+              Recibimos una solicitud para restablecer la contraseña de tu cuenta (<strong>${usuarioDb.usuario}</strong>). Usa el siguiente código de verificación de 6 dígitos:
+            </p>
+            <div style="text-align: center; margin: 28px 0; background: #f0f9ff; border: 1px dashed #0284c7; border-radius: 12px; padding: 18px 0;">
+              <span style="font-size: 34px; font-weight: 800; letter-spacing: 6px; color: #0369a1; font-family: monospace;">${codigoOtp}</span>
+              <p style="margin: 6px 0 0 0; font-size: 12px; color: #0284c7; font-weight: 600;">Válido por 15 minutos</p>
+            </div>
+            <p style="font-size: 13px; color: #64748b; line-height: 1.5; margin: 0 0 16px 0;">
+              Si no realizaste esta solicitud, puedes ignorar este correo con total tranquilidad. Tu contraseña actual permanecerá sin cambios.
+            </p>
+            <div style="border-top: 1px solid #e2e8f0; padding-top: 18px; margin-top: 24px; text-align: center; font-size: 11px; color: #94a3b8;">
+              © ${new Date().getFullYear()} CRM Ópticas. Sistema Seguro de Gestión Clínica.
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      try {
+        const respuestaResend = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKeyResend}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: process.env.RESEND_FROM_EMAIL || 'CRM Ópticas <onboarding@resend.dev>',
+            to: [correoRegistrado],
+            subject: `Código de seguridad: ${codigoOtp} - CRM Ópticas`,
+            html: htmlCorreo,
+          }),
+        });
+
+        const dataResend = await respuestaResend.json();
+        if (!respuestaResend.ok) {
+          console.error('Error devuelto por Resend:', dataResend);
+          if (dataResend.message && dataResend.message.includes('only send testing emails')) {
+            return NextResponse.json({
+              exito: false,
+              error: `Resend en modo sandbox solo permite enviar al correo titular de la cuenta Resend (${dataResend.message}).`,
+            }, { status: 400 });
+          }
+          return NextResponse.json({
+            exito: false,
+            error: dataResend.message || 'No se pudo despachar el correo de verificación.',
+          }, { status: 400 });
+        }
+
+        // Invalidar códigos anteriores no usados para este usuario antes de guardar el nuevo
+        await base_datos.prepare(`
+          UPDATE recuperacion_contrasena 
+          SET usado = true 
+          WHERE usuario_id = ? AND usado = false
+        `).run(usuarioDb.id).catch(() => {});
+
+        // Guardar en tabla de recuperación únicamente si el correo fue despachado exitosamente por Resend
+        await base_datos.prepare(`
+          INSERT INTO recuperacion_contrasena (usuario_id, correo, codigo, expira_en, usado)
+          VALUES (?, ?, ?, (now() + interval '15 minutes'), false)
+        `).run(usuarioDb.id, correoRegistrado, codigoOtp);
+
+        return NextResponse.json({
+          exito: true,
+          mensaje: 'Código de verificación enviado exitosamente.',
+        });
+      } catch (err: any) {
+        console.error('Error de red al conectar con Resend:', err);
+        return NextResponse.json({
+          exito: false,
+          error: 'Error de comunicación al enviar el correo.',
+        }, { status: 500 });
+      }
+    }
+
+    if (metodo === 'POST' && rutaStr === 'auth/recuperar/restablecer') {
+      const { usuario: uNombre, correo: correoIngresado, codigo, nueva_contrasena } = body;
+      if (!uNombre || !correoIngresado || !codigo || !nueva_contrasena) {
+        return NextResponse.json({ exito: false, error: 'Todos los campos son obligatorios.' }, { status: 400 });
+      }
+
+      if (String(nueva_contrasena).length < 6) {
+        return NextResponse.json({ exito: false, error: 'La nueva contraseña debe tener mínimo 6 caracteres.' }, { status: 400 });
+      }
+
+      const usuarioLimpio = String(uNombre).trim().toLowerCase();
+      const correoLimpio = String(correoIngresado).trim().toLowerCase();
+      const codigoLimpio = String(codigo).trim();
+
+      const usuarioDb = await base_datos.prepare(`
+        SELECT u.id, u.usuario FROM usuarios u WHERE LOWER(u.usuario) = ? AND u.activo = true
+      `).get(usuarioLimpio);
+
+      if (!usuarioDb) {
+        return NextResponse.json({ exito: false, error: 'Usuario no encontrado.' }, { status: 404 });
+      }
+
+      // Validar código OTP activo y no usado
+      const registroOtp = await base_datos.prepare(`
+        SELECT id, usuario_id, codigo, expira_en, usado
+        FROM recuperacion_contrasena
+        WHERE usuario_id = ? AND LOWER(correo) = ? AND codigo = ? AND usado = false AND expira_en > now()
+        ORDER BY id DESC
+        LIMIT 1
+      `).get(usuarioDb.id, correoLimpio, codigoLimpio);
+
+      if (!registroOtp) {
+        return NextResponse.json({
+          exito: false,
+          error: 'El código de seguridad es inválido o ha expirado. Por favor solicita uno nuevo.',
+        }, { status: 400 });
+      }
+
+      // Hashear nueva contraseña y actualizar en la BD
+      const nuevoHash = bcrypt.hashSync(String(nueva_contrasena), 10);
+      await base_datos.prepare('UPDATE usuarios SET hash_contrasena = ? WHERE id = ?').run(nuevoHash, usuarioDb.id);
+
+      // Marcar OTP como usado
+      await base_datos.prepare('UPDATE recuperacion_contrasena SET usado = true WHERE id = ?').run(registroOtp.id);
+
+      return NextResponse.json({
+        exito: true,
+        mensaje: 'Tu contraseña ha sido restablecida exitosamente. Ya puedes iniciar sesión con tu nueva contraseña.',
+      });
+    }
+
     if (metodo === 'GET' && rutaStr === 'auth/perfil') {
       if (!usuario) {
         return NextResponse.json({ exito: false, error: 'Sesión no iniciada' }, { status: 401 });

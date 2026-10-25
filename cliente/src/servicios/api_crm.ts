@@ -220,6 +220,66 @@ export async function iniciarSesion(usuario: string, contrasena: string): Promis
   }
 }
 
+export async function consultarUsuarioRecuperacion(usuario: string): Promise<{
+  exito: boolean;
+  nombre?: string;
+  correo_censurado?: string;
+  error?: string;
+}> {
+  try {
+    const res = await fetch('/api/auth/recuperar/consultar-usuario', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usuario }),
+    });
+    const data = await res.json();
+    return data;
+  } catch {
+    return { exito: false, error: 'Error de conexión con el servidor.' };
+  }
+}
+
+export async function verificarCorreoYEnviarCodigo(usuario: string, correo: string): Promise<{
+  exito: boolean;
+  mensaje?: string;
+  error?: string;
+}> {
+  try {
+    const res = await fetch('/api/auth/recuperar/verificar-correo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usuario, correo }),
+    });
+    const data = await res.json();
+    return data;
+  } catch {
+    return { exito: false, error: 'Error de conexión con el servidor.' };
+  }
+}
+
+export async function restablecerContrasenaApi(
+  usuario: string,
+  correo: string,
+  codigo: string,
+  nueva_contrasena: string
+): Promise<{
+  exito: boolean;
+  mensaje?: string;
+  error?: string;
+}> {
+  try {
+    const res = await fetch('/api/auth/recuperar/restablecer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usuario, correo, codigo, nueva_contrasena }),
+    });
+    const data = await res.json();
+    return data;
+  } catch {
+    return { exito: false, error: 'Error de conexión con el servidor.' };
+  }
+}
+
 export async function obtenerPerfilUsuario(): Promise<RespuestaLogin> {
   try {
     const res = await fetch('/api/auth/perfil', {

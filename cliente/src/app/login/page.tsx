@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, Sparkles, Building2, Sun, Moon } from 'lucide-react';
 import { iniciarSesion, restaurarTemaPorDefecto } from '@/servicios/api_crm';
+import { ModalRecuperarContrasena } from '@/componentes/auth/ModalRecuperarContrasena';
 
 export default function PaginaLogin() {
   const router = useRouter();
@@ -13,6 +14,7 @@ export default function PaginaLogin() {
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [temaOscuro, setTemaOscuro] = useState(false);
+  const [modalRecuperarAbierto, setModalRecuperarAbierto] = useState(false);
 
   useEffect(() => {
     // Garantizar que ninguna variable CSS residual de una óptica contamine el login
@@ -133,9 +135,29 @@ export default function PaginaLogin() {
 
           {/* Campo Contraseña */}
           <div className="login-campo-grupo">
-            <label htmlFor="campo-contrasena" className="login-etiqueta">
-              Contraseña
-            </label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <label htmlFor="campo-contrasena" className="login-etiqueta" style={{ marginBottom: 0 }}>
+                Contraseña
+              </label>
+              <button
+                type="button"
+                onClick={() => setModalRecuperarAbierto(true)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--color-primario, #0284c7)',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: 0,
+                  transition: 'opacity 0.15s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+                onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+              >
+                ¿Olvidó su contraseña?
+              </button>
+            </div>
             <div className="login-input-caja">
               <Lock className="login-input-icono" />
               <input
@@ -222,6 +244,17 @@ export default function PaginaLogin() {
           <span>Aislamiento y protección segura de datos por sede</span>
         </div>
       </div>
+
+      {/* Modal interactivo de autogestión de recuperación de contraseña */}
+      <ModalRecuperarContrasena
+        abierto={modalRecuperarAbierto}
+        alCerrar={() => setModalRecuperarAbierto(false)}
+        alExito={(usrRecuperado) => {
+          setUsuario(usrRecuperado);
+          setContrasena('');
+          setError(null);
+        }}
+      />
     </main>
   );
 }

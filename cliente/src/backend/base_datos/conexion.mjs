@@ -151,6 +151,18 @@ export async function inicializar_base_datos() {
       );
       CREATE INDEX IF NOT EXISTS idx_consumo_ia_optica ON "CRM_Opticas".consumo_ia (optica_id, creado_en);
       CREATE INDEX IF NOT EXISTS idx_consumo_ia_tipo ON "CRM_Opticas".consumo_ia (tipo_evento);
+
+      -- Tabla de tokens y codigos temporales OTP para autogestión de olvido de contraseña
+      CREATE TABLE IF NOT EXISTS "CRM_Opticas".recuperacion_contrasena (
+        id BIGSERIAL PRIMARY KEY,
+        usuario_id BIGINT NOT NULL REFERENCES "CRM_Opticas".usuarios(id) ON DELETE CASCADE,
+        correo VARCHAR(255) NOT NULL,
+        codigo VARCHAR(10) NOT NULL,
+        expira_en TIMESTAMP WITH TIME ZONE NOT NULL,
+        usado BOOLEAN DEFAULT FALSE,
+        creado_en TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_recuperacion_correo_cod ON "CRM_Opticas".recuperacion_contrasena (correo, codigo, usado);
     `);
 
     const res = await pool.query(`
