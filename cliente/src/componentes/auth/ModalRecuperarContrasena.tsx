@@ -196,9 +196,6 @@ export const ModalRecuperarContrasena: React.FC<PropiedadesModalRecuperarContras
         padding: '16px',
         animation: 'fadeIn 0.2s ease',
       }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !cargando) alCerrar();
-      }}
     >
       <div
         style={{
