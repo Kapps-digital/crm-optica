@@ -13,27 +13,25 @@ import { extraerNombrePersonaValido } from './motor_ia.mjs';
  */
 export async function obtener_o_crear_contacto({ nombre, telefono, bsuid, correo, optica_id = null }) {
   const nombrePersonaValido = extraerNombrePersonaValido(nombre);
+  const idOpticaSeguro = optica_id ? Number(optica_id) : 1;
 
-  // 1. Si viene BSUID, buscar primero por BSUID
+  // 1. Si viene BSUID, buscar primero por BSUID dentro de ESTA óptica
   if (bsuid) {
-    const consulta_bsuid = base_datos.prepare('SELECT * FROM contactos WHERE business_scoped_user_id = ?');
-    const contacto_existente = await consulta_bsuid.get(bsuid);
+    const consulta_bsuid = base_datos.prepare('SELECT * FROM contactos WHERE business_scoped_user_id = ? AND optica_id = ?');
+    const contacto_existente = await consulta_bsuid.get(bsuid, idOpticaSeguro);
     if (contacto_existente) {
       const nombreActualEsValido = extraerNombrePersonaValido(contacto_existente.nombre_completo);
       if (nombrePersonaValido && !nombreActualEsValido) {
         await base_datos.prepare("UPDATE contactos SET nombre_completo = ?, actualizado_en = now() WHERE id = ?").run(nombrePersonaValido, contacto_existente.id);
       }
-      if (optica_id && !contacto_existente.optica_id) {
-        await base_datos.prepare("UPDATE contactos SET optica_id = ?, actualizado_en = now() WHERE id = ?").run(optica_id, contacto_existente.id);
-      }
       return contacto_existente.id;
     }
   }
 
-  // 2. Si viene teléfono, buscar por teléfono
+  // 2. Si viene teléfono, buscar por teléfono dentro de ESTA óptica
   if (telefono) {
-    const consulta_telefono = base_datos.prepare('SELECT * FROM contactos WHERE telefono = ?');
-    const contacto_existente = await consulta_telefono.get(telefono);
+    const consulta_telefono = base_datos.prepare('SELECT * FROM contactos WHERE telefono = ? AND optica_id = ?');
+    const contacto_existente = await consulta_telefono.get(telefono, idOpticaSeguro);
     if (contacto_existente) {
       if (bsuid && !contacto_existente.business_scoped_user_id) {
         await base_datos.prepare("UPDATE contactos SET business_scoped_user_id = ?, actualizado_en = now() WHERE id = ?").run(bsuid, contacto_existente.id);
@@ -42,19 +40,16 @@ export async function obtener_o_crear_contacto({ nombre, telefono, bsuid, correo
       if (nombrePersonaValido && !nombreActualEsValido) {
         await base_datos.prepare("UPDATE contactos SET nombre_completo = ?, actualizado_en = now() WHERE id = ?").run(nombrePersonaValido, contacto_existente.id);
       }
-      if (optica_id && !contacto_existente.optica_id) {
-        await base_datos.prepare("UPDATE contactos SET optica_id = ?, actualizado_en = now() WHERE id = ?").run(optica_id, contacto_existente.id);
-      }
       return contacto_existente.id;
     }
   }
 
-  // 3. Crear nuevo contacto
-  const nombreAGuardar = nombrePersonaValido || (telefono ? `Contacto ${telefono}` : 'Paciente Sin Nombre');
+  // 3. Crear nuevo contacto estrictamente con es_paciente = false
+  const nombreAGuardar = nombrePersonaValido || (telefono ? `Contacto ${telefono}` : 'Contacto WhatsApp');
   const insercion = await base_datos.prepare(`
-    INSERT INTO contactos (nombre_completo, telefono, correo, business_scoped_user_id, optica_id)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(nombreAGuardar, telefono || null, correo || null, bsuid || null, optica_id || 1);
+    INSERT INTO contactos (nombre_completo, telefono, correo, business_scoped_user_id, optica_id, es_paciente)
+    VALUES (?, ?, ?, ?, ?, false)
+  `).run(nombreAGuardar, telefono || null, correo || null, bsuid || null, idOpticaSeguro);
 
   return Number(insercion.lastInsertRowid);
 }

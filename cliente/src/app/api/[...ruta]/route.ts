@@ -754,6 +754,11 @@ async function procesarPeticion(
     // Mensajes de conversación: conversaciones/:id/mensajes
     if (metodo === 'GET' && segmentosRuta[0] === 'conversaciones' && segmentosRuta[2] === 'mensajes') {
       const conversacion_id = segmentosRuta[1];
+      const convValida = await base_datos.prepare('SELECT id FROM conversaciones WHERE id = ? AND optica_id = ?').get(conversacion_id, optica_id);
+      if (!convValida) {
+        return NextResponse.json({ exito: false, error: 'Conversación no encontrada en esta óptica' }, { status: 404 });
+      }
+
       const mensajes = await base_datos.prepare(`
         SELECT * FROM mensajes 
         WHERE conversacion_id = ? 
@@ -810,7 +815,7 @@ async function procesarPeticion(
     // Resolver atención de asesor humano: conversaciones/:id/resolver-urgencia
     if (metodo === 'POST' && segmentosRuta[0] === 'conversaciones' && segmentosRuta[2] === 'resolver-urgencia') {
       const conversacion_id = segmentosRuta[1];
-      await base_datos.prepare('UPDATE conversaciones SET requiere_asesor_humano = false, actualizado_en = now() WHERE id = ?').run(conversacion_id);
+      await base_datos.prepare('UPDATE conversaciones SET requiere_asesor_humano = false, actualizado_en = now() WHERE id = ? AND optica_id = ?').run(conversacion_id, optica_id);
       return NextResponse.json({ exito: true, requiere_asesor_humano: false }, { headers: ENCABEZADOS_NO_CACHE });
     }
 
@@ -823,8 +828,8 @@ async function procesarPeticion(
     // Marcar leído: conversaciones/:id/marcar-leido
     if (metodo === 'POST' && segmentosRuta[0] === 'conversaciones' && segmentosRuta[2] === 'marcar-leido') {
       const conversacion_id = segmentosRuta[1];
-      await base_datos.prepare('UPDATE conversaciones SET mensajes_no_leidos = 0, ultimo_leido_en = now() WHERE id = ?').run(conversacion_id);
-      const conv = await base_datos.prepare('SELECT * FROM conversaciones WHERE id = ?').get(conversacion_id);
+      await base_datos.prepare('UPDATE conversaciones SET mensajes_no_leidos = 0, ultimo_leido_en = now() WHERE id = ? AND optica_id = ?').run(conversacion_id, optica_id);
+      const conv = await base_datos.prepare('SELECT * FROM conversaciones WHERE id = ? AND optica_id = ?').get(conversacion_id, optica_id);
       if (conv && conv.id_conversacion_zernio && conv.id_cuenta_zernio) {
         try {
           const cliente = new ClienteZernio();
@@ -894,15 +899,15 @@ async function procesarPeticion(
           c.tipologia_id,
           tp.nombre AS tipologia_nombre,
           tp.color AS tipologia_color,
-          CAST((SELECT COUNT(*) FROM formulas_opticas WHERE contacto_id = c.id) AS INTEGER) AS total_formulas,
-          CAST((SELECT COUNT(*) FROM citas WHERE contacto_id = c.id) AS INTEGER) AS total_citas,
-          (SELECT fecha_examen FROM formulas_opticas WHERE contacto_id = c.id ORDER BY id DESC LIMIT 1) AS ultima_formula_fecha,
-          (SELECT tipo_lente FROM formulas_opticas WHERE contacto_id = c.id ORDER BY id DESC LIMIT 1) AS ultimo_tipo_lente
+          CAST((SELECT COUNT(*) FROM formulas_opticas WHERE contacto_id = c.id AND optica_id = ?) AS INTEGER) AS total_formulas,
+          CAST((SELECT COUNT(*) FROM citas WHERE contacto_id = c.id AND optica_id = ?) AS INTEGER) AS total_citas,
+          (SELECT fecha_examen FROM formulas_opticas WHERE contacto_id = c.id AND optica_id = ? ORDER BY id DESC LIMIT 1) AS ultima_formula_fecha,
+          (SELECT tipo_lente FROM formulas_opticas WHERE contacto_id = c.id AND optica_id = ? ORDER BY id DESC LIMIT 1) AS ultimo_tipo_lente
         FROM contactos c
         LEFT JOIN tipologias_pacientes tp ON tp.id = c.tipologia_id
-        WHERE c.optica_id = ? OR c.id IN (SELECT contacto_id FROM conversaciones WHERE optica_id = ?)
+        WHERE c.optica_id = ?
         ORDER BY LOWER(TRIM(COALESCE(c.nombre_completo, ''))) ASC, c.actualizado_en DESC
-      `).all(optica_id, optica_id);
+      `).all(optica_id, optica_id, optica_id, optica_id, optica_id);
       return NextResponse.json({ exito: true, contactos });
     }
 
@@ -970,8 +975,8 @@ async function procesarPeticion(
         SELECT c.*, c.nombre_completo AS nombre, tp.nombre AS tipologia_nombre, tp.color AS tipologia_color 
         FROM contactos c 
         LEFT JOIN tipologias_pacientes tp ON tp.id = c.tipologia_id 
-        WHERE c.id = ?
-      `).get(contactoId);
+        WHERE c.id = ? AND c.optica_id = ?
+      `).get(contactoId, optica_id);
       if (!contacto) {
         return NextResponse.json({ exito: false, mensaje: 'Paciente no encontrado' }, { status: 404 });
       }
@@ -981,15 +986,15 @@ async function procesarPeticion(
           od_esfera AS esfera_od, od_cilindro AS cilindro_od, od_eje AS eje_od, od_adicion AS adicion_od, od_agudeza_visual AS av_od,
           oi_esfera AS esfera_oi, oi_cilindro AS cilindro_oi, oi_eje AS eje_oi, oi_adicion AS adicion_oi, oi_agudeza_visual AS av_oi,
           distancia_pupilar, tipo_lente, observaciones, optometra, proximo_control AS proximo_control_en_meses, creado_en
-        FROM formulas_opticas WHERE contacto_id = ? ORDER BY id DESC
-      `).all(contactoId);
-      const citas = await base_datos.prepare('SELECT * FROM citas WHERE contacto_id = ? ORDER BY fecha_cita DESC, hora_cita DESC').all(contactoId);
+        FROM formulas_opticas WHERE contacto_id = ? AND optica_id = ? ORDER BY id DESC
+      `).all(contactoId, optica_id);
+      const citas = await base_datos.prepare('SELECT * FROM citas WHERE contacto_id = ? AND optica_id = ? ORDER BY fecha_cita DESC, hora_cita DESC').all(contactoId, optica_id);
       return NextResponse.json({ exito: true, contacto, formulas, citas });
     }
 
     if (metodo === 'PUT' && segmentosRuta[0] === 'contactos' && segmentosRuta.length === 2) {
       const id = Number(segmentosRuta[1]);
-      const actual = await base_datos.prepare('SELECT * FROM contactos WHERE id = ?').get(id);
+      const actual = await base_datos.prepare('SELECT * FROM contactos WHERE id = ? AND optica_id = ?').get(id, optica_id);
       if (!actual) return NextResponse.json({ exito: false, error: 'Contacto no encontrado' }, { status: 404 });
 
       const { nombre, nombre_completo, tipo_documento, cedula, documento, telefono, correo, edad, sexo, es_paciente, tipologia_id } = body;
@@ -999,7 +1004,7 @@ async function procesarPeticion(
       await base_datos.prepare(`
         UPDATE contactos SET 
           nombre_completo = ?, tipo_documento = ?, cedula = ?, telefono = ?, correo = ?, edad = ?, sexo = ?, es_paciente = ?, tipologia_id = ?, actualizado_en = datetime('now')
-        WHERE id = ?
+        WHERE id = ? AND optica_id = ?
       `).run(
         nombreFinal !== undefined ? (nombreFinal ? String(nombreFinal).trim() : null) : actual.nombre_completo,
         tipo_documento !== undefined ? (tipo_documento ? String(tipo_documento).trim().toUpperCase() : 'CC') : (actual.tipo_documento || 'CC'),
@@ -1010,15 +1015,16 @@ async function procesarPeticion(
         sexo !== undefined ? (sexo ? String(sexo).trim().toLowerCase() : 'masculino') : (actual.sexo || 'masculino'),
         es_paciente !== undefined ? Boolean(es_paciente) : actual.es_paciente,
         tipologia_id !== undefined ? (tipologia_id ? Number(tipologia_id) : null) : actual.tipologia_id,
-        id
+        id,
+        optica_id
       );
 
       const actualizado = await base_datos.prepare(`
         SELECT c.*, c.nombre_completo AS nombre, tp.nombre AS tipologia_nombre, tp.color AS tipologia_color 
         FROM contactos c 
         LEFT JOIN tipologias_pacientes tp ON tp.id = c.tipologia_id 
-        WHERE c.id = ?
-      `).get(id);
+        WHERE c.id = ? AND c.optica_id = ?
+      `).get(id, optica_id);
       return NextResponse.json({ exito: true, contacto: actualizado });
     }
 
@@ -1026,6 +1032,12 @@ async function procesarPeticion(
     if (metodo === 'POST' && (rutaStr === 'formulas' || (segmentosRuta[0] === 'contactos' && segmentosRuta[2] === 'formulas'))) {
       const contacto_id = segmentosRuta[1] || body.contacto_id;
       if (!contacto_id) return NextResponse.json({ exito: false, error: 'contacto_id es obligatorio' }, { status: 400 });
+
+      // Validar pertenencia del contacto a la óptica en sesión
+      const contactoValido = await base_datos.prepare('SELECT id FROM contactos WHERE id = ? AND optica_id = ?').get(contacto_id, optica_id);
+      if (!contactoValido) {
+        return NextResponse.json({ exito: false, error: 'Contacto no encontrado en esta óptica' }, { status: 404 });
+      }
 
       const {
         esfera_od, od_esfera, cilindro_od, od_cilindro, eje_od, od_eje, adicion_od, od_adicion, av_od, od_agudeza_visual,
@@ -1048,7 +1060,8 @@ async function procesarPeticion(
         proximo_control_en_meses ? String(proximo_control_en_meses) : (proximo_control || '12')
       );
 
-      await base_datos.prepare("UPDATE contactos SET actualizado_en = datetime('now') WHERE id = ?").run(contacto_id);
+      // Si se registra fórmula óptica, se promueve a paciente en esta óptica
+      await base_datos.prepare("UPDATE contactos SET es_paciente = true, actualizado_en = datetime('now') WHERE id = ? AND optica_id = ?").run(contacto_id, optica_id);
       return NextResponse.json({ exito: true, formula_id: Number(insercion.lastInsertRowid) });
     }
 
@@ -1296,14 +1309,20 @@ async function procesarPeticion(
       const contacto_id = segmentosRuta[1] || body.contacto_id;
       if (!contacto_id) return NextResponse.json({ exito: false, error: 'contacto_id es obligatorio' }, { status: 400 });
 
+      // Validar pertenencia del contacto a la óptica en sesión
+      const contactoValido = await base_datos.prepare('SELECT id FROM contactos WHERE id = ? AND optica_id = ?').get(contacto_id, optica_id);
+      if (!contactoValido) {
+        return NextResponse.json({ exito: false, error: 'Contacto no encontrado en esta óptica' }, { status: 404 });
+      }
+
       const { fecha_cita, hora_cita, motivo, especialista, observaciones } = body;
       if (!fecha_cita || !hora_cita) return NextResponse.json({ exito: false, error: 'Fecha y hora requeridas' }, { status: 400 });
 
       const citaExistente = await base_datos.prepare(`
         SELECT id FROM citas 
-        WHERE contacto_id = ? AND TRIM(fecha_cita) = TRIM(?) AND LOWER(TRIM(hora_cita)) = LOWER(TRIM(?))
+        WHERE contacto_id = ? AND optica_id = ? AND TRIM(fecha_cita) = TRIM(?) AND LOWER(TRIM(hora_cita)) = LOWER(TRIM(?))
           AND (estado IS NULL OR estado NOT IN ('cancelada', 'anulada'))
-      `).get(contacto_id, fecha_cita, hora_cita);
+      `).get(contacto_id, optica_id, fecha_cita, hora_cita);
 
       if (citaExistente) {
         return NextResponse.json({ exito: false, duplicada: true, error: 'Este paciente ya tiene una cita para esa fecha y hora.' }, { status: 409 });
@@ -1314,13 +1333,14 @@ async function procesarPeticion(
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `).run(contacto_id, optica_id, fecha_cita, hora_cita, motivo || 'Examen visual y control', especialista || null, observaciones || null);
 
-      await base_datos.prepare("UPDATE contactos SET actualizado_en = datetime('now') WHERE id = ?").run(contacto_id);
+      // Si se agenda cita formal, se promueve a paciente en esta óptica
+      await base_datos.prepare("UPDATE contactos SET es_paciente = true, actualizado_en = datetime('now') WHERE id = ? AND optica_id = ?").run(contacto_id, optica_id);
       return NextResponse.json({ exito: true, cita_id: Number(insercion.lastInsertRowid) });
     }
 
     if (metodo === 'PUT' && segmentosRuta[0] === 'citas' && segmentosRuta.length === 2) {
       const idCita = Number(segmentosRuta[1]);
-      const citaActual = await base_datos.prepare('SELECT * FROM citas WHERE id = ?').get(idCita);
+      const citaActual = await base_datos.prepare('SELECT * FROM citas WHERE id = ? AND optica_id = ?').get(idCita, optica_id);
       if (!citaActual) return NextResponse.json({ exito: false, error: 'Cita no encontrada' }, { status: 404 });
 
       const { fecha_cita, hora_cita, motivo, especialista, observaciones, estado } = body;
@@ -1331,23 +1351,23 @@ async function procesarPeticion(
       if (nuevoEstado !== 'cancelada' && (fecha_cita || hora_cita)) {
         const conflicto = await base_datos.prepare(`
           SELECT id FROM citas 
-          WHERE contacto_id = ? AND TRIM(fecha_cita) = TRIM(?) AND LOWER(TRIM(hora_cita)) = LOWER(TRIM(?)) AND id != ?
+          WHERE contacto_id = ? AND optica_id = ? AND TRIM(fecha_cita) = TRIM(?) AND LOWER(TRIM(hora_cita)) = LOWER(TRIM(?)) AND id != ?
             AND (estado IS NULL OR estado NOT IN ('cancelada', 'anulada'))
-        `).get(citaActual.contacto_id, nuevaFecha, nuevaHora, idCita);
+        `).get(citaActual.contacto_id, optica_id, nuevaFecha, nuevaHora, idCita);
         if (conflicto) return NextResponse.json({ exito: false, duplicada: true, error: 'Horario ocupado' }, { status: 409 });
       }
 
       await base_datos.prepare(`
-        UPDATE citas SET fecha_cita = ?, hora_cita = ?, motivo = ?, especialista = ?, observaciones = ?, estado = ? WHERE id = ?
-      `).run(nuevaFecha, nuevaHora, motivo ?? citaActual.motivo, especialista ?? citaActual.especialista, observaciones ?? citaActual.observaciones, nuevoEstado, idCita);
+        UPDATE citas SET fecha_cita = ?, hora_cita = ?, motivo = ?, especialista = ?, observaciones = ?, estado = ? WHERE id = ? AND optica_id = ?
+      `).run(nuevaFecha, nuevaHora, motivo ?? citaActual.motivo, especialista ?? citaActual.especialista, observaciones ?? citaActual.observaciones, nuevoEstado, idCita, optica_id);
 
-      const citaActualizada = await base_datos.prepare('SELECT * FROM citas WHERE id = ?').get(idCita);
+      const citaActualizada = await base_datos.prepare('SELECT * FROM citas WHERE id = ? AND optica_id = ?').get(idCita, optica_id);
       return NextResponse.json({ exito: true, cita: citaActualizada });
     }
 
     if (metodo === 'DELETE' && segmentosRuta[0] === 'citas' && segmentosRuta.length === 2) {
       const idCita = Number(segmentosRuta[1]);
-      await base_datos.prepare("UPDATE citas SET estado = 'cancelada' WHERE id = ?").run(idCita);
+      await base_datos.prepare("UPDATE citas SET estado = 'cancelada' WHERE id = ? AND optica_id = ?").run(idCita, optica_id);
       return NextResponse.json({ exito: true, mensaje: 'Cita cancelada' });
     }
 

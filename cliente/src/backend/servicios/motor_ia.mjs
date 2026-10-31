@@ -947,6 +947,12 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId, c
       [contactoId, opticaId, fecha, hora, motivoFinal, espFinal]
     );
 
+    // Al agendar cita formal por IA, se promueve a paciente en esta óptica
+    await pool.query(
+      `UPDATE "CRM_Opticas".contactos SET es_paciente = TRUE, actualizado_en = NOW() WHERE id = $1 AND optica_id = $2`,
+      [contactoId, opticaId]
+    );
+
     const mensajeOficial = construirMensajeCitaWhatsApp({
       tipo: 'confirmacion',
       nombreOptica,
