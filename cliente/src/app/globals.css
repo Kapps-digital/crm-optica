@@ -8116,4 +8116,13 @@ button.kpi-chip:hover {
     font-size: 0.68rem !important;
     padding: 0.3rem 0.55rem !important;
   }
+
+  .seccion-push-solo-movil {
+    display: flex !important;
+  }
+}
+
+/* Ocultar sección de alertas en celular en pantallas de escritorio */
+.seccion-push-solo-movil {
+  display: none !important;
 }

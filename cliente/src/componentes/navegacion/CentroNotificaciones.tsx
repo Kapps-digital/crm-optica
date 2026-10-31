@@ -155,33 +155,48 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
   const [enModoDemo, setEnModoDemo] = useState(false);
   const refMenu = useRef<HTMLDivElement>(null);
 
-  // Estados para Notificaciones Push Web (Móvil / Escritorio)
+  // Estados para Notificaciones Push Web (Móvil)
   const [pushSoportado, setPushSoportado] = useState(false);
   const [pushActivo, setPushActivo] = useState(false);
   const [pushCargando, setPushCargando] = useState(false);
   const [pushMensaje, setPushMensaje] = useState<string | null>(null);
+  const [esPantallaMovil, setEsPantallaMovil] = useState(false);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const verificarAncho = () => setEsPantallaMovil(window.innerWidth <= 768);
+      verificarAncho();
+      window.addEventListener('resize', verificarAncho);
+      return () => window.removeEventListener('resize', verificarAncho);
+    }
+  }, []);
+
+  // Verificar soporte y suscripción activa al montar y cada vez que se abre el menú
   useEffect(() => {
     const soportado = verificarSoportePush();
     setPushSoportado(soportado);
     if (soportado) {
       verificarSuscripcionActiva().then(setPushActivo);
     }
-  }, []);
+  }, [mostrarMenu]);
 
   const alternarPush = async () => {
     setPushCargando(true);
     setPushMensaje(null);
     try {
       if (pushActivo) {
-        await desuscribirDispositivoPush();
-        setPushActivo(false);
-        setPushMensaje('Alertas desactivadas en este dispositivo.');
+        const ok = await desuscribirDispositivoPush();
+        if (ok) {
+          setPushActivo(false);
+          setPushMensaje('Notificaciones desactivadas en este celular.');
+        } else {
+          setPushMensaje('No se pudieron desactivar las notificaciones.');
+        }
       } else {
         const res = await suscribirDispositivoPush(opticaId, usuario?.id);
         if (res.exito) {
           setPushActivo(true);
-          setPushMensaje('¡Listo! Alertas activadas.');
+          setPushMensaje('¡Notificaciones activadas en este celular!');
         } else {
           setPushMensaje(`Error: ${res.error}`);
         }
@@ -197,7 +212,7 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
     try {
       const res = await enviarPruebaPush(opticaId);
       if (res.exito) {
-        setPushMensaje('¡Notificación enviada a tu dispositivo!');
+        setPushMensaje('¡Notificación enviada a tu celular!');
       } else {
         setPushMensaje(`Fallo: ${res.error || 'Sin respuesta'}`);
       }
@@ -821,122 +836,141 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
             </div>
           )}
 
-          {/* Sección de Notificaciones Push para Celular / Navegador */}
-          <div
-            style={{
-              padding: '0.65rem 0.85rem',
-              borderTop: '1px solid var(--borde-tarjeta)',
-              background: 'var(--fondo-elevado)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.45rem',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Smartphone size={14} style={{ color: pushActivo ? '#10b981' : 'var(--texto-atenuado)' }} />
-                <span style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--texto-principal)' }}>
-                  Alertas en el Celular
-                </span>
-              </div>
-              {pushSoportado ? (
+          {/* Sección de Notificaciones Push exclusiva para teléfonos móviles */}
+          {esPantallaMovil && (
+            <div
+              className="seccion-push-solo-movil"
+              style={{
+                padding: '0.65rem 0.85rem',
+                borderTop: '1px solid var(--borde-tarjeta)',
+                background: 'var(--fondo-elevado)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.45rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Smartphone size={14} style={{ color: pushActivo ? '#10b981' : 'var(--texto-atenuado)' }} />
+                  <span style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--texto-principal)' }}>
+                    Alertas en el Celular
+                  </span>
                   {pushActivo && (
+                    <span
+                      style={{
+                        fontSize: '0.62rem',
+                        fontWeight: 700,
+                        color: '#059669',
+                        background: 'rgba(16, 185, 129, 0.12)',
+                        padding: '0.1rem 0.4rem',
+                        borderRadius: '6px',
+                      }}
+                    >
+                      Activas
+                    </span>
+                  )}
+                </div>
+
+                {pushSoportado ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    {pushActivo && (
+                      <button
+                        type="button"
+                        onClick={probarPush}
+                        disabled={pushCargando}
+                        style={{
+                          background: 'transparent',
+                          border: '1px solid var(--borde-tarjeta)',
+                          borderRadius: '6px',
+                          padding: '0.2rem 0.5rem',
+                          fontSize: '0.68rem',
+                          color: 'var(--texto-secundario)',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                        }}
+                        title="Enviar notificación de prueba ahora"
+                      >
+                        <Send size={11} />
+                        Probar
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={probarPush}
+                      onClick={alternarPush}
                       disabled={pushCargando}
                       style={{
-                        background: 'transparent',
-                        border: '1px solid var(--borde-tarjeta)',
+                        background: pushActivo ? 'rgba(239, 68, 68, 0.12)' : 'var(--color-primario)',
+                        color: pushActivo ? '#dc2626' : '#ffffff',
+                        border: pushActivo ? '1px solid rgba(239, 68, 68, 0.3)' : 'none',
                         borderRadius: '6px',
-                        padding: '0.2rem 0.5rem',
-                        fontSize: '0.68rem',
-                        color: 'var(--texto-secundario)',
+                        padding: '0.25rem 0.6rem',
+                        fontSize: '0.70rem',
+                        fontWeight: 600,
                         cursor: 'pointer',
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '0.25rem',
+                        gap: '0.3rem',
+                        transition: 'all 0.15s ease',
                       }}
-                      title="Enviar notificación de prueba ahora"
+                      title={pushActivo ? 'Desactivar notificaciones en este celular' : 'Activar notificaciones en este celular'}
                     >
-                      <Send size={11} />
-                      Probar
+                      {pushCargando ? (
+                        <Loader2 size={12} style={{ animation: 'girar 1s linear infinite' }} />
+                      ) : pushActivo ? (
+                        <>
+                          <BellOff size={12} />
+                          Desactivar
+                        </>
+                      ) : (
+                        <>
+                          <BellRing size={12} />
+                          Activar en celular
+                        </>
+                      )}
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={alternarPush}
-                    disabled={pushCargando}
+                  </div>
+                ) : (
+                  <span
                     style={{
-                      background: pushActivo ? 'rgba(239, 68, 68, 0.12)' : 'var(--color-primario)',
-                      color: pushActivo ? '#dc2626' : '#ffffff',
-                      border: pushActivo ? '1px solid rgba(239, 68, 68, 0.3)' : 'none',
-                      borderRadius: '6px',
-                      padding: '0.25rem 0.6rem',
-                      fontSize: '0.70rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.3rem',
+                      fontSize: '0.66rem',
+                      color: 'var(--texto-atenuado)',
+                      background: 'rgba(0,0,0,0.04)',
+                      padding: '0.15rem 0.45rem',
+                      borderRadius: '4px',
                     }}
                   >
-                    {pushCargando ? (
-                      <Loader2 size={12} style={{ animation: 'girar 1s linear infinite' }} />
-                    ) : pushActivo ? (
-                      <>
-                        <BellOff size={12} />
-                        Desactivar
-                      </>
-                    ) : (
-                      <>
-                        <BellRing size={12} />
-                        Activar en celular
-                      </>
-                    )}
-                  </button>
-                </div>
-              ) : (
-                <span
+                    Requiere HTTPS
+                  </span>
+                )}
+              </div>
+
+              {/* Mensaje de estado o advertencia de HTTPS en red local */}
+              {!pushSoportado && (
+                <p style={{ margin: 0, fontSize: '0.68rem', color: 'var(--texto-atenuado)', lineHeight: 1.35 }}>
+                  Los navegadores móviles requieren HTTPS para alertas push. Funcionarán en la versión oficial en producción o en localhost.
+                </p>
+              )}
+
+              {pushMensaje && (
+                <div
                   style={{
-                    fontSize: '0.66rem',
-                    color: 'var(--texto-atenuado)',
-                    background: 'rgba(0,0,0,0.04)',
-                    padding: '0.15rem 0.45rem',
-                    borderRadius: '4px',
+                    fontSize: '0.70rem',
+                    padding: '0.25rem 0.5rem',
+                    borderRadius: '5px',
+                    background: pushMensaje.includes('Error') || pushMensaje.includes('Fallo')
+                      ? 'rgba(239, 68, 68, 0.1)'
+                      : 'rgba(16, 185, 129, 0.1)',
+                    color: pushMensaje.includes('Error') || pushMensaje.includes('Fallo') ? '#dc2626' : '#059669',
+                    fontWeight: 500,
                   }}
                 >
-                  Requiere HTTPS
-                </span>
+                  {pushMensaje}
+                </div>
               )}
             </div>
-
-            {/* Mensaje de estado o advertencia de HTTPS en red local */}
-            {!pushSoportado && (
-              <p style={{ margin: 0, fontSize: '0.68rem', color: 'var(--texto-atenuado)', lineHeight: 1.35 }}>
-                Los navegadores móviles bloquean alertas push en redes locales HTTP (192.168...).
-                Funcionarán en la versión segura HTTPS en producción o en tu PC desde localhost.
-              </p>
-            )}
-
-            {pushMensaje && (
-              <div
-                style={{
-                  fontSize: '0.70rem',
-                  padding: '0.25rem 0.5rem',
-                  borderRadius: '5px',
-                  background: pushMensaje.includes('Error') || pushMensaje.includes('Fallo')
-                    ? 'rgba(239, 68, 68, 0.1)'
-                    : 'rgba(16, 185, 129, 0.1)',
-                  color: pushMensaje.includes('Error') || pushMensaje.includes('Fallo') ? '#dc2626' : '#059669',
-                  fontWeight: 500,
-                }}
-              >
-                {pushMensaje}
-              </div>
-            )}
-          </div>
+          )}
 
           {/* Pie de Panel Informativo */}
           <div className="pie-panel-notif-compacto">

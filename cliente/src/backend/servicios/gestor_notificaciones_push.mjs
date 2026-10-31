@@ -1,8 +1,8 @@
 import webpush from 'web-push';
 import { pool } from '../base_datos/conexion.mjs';
 
-const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
-const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || '';
+const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BCx3K3gUN-0vW8EQuBm4cHfhQwjux-_05eW4OS8YRRVpeyVCHg2TRzbKO9dNudGJV6nKxMHHlkb77tS5IuwIUDc';
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || 'LVxr0XGe2muZ4SpAIs4YqLhxK1Zr6Q9kmeMb-IlV3OY';
 const VAPID_EMAIL = process.env.VAPID_SUBJECT || 'mailto:notificaciones@crmopticas.com';
 
 if (VAPID_PUBLIC && VAPID_PRIVATE) {

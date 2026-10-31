@@ -1,5 +1,7 @@
 // Utilidad de Notificaciones Push Web para Cliente Móvil / Escritorio - CRM Óptica
 
+export const CLAVE_PUBLICA_VAPID_DEFECTO = 'BCx3K3gUN-0vW8EQuBm4cHfhQwjux-_05eW4OS8YRRVpeyVCHg2TRzbKO9dNudGJV6nKxMHHlkb77tS5IuwIUDc';
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -60,16 +62,22 @@ export async function suscribirDispositivoPush(opticaId: number, usuarioId?: num
       return { exito: false, error: 'No se pudo iniciar el Service Worker' };
     }
 
-    // Obtener clave pública VAPID
+    // Obtener clave pública VAPID (con fallback directo garantizado)
     let clavePublica = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
     if (!clavePublica) {
-      const resClave = await fetch('/api/push/clave-publica');
-      const datosClave = await resClave.json();
-      clavePublica = datosClave.clavePublica || '';
+      try {
+        const resClave = await fetch('/api/push/clave-publica');
+        if (resClave.ok) {
+          const datosClave = await resClave.json();
+          clavePublica = datosClave.clavePublica || '';
+        }
+      } catch {
+        // Fallback de red
+      }
     }
 
     if (!clavePublica) {
-      return { exito: false, error: 'Clave pública VAPID no disponible en el servidor' };
+      clavePublica = CLAVE_PUBLICA_VAPID_DEFECTO;
     }
 
     const appServerKey = urlBase64ToUint8Array(clavePublica);

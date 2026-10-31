@@ -562,7 +562,7 @@ async function procesarPeticion(
     // RUTAS: NOTIFICACIONES PUSH WEB (MÓVIL / ESCRITORIO)
     // =========================================================================
     if (metodo === 'GET' && rutaStr === 'push/clave-publica') {
-      const clavePublica = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
+      const clavePublica = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BCx3K3gUN-0vW8EQuBm4cHfhQwjux-_05eW4OS8YRRVpeyVCHg2TRzbKO9dNudGJV6nKxMHHlkb77tS5IuwIUDc';
       return NextResponse.json({ exito: true, clavePublica });
     }
 
