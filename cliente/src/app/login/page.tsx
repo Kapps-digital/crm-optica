@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, Building2, Sun, Moon, MessageCircle, X } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, Sparkles, Building2, Sun, Moon, MessageCircle, X } from 'lucide-react';
 import { iniciarSesion, restaurarTemaPorDefecto } from '@/servicios/api_crm';
 import { ModalRecuperarContrasena } from '@/componentes/auth/ModalRecuperarContrasena';
 import { EtiquetaTooltip } from '@/componentes/comunes/EtiquetaTooltip';
@@ -17,6 +17,49 @@ export default function PaginaLogin() {
   const [codigoError, setCodigoError] = useState<string | null>(null);
   const [temaOscuro, setTemaOscuro] = useState(false);
   const [modalRecuperarAbierto, setModalRecuperarAbierto] = useState(false);
+
+  // Modo Oculto / Accesos Rápidos (Oculto por defecto, se activa con 3 clics en el logo del ojo)
+  const [mostrarAccesosRapidos, setMostrarAccesosRapidos] = useState(false);
+  const contadorClicsLogo = useRef(0);
+  const temporizadorClics = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const parametroDev = urlParams.get('dev') === '1' || urlParams.get('admin') === '1';
+      const guardadoEnStorage = localStorage.getItem('crm_modo_desarrollador') === '1';
+
+      if (parametroDev || guardadoEnStorage) {
+        setMostrarAccesosRapidos(true);
+      }
+    }
+  }, []);
+
+  const manejarClicLogo = () => {
+    contadorClicsLogo.current += 1;
+    if (temporizadorClics.current) {
+      clearTimeout(temporizadorClics.current);
+    }
+
+    if (contadorClicsLogo.current >= 3) {
+      setMostrarAccesosRapidos((prev) => {
+        const nuevoEstado = !prev;
+        if (typeof window !== 'undefined') {
+          if (nuevoEstado) {
+            localStorage.setItem('crm_modo_desarrollador', '1');
+          } else {
+            localStorage.removeItem('crm_modo_desarrollador');
+          }
+        }
+        return nuevoEstado;
+      });
+      contadorClicsLogo.current = 0;
+    } else {
+      temporizadorClics.current = setTimeout(() => {
+        contadorClicsLogo.current = 0;
+      }, 1200);
+    }
+  };
 
   useEffect(() => {
     // Garantizar que ninguna variable CSS residual de una óptica contamine el login
@@ -77,6 +120,17 @@ export default function PaginaLogin() {
     }
   };
 
+  const usarCredencialRapida = (usr: string, pass: string) => {
+    setUsuario(usr);
+    setContrasena(pass);
+    const inputUsr = document.getElementById('campo-usuario') as HTMLInputElement | null;
+    const inputPass = document.getElementById('campo-contrasena') as HTMLInputElement | null;
+    if (inputUsr) inputUsr.value = usr;
+    if (inputPass) inputPass.value = pass;
+    setError(null);
+    setCodigoError(null);
+  };
+
   return (
     <main className="login-pantalla-fondo">
       {/* Botón flotante para alternar Tema Claro / Oscuro (Solo Icono) */}
@@ -99,11 +153,13 @@ export default function PaginaLogin() {
       <div className="login-decoracion-circulo circulo-2" />
 
       <div className="login-tarjeta-contenedor">
-        {/* Cabecera de la Tarjeta con Isotipo Neutro SaaS */}
+        {/* Cabecera de la Tarjeta con Isotipo Neutro SaaS (3 clics activan accesos rápidos) */}
         <div className="login-tarjeta-cabecera">
           <div
             className="login-logo-circulo-saas"
-            title="CRM Ópticas"
+            onClick={manejarClicLogo}
+            style={{ cursor: 'pointer', userSelect: 'none', touchAction: 'manipulation' }}
+            title="CRM Ópticas (3 toques para accesos rápidos)"
           >
             <Eye className="login-logo-icono-saas" />
           </div>
@@ -316,6 +372,68 @@ export default function PaginaLogin() {
             )}
           </button>
         </form>
+
+        {/* Acceso rápido para desarrollo / evaluación (Oculto por defecto, visible tras 3 toques en el logo) */}
+        {mostrarAccesosRapidos && (
+          <div className="login-credenciales-rapidas">
+            <div className="login-credenciales-titulo" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Sparkles style={{ width: '13px', height: '13px', color: '#0284c7' }} />
+                <span>Accesos rápidos (Modo Dev):</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setMostrarAccesosRapidos(false);
+                  if (typeof window !== 'undefined') {
+                    localStorage.removeItem('crm_modo_desarrollador');
+                  }
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '2px',
+                  color: 'inherit',
+                  opacity: 0.6,
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                title="Ocultar accesos rápidos"
+              >
+                <X style={{ width: '13px', height: '13px' }} />
+              </button>
+            </div>
+            <div className="login-pildoras-fila">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  usarCredencialRapida('admin', 'admin123');
+                }}
+                className="login-pildora-btn"
+                style={{ touchAction: 'manipulation' }}
+                title="Llenar credenciales de Superadmin"
+              >
+                <strong>admin</strong> (Superadmin)
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  usarCredencialRapida('samir', 'samand1904220122');
+                }}
+                className="login-pildora-btn"
+                style={{ touchAction: 'manipulation' }}
+                title="Llenar credenciales de Tu Visión"
+              >
+                <strong>samir</strong> (Tu Visión)
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Pie de seguridad */}
         <div className="login-pie-seguridad">
