@@ -1289,27 +1289,38 @@ async function ejecutarLlamadaGemini({
     },
   ];
 
-  // Construir historial en formato de Gemini (roles: 'user' y 'model')
+  // Construir historial previo en formato de Gemini (roles: 'user' y 'model')
   const contents = [];
   for (const m of historialReverso) {
-    contents.push({
-      role: m.direccion === 'saliente' ? 'model' : 'user',
-      parts: [{ text: m.texto }],
-    });
+    const rol = m.direccion === 'saliente' ? 'model' : 'user';
+    if (contents.length > 0 && contents[contents.length - 1].role === rol) {
+      contents[contents.length - 1].parts[0].text += `\n${m.texto}`;
+    } else {
+      contents.push({
+        role: rol,
+        parts: [{ text: m.texto }],
+      });
+    }
   }
 
   // Refuerzo anti-memoria si el paciente consulta disponibilidad
   if (esConsultaDisponibilidad) {
-    contents.push({
-      role: 'user',
-      parts: [{
-        text: `[ALERTA DE SISTEMA: El paciente está consultando disponibilidad de horarios en este momento. DEBES llamar obligatoriamente a la herramienta "consultar_horarios_disponibles" para obtener los turnos reales vigentes de la clínica.]`,
-      }],
-    });
+    if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
+      contents[contents.length - 1].parts[0].text += `\n\n[ALERTA DE SISTEMA: El paciente está consultando disponibilidad de horarios en este momento. DEBES llamar obligatoriamente a la herramienta "consultar_horarios_disponibles" para obtener los turnos reales vigentes de la clínica.]`;
+    } else {
+      contents.push({
+        role: 'user',
+        parts: [{
+          text: `[ALERTA DE SISTEMA: El paciente está consultando disponibilidad de horarios en este momento. DEBES llamar obligatoriamente a la herramienta "consultar_horarios_disponibles" para obtener los turnos reales vigentes de la clínica.]`,
+        }],
+      });
+    }
   }
 
-  // Asegurar que el mensaje actual del usuario esté al final
-  if (contents.length === 0 || contents[contents.length - 1].role !== 'user') {
+  // Agregar el mensaje actual del usuario al final garantizando alternancia
+  if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
+    contents[contents.length - 1].parts[0].text += `\n${textoMensaje}`;
+  } else {
     contents.push({
       role: 'user',
       parts: [{ text: textoMensaje }],
@@ -1498,6 +1509,9 @@ export async function procesarMensajeConIA({ conversacion_id, mensaje_id, contac
 
   // 2. Consolidar todos los mensajes entrantes de la ráfaga desde la última respuesta saliente
   let textoFinalParaIA = texto_mensaje;
+  let idPrimerMensajeTurno = mensaje_id ? Number(mensaje_id) : null;
+  let fechaMensajeActual = new Date();
+
   try {
     const resUltimoSaliente = await pool.query(
       `SELECT id FROM "CRM_Opticas".mensajes 
@@ -1508,7 +1522,7 @@ export async function procesarMensajeConIA({ conversacion_id, mensaje_id, contac
     const idUltimoSaliente = resUltimoSaliente.rows[0]?.id || 0;
 
     const resRafaga = await pool.query(
-      `SELECT texto FROM "CRM_Opticas".mensajes 
+      `SELECT id, texto, creado_en FROM "CRM_Opticas".mensajes 
        WHERE conversacion_id = $1 AND direccion = 'entrante' AND id > $2 
          AND texto IS NOT NULL AND texto != '' AND texto != '[Unsupported message]'
        ORDER BY id ASC`,
@@ -1516,10 +1530,22 @@ export async function procesarMensajeConIA({ conversacion_id, mensaje_id, contac
     );
 
     if (resRafaga.rows.length > 0) {
+      idPrimerMensajeTurno = Number(resRafaga.rows[0].id);
+      if (resRafaga.rows[0].creado_en) {
+        fechaMensajeActual = new Date(resRafaga.rows[0].creado_en);
+      }
       const fragmentos = resRafaga.rows.map((r) => r.texto.trim()).filter(Boolean);
       if (fragmentos.length > 1) {
         textoFinalParaIA = fragmentos.join(' ');
         console.log(`[Motor IA] Ráfaga consolidada (${fragmentos.length} mensajes): "${textoFinalParaIA}"`);
+      }
+    } else if (mensaje_id) {
+      const resMsgInfo = await pool.query(
+        `SELECT creado_en FROM "CRM_Opticas".mensajes WHERE id = $1`,
+        [mensaje_id]
+      );
+      if (resMsgInfo.rows[0]?.creado_en) {
+        fechaMensajeActual = new Date(resMsgInfo.rows[0].creado_en);
       }
     }
   } catch (e) {
@@ -1609,14 +1635,72 @@ export async function procesarMensajeConIA({ conversacion_id, mensaje_id, contac
     ? resCitas.rows.map((c) => `- ${formatearFechaDDMMYYYY(c.fecha_cita)} a las ${c.hora_cita} (${c.motivo || 'Examen visual'}, Especialista: ${c.especialista || 'Sin especialista'}, Estado: ${c.estado})`).join('\n')
     : 'No registra citas pendientes programadas de hoy en adelante.';
 
-  // 6. Obtener historial reciente del chat (últimos 6 mensajes)
-  const resHistorial = await pool.query(
-    `SELECT direccion, texto FROM "CRM_Opticas".mensajes 
-     WHERE conversacion_id = $1 AND texto IS NOT NULL AND texto != '' AND texto != '[Unsupported message]'
-     ORDER BY id DESC LIMIT 6`,
-    [conversacion_id]
-  );
-  const historialReverso = resHistorial.rows.reverse();
+  // 6. Obtener historial del chat aplicando ventana de 24 horas y corte por inactividad de 4 horas
+  let historialReverso = [];
+  try {
+    const consultaHistorial = idPrimerMensajeTurno
+      ? `SELECT id, direccion, texto, creado_en FROM "CRM_Opticas".mensajes 
+         WHERE conversacion_id = $1 
+           AND id < $2
+           AND creado_en >= NOW() - INTERVAL '24 hours'
+           AND texto IS NOT NULL AND texto != '' AND texto != '[Unsupported message]'
+         ORDER BY id DESC LIMIT 10`
+      : `SELECT id, direccion, texto, creado_en FROM "CRM_Opticas".mensajes 
+         WHERE conversacion_id = $1 
+           AND creado_en >= NOW() - INTERVAL '24 hours'
+           AND texto IS NOT NULL AND texto != '' AND texto != '[Unsupported message]'
+         ORDER BY id DESC LIMIT 10`;
+
+    const paramsHistorial = idPrimerMensajeTurno
+      ? [conversacion_id, idPrimerMensajeTurno]
+      : [conversacion_id];
+
+    const resHistorial = await pool.query(consultaHistorial, paramsHistorial);
+    const mensajesPrevios = resHistorial.rows;
+
+    if (mensajesPrevios.length > 0) {
+      const ultimoPrevio = mensajesPrevios[0];
+      const tiempoUltimoPrevio = new Date(ultimoPrevio.creado_en || Date.now());
+      const horasInactivo = (fechaMensajeActual.getTime() - tiempoUltimoPrevio.getTime()) / (1000 * 60 * 60);
+
+      if (horasInactivo >= 4) {
+        console.log(`[Motor IA] Chat inactivo por ${horasInactivo.toFixed(1)}h (umbral: 4h). Iniciando conversación limpia sin historial previo para la IA.`);
+        historialReverso = [];
+      } else {
+        const mensajesSesionActiva = [];
+        let tiempoReferencia = fechaMensajeActual;
+
+        for (const m of mensajesPrevios) {
+          const tiempoM = new Date(m.creado_en || Date.now());
+          const brechaHoras = (tiempoReferencia.getTime() - tiempoM.getTime()) / (1000 * 60 * 60);
+
+          if (brechaHoras >= 4) {
+            console.log(`[Motor IA] Corte de sesión en historial por brecha de ${brechaHoras.toFixed(1)}h. Mensajes anteriores descartados.`);
+            break;
+          }
+
+          mensajesSesionActiva.push({
+            direccion: m.direccion,
+            texto: m.texto,
+          });
+          tiempoReferencia = tiempoM;
+
+          if (mensajesSesionActiva.length >= 6) {
+            break;
+          }
+        }
+
+        historialReverso = mensajesSesionActiva.reverse();
+        console.log(`[Motor IA] Historial activo cargado: ${historialReverso.length} mensajes recientes (< 4h de inactividad, ventana 24h).`);
+      }
+    } else {
+      console.log('[Motor IA] Sin mensajes previos en las últimas 24 horas. Conversación limpia para el agente.');
+      historialReverso = [];
+    }
+  } catch (errHist) {
+    console.warn('[Motor IA] Aviso al calcular historial con corte de 4h y ventana de 24h:', errHist.message);
+    historialReverso = [];
+  }
 
   // 7. Construir System Prompt desde archivo Markdown central o plantilla
   const fechaHoy = new Date().toLocaleDateString('es-CO', {
@@ -1746,7 +1830,9 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
         });
       }
 
-      if (messages.length === 1 || messages[messages.length - 1].role !== 'user') {
+      if (messages[messages.length - 1]?.role === 'user') {
+        messages[messages.length - 1].content += `\n${textoFinalParaIA}`;
+      } else {
         messages.push({
           role: 'user',
           content: textoFinalParaIA,
