@@ -123,14 +123,16 @@ function resolverUrlMediaProxy(url?: string | null, nombreArchivo?: string | nul
   const match = url.match(/\/whatsapp\/media\/([a-zA-Z0-9_-]+)/);
   if (match) {
     const mediaId = match[1];
-    let accountId = '6ab6a5ade55ed05c5f3a902b';
     const matchAcc = url.match(/accountId=([a-zA-Z0-9_-]+)/);
-    if (matchAcc) accountId = matchAcc[1];
-    let res = `/api/media/whatsapp/${mediaId}?accountId=${accountId}`;
-    if (nombreArchivo) {
-      res += `&filename=${encodeURIComponent(nombreArchivo)}`;
+    const params: string[] = [];
+    if (matchAcc && matchAcc[1]) {
+      params.push(`accountId=${matchAcc[1]}`);
     }
-    return res;
+    if (nombreArchivo) {
+      params.push(`filename=${encodeURIComponent(nombreArchivo)}`);
+    }
+    const query = params.length > 0 ? `?${params.join('&')}` : '';
+    return `/api/media/whatsapp/${mediaId}${query}`;
   }
   return url;
 }

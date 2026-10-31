@@ -194,7 +194,10 @@ export async function procesar_evento_webhook(payload) {
       const texto = mensaje_datos.text || mensaje_datos.message || '';
       const primer_adjunto = mensaje_datos.attachments?.[0];
       const url_raw = primer_adjunto?.url || mensaje_datos.mediaUrl || null;
-      const url_adjunto = url_raw ? (url_raw.startsWith('http') ? url_raw : `https://zernio.com${url_raw.startsWith('/') ? '' : '/'}${url_raw}`) : null;
+      let url_adjunto = url_raw ? (url_raw.startsWith('http') ? url_raw : `https://zernio.com${url_raw.startsWith('/') ? '' : '/'}${url_raw}`) : null;
+      if (url_adjunto && id_cuenta && !url_adjunto.includes('accountId=')) {
+        url_adjunto += (url_adjunto.includes('?') ? '&' : '?') + `accountId=${encodeURIComponent(id_cuenta)}`;
+      }
       const tipo_adjunto = primer_adjunto?.type;
       const nombre_archivo = primer_adjunto?.payload?.filename || null;
       const mime_tipo = primer_adjunto?.payload?.mimeType || null;
@@ -271,7 +274,10 @@ export async function procesar_evento_webhook(payload) {
       const texto = mensaje_datos.text || mensaje_datos.message || '';
       const primer_adjunto = mensaje_datos.attachments?.[0];
       const url_raw = primer_adjunto?.url || mensaje_datos.mediaUrl || null;
-      const url_adjunto = url_raw ? (url_raw.startsWith('http') ? url_raw : `https://zernio.com${url_raw.startsWith('/') ? '' : '/'}${url_raw}`) : null;
+      let url_adjunto = url_raw ? (url_raw.startsWith('http') ? url_raw : `https://zernio.com${url_raw.startsWith('/') ? '' : '/'}${url_raw}`) : null;
+      if (url_adjunto && id_cuenta && !url_adjunto.includes('accountId=')) {
+        url_adjunto += (url_adjunto.includes('?') ? '&' : '?') + `accountId=${encodeURIComponent(id_cuenta)}`;
+      }
       const tipo_adjunto = primer_adjunto?.type;
       const nombre_archivo = primer_adjunto?.payload?.filename || null;
       const mime_tipo = primer_adjunto?.payload?.mimeType || null;

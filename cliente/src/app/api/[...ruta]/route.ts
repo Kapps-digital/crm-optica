@@ -1772,16 +1772,84 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
         (segmentosRuta[0] === 'v1' && segmentosRuta[1] === 'whatsapp' && segmentosRuta[2] === 'media' && segmentosRuta.length >= 4))
     ) {
       const media_id = segmentosRuta[0] === 'media' ? segmentosRuta[2] : segmentosRuta[3];
-      const account_id = searchParams.get('accountId') || searchParams.get('account_id') || process.env.ZERNIO_ACCOUNT_ID || '6ab6a5ade55ed05c5f3a902b';
+      let account_id = searchParams.get('accountId') || searchParams.get('account_id');
       const nombreDescarga = searchParams.get('filename') || searchParams.get('nombre_archivo');
 
       try {
+        let apiKeyZernio: string | null = null;
+
+        // 1. Si vino account_id, buscar la óptica dueña de esa cuenta
+        if (account_id) {
+          const opticaCuenta: any = await base_datos.prepare(`
+            SELECT o.zernio_api_key 
+            FROM lineas_canales lc
+            JOIN opticas o ON o.id = lc.optica_id
+            WHERE lc.id_cuenta_zernio = ? AND o.zernio_api_key IS NOT NULL
+            LIMIT 1
+          `).get(account_id);
+
+          if (opticaCuenta?.zernio_api_key) {
+            apiKeyZernio = String(opticaCuenta.zernio_api_key);
+          }
+        }
+
+        // 2. Si no se encontró por cuenta o falta account_id, resolver desde la sesión activa de la óptica
+        if (!apiKeyZernio && optica_id) {
+          const opticaSesion: any = await base_datos.prepare(`
+            SELECT zernio_api_key FROM opticas WHERE id = ? AND zernio_api_key IS NOT NULL
+          `).get(optica_id);
+
+          if (opticaSesion?.zernio_api_key) {
+            apiKeyZernio = String(opticaSesion.zernio_api_key);
+          }
+
+          if (!account_id) {
+            const lineaSesion: any = await base_datos.prepare(`
+              SELECT id_cuenta_zernio FROM lineas_canales WHERE optica_id = ? AND id_cuenta_zernio IS NOT NULL LIMIT 1
+            `).get(optica_id);
+            if (lineaSesion?.id_cuenta_zernio) {
+              account_id = String(lineaSesion.id_cuenta_zernio);
+            }
+          }
+        }
+
+        // 3. Fallbacks
+        if (!account_id) {
+          account_id = process.env.ZERNIO_ACCOUNT_ID || '6ab6a5ade55ed05c5f3a902b';
+        }
+        if (!apiKeyZernio) {
+          apiKeyZernio = process.env.ZERNIO_API_KEY || '';
+        }
+
         const url_zernio = `https://zernio.com/api/v1/whatsapp/media/${encodeURIComponent(media_id)}?accountId=${encodeURIComponent(account_id)}`;
-        const respZernio = await fetch(url_zernio, {
+        let respZernio = await fetch(url_zernio, {
           headers: {
-            'Authorization': `Bearer ${process.env.ZERNIO_API_KEY}`,
+            'Authorization': `Bearer ${apiKeyZernio}`,
           },
         });
+
+        // 4. Fallback de claves si la primera falla
+        if (!respZernio.ok && respZernio.status !== 410) {
+          const opticasKeys: any = await base_datos.prepare(`
+            SELECT zernio_api_key FROM opticas WHERE zernio_api_key IS NOT NULL AND zernio_api_key != ?
+          `).all(apiKeyZernio);
+          const listaKeys = Array.isArray(opticasKeys) ? opticasKeys : [];
+          if (process.env.ZERNIO_API_KEY && process.env.ZERNIO_API_KEY !== apiKeyZernio) {
+            listaKeys.push({ zernio_api_key: process.env.ZERNIO_API_KEY });
+          }
+
+          for (const opt of listaKeys) {
+            if (opt?.zernio_api_key) {
+              const respReintento = await fetch(url_zernio, {
+                headers: { 'Authorization': `Bearer ${opt.zernio_api_key}` },
+              });
+              if (respReintento.ok) {
+                respZernio = respReintento;
+                break;
+              }
+            }
+          }
+        }
 
         if (respZernio.status === 410) {
           return NextResponse.json({
