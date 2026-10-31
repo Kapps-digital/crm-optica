@@ -749,6 +749,42 @@ const HERRAMIENTAS_OPENAI = [
 ];
 
 /**
+ * Emite una notificación push a los dispositivos móviles de los asesores de la óptica
+ * cuando se requiere intervención humana en una conversación.
+ */
+async function notificarPushEscalacionAsesor({ conversacionId, opticaId, motivo }) {
+  try {
+    const datosConv = await pool.query(
+      `SELECT conv.optica_id, c.nombre_completo, c.telefono
+       FROM "CRM_Opticas".conversaciones conv
+       LEFT JOIN "CRM_Opticas".contactos c ON conv.contacto_id = c.id
+       WHERE conv.id = $1`,
+      [conversacionId]
+    );
+
+    const fila = datosConv.rows[0] || {};
+    const idOpticaDestino = fila.optica_id || opticaId;
+    const nombrePaciente = fila.nombre_completo || fila.telefono || 'Paciente por WhatsApp';
+    const motivoDesc = motivo || 'Solicita atención con un asesor';
+
+    if (idOpticaDestino) {
+      const { enviarNotificacionPushAOptica } = await import('./gestor_notificaciones_push.mjs');
+      const resultadoPush = await enviarNotificacionPushAOptica({
+        optica_id: idOpticaDestino,
+        titulo: `🚨 Asesor Requerido: ${nombrePaciente}`,
+        cuerpo: `${motivoDesc}. Toca aquí para atenderlo.`,
+        url: `/?chat=${conversacionId}`,
+        etiqueta: `urgente-conv-${conversacionId}`,
+        datos: { conversacionId },
+      });
+      console.log(`[Push Escalación] Notificación push enviada a óptica ${idOpticaDestino}:`, resultadoPush);
+    }
+  } catch (ePush) {
+    console.error('[Push Escalación] Error al emitir notificación push:', ePush.message);
+  }
+}
+
+/**
  * Ejecuta una herramienta llamada por el modelo de IA y retorna el resultado
  */
 async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId, conversacionId }) {
@@ -1134,34 +1170,11 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId, c
       );
 
       // Disparar Notificación Push a los celulares de los asesores de esta óptica
-      (async () => {
-        try {
-          const datosConv = await pool.query(
-            `SELECT conv.optica_id, c.nombre, c.telefono
-             FROM "CRM_Opticas".conversaciones conv
-             LEFT JOIN "CRM_Opticas".contactos c ON conv.contacto_id = c.id
-             WHERE conv.id = $1`,
-            [conversacionId]
-          );
-          if (datosConv.rows.length > 0) {
-            const fila = datosConv.rows[0];
-            const nombrePaciente = fila.nombre || fila.telefono || 'Paciente';
-            const motivoDesc = motivoTransferencia || 'Solicita atención con un asesor';
-
-            const { enviarNotificacionPushAOptica } = await import('./gestor_notificaciones_push.mjs');
-            await enviarNotificacionPushAOptica({
-              optica_id: fila.optica_id,
-              titulo: `🚨 Asesor Requerido: ${nombrePaciente}`,
-              cuerpo: `${motivoDesc}. Toca aquí para atenderlo.`,
-              url: `/?chat=${conversacionId}`,
-              etiqueta: `urgente-conv-${conversacionId}`,
-              datos: { conversacionId },
-            });
-          }
-        } catch (ePush) {
-          console.warn('[Push Escalación] No se pudo enviar notificación push:', ePush.message);
-        }
-      })();
+      await notificarPushEscalacionAsesor({
+        conversacionId,
+        opticaId,
+        motivo: motivoTransferencia || 'Solicita atención con un asesor',
+      });
     }
     return {
       exito: true,
@@ -1983,32 +1996,11 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
       );
 
       // Disparar Notificación Push a los celulares de los asesores de esta óptica
-      (async () => {
-        try {
-          const datosConv = await pool.query(
-            `SELECT conv.optica_id, c.nombre, c.telefono
-             FROM "CRM_Opticas".conversaciones conv
-             LEFT JOIN "CRM_Opticas".contactos c ON conv.contacto_id = c.id
-             WHERE conv.id = $1`,
-            [conversacion_id]
-          );
-          if (datosConv.rows.length > 0) {
-            const fila = datosConv.rows[0];
-            const nombrePaciente = fila.nombre || fila.telefono || 'Paciente';
-            const { enviarNotificacionPushAOptica } = await import('./gestor_notificaciones_push.mjs');
-            await enviarNotificacionPushAOptica({
-              optica_id: fila.optica_id,
-              titulo: `🚨 Asesor Requerido: ${nombrePaciente}`,
-              cuerpo: `La IA ha derivado la conversación a un asesor humano.`,
-              url: `/?chat=${conversacion_id}`,
-              etiqueta: `urgente-conv-${conversacion_id}`,
-              datos: { conversacionId: conversacion_id },
-            });
-          }
-        } catch (ePush) {
-          console.warn('[Push Escalación Texto] Error push:', ePush.message);
-        }
-      })();
+      await notificarPushEscalacionAsesor({
+        conversacionId: conversacion_id,
+        opticaId: optica_id,
+        motivo: 'La IA ha derivado la conversación a un asesor humano',
+      });
     }
 
     return {
