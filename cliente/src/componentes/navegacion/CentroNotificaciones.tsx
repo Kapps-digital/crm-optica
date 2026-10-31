@@ -160,16 +160,6 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
   const [pushActivo, setPushActivo] = useState(false);
   const [pushCargando, setPushCargando] = useState(false);
   const [pushMensaje, setPushMensaje] = useState<string | null>(null);
-  const [esPantallaMovil, setEsPantallaMovil] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const verificarAncho = () => setEsPantallaMovil(window.innerWidth <= 768);
-      verificarAncho();
-      window.addEventListener('resize', verificarAncho);
-      return () => window.removeEventListener('resize', verificarAncho);
-    }
-  }, []);
 
   // Verificar soporte y suscripción activa al montar y cada vez que se abre el menú
   useEffect(() => {
@@ -837,18 +827,16 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
           )}
 
           {/* Sección de Notificaciones Push exclusiva para teléfonos móviles */}
-          {esPantallaMovil && (
-            <div
-              className="seccion-push-solo-movil"
-              style={{
-                padding: '0.65rem 0.85rem',
-                borderTop: '1px solid var(--borde-tarjeta)',
-                background: 'var(--fondo-elevado)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.45rem',
-              }}
-            >
+          <div
+            className="seccion-push-solo-movil"
+            style={{
+              padding: '0.65rem 0.85rem',
+              borderTop: '1px solid var(--borde-tarjeta)',
+              background: 'var(--fondo-elevado)',
+              flexDirection: 'column',
+              gap: '0.45rem',
+            }}
+          >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                   <Smartphone size={14} style={{ color: pushActivo ? '#10b981' : 'var(--texto-atenuado)' }} />
@@ -970,7 +958,6 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
                 </div>
               )}
             </div>
-          )}
 
           {/* Pie de Panel Informativo */}
           <div className="pie-panel-notif-compacto">

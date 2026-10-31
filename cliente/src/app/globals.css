@@ -8117,12 +8117,15 @@ button.kpi-chip:hover {
     padding: 0.3rem 0.55rem !important;
   }
 
+  /* Sección visible en móviles */
   .seccion-push-solo-movil {
     display: flex !important;
   }
 }
 
-/* Ocultar sección de alertas en celular en pantallas de escritorio */
-.seccion-push-solo-movil {
-  display: none !important;
+/* Ocultar sección de alertas en celular exclusivamente en pantallas de escritorio */
+@media (min-width: 769px) {
+  .seccion-push-solo-movil {
+    display: none !important;
+  }
 }
