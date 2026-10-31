@@ -900,9 +900,9 @@ async function procesarPeticion(
           (SELECT tipo_lente FROM formulas_opticas WHERE contacto_id = c.id ORDER BY id DESC LIMIT 1) AS ultimo_tipo_lente
         FROM contactos c
         LEFT JOIN tipologias_pacientes tp ON tp.id = c.tipologia_id
-        WHERE c.optica_id = ?
+        WHERE c.optica_id = ? OR c.id IN (SELECT contacto_id FROM conversaciones WHERE optica_id = ?)
         ORDER BY LOWER(TRIM(COALESCE(c.nombre_completo, ''))) ASC, c.actualizado_en DESC
-      `).all(optica_id);
+      `).all(optica_id, optica_id);
       return NextResponse.json({ exito: true, contactos });
     }
 

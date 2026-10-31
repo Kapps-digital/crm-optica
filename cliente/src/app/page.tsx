@@ -617,6 +617,14 @@ export default function PaginaPrincipal() {
         { event: '*', schema: 'CRM_Opticas', table: 'conversaciones' },
         () => {
           recargarConversaciones();
+          recargarPacientes();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'CRM_Opticas', table: 'contactos' },
+        () => {
+          recargarPacientes();
         }
       )
       .on(
