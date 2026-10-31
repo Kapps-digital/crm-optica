@@ -136,7 +136,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
     setCargandoDatos(true);
     try {
       const [resPlantillas, resSegmentos] = await Promise.all([
-        obtenerPlantillasYCuota(),
+        obtenerPlantillasYCuota(opticaId),
         obtenerSegmentos(),
       ]);
 
@@ -149,14 +149,14 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
     } finally {
       setCargandoDatos(false);
     }
-  }, []);
+  }, [opticaId]);
 
   // Sincronizar explícitamente con el canal oficial vía backend
   const manejarSincronizarConMeta = async () => {
     setSincronizandoMeta(true);
     const tiempoInicio = Date.now();
     try {
-      const res = await sincronizarPlantillasConMetaApi();
+      const res = await sincronizarPlantillasConMetaApi(opticaId);
       // Garantizar que la animación de giro sea claramente visible al menos 750ms
       const transcurrido = Date.now() - tiempoInicio;
       if (transcurrido < 750) {
@@ -184,7 +184,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
   const cargarHistorial = useCallback(async () => {
     setCargandoHistorial(true);
     try {
-      const res = await obtenerHistorialLotesApi();
+      const res = await obtenerHistorialLotesApi(opticaId);
       if (res.exito) {
         setHistorialLotes(res.historial || []);
       }
@@ -193,7 +193,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
     } finally {
       setCargandoHistorial(false);
     }
-  }, []);
+  }, [opticaId]);
 
   const manejarEliminarLote = async (id: number) => {
     if (!window.confirm('¿Deseas eliminar este registro de lote del historial?')) return;

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
 import { BurbujaWhatsApp } from './BurbujaWhatsApp';
+import { crearPlantillaNueva } from '@/servicios/api_crm';
 import type { PlantillaWhatsApp, BotonPlantilla } from '@/tipos/crm';
 
 interface PropiedadesModalCrearPlantilla {
@@ -224,23 +225,19 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
     setErrorFormulario(null);
 
     try {
-      const res = await fetch('/api/plantillas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          etiqueta: etiqueta.trim(),
-          categoria,
-          idioma,
-          encabezado_tipo: encabezadoTipo,
-          encabezado_contenido: contenidoEncabezadoAEnviar,
-          cuerpo: cuerpo.trim(),
-          pie: pie.trim() || null,
-          botones,
-        }),
+      const datos = await crearPlantillaNueva({
+        etiqueta: etiqueta.trim(),
+        categoria,
+        idioma,
+        encabezado_tipo: encabezadoTipo,
+        encabezado_contenido: contenidoEncabezadoAEnviar,
+        cuerpo: cuerpo.trim(),
+        pie: pie.trim() || null,
+        botones,
+        optica_id: opticaId,
       });
 
-      const datos = await res.json();
-      if (!datos.exito) {
+      if (!datos.exito || !datos.plantilla) {
         throw new Error(datos.error || 'Error al guardar la plantilla en el canal oficial');
       }
 

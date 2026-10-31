@@ -785,15 +785,17 @@ export async function eliminarSegmentoPersonalizado(
 
 // ==================== FUNCIONES API: PLANTILLAS Y ENVÍOS POR LOTES ====================
 
-export async function obtenerPlantillasYCuota(): Promise<{
+export async function obtenerPlantillasYCuota(opticaId?: number): Promise<{
   exito: boolean;
   plantillas?: PlantillaWhatsApp[];
   cuota?: CuotaDiariaWhatsApp;
   error?: string;
 }> {
   try {
-    const res = await fetch('/api/plantillas', {
-      headers: crearEncabezados(),
+    const idOptica = opticaId || obtenerIdOpticaActiva();
+    const url = idOptica ? `/api/plantillas?optica_id=${idOptica}` : '/api/plantillas';
+    const res = await fetch(url, {
+      headers: crearEncabezados(idOptica ? { 'x-optica-id': String(idOptica) } : {}),
     });
     const texto = await res.text();
     try {
@@ -811,17 +813,22 @@ export async function crearPlantillaNueva(datos: {
   etiqueta: string;
   categoria?: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION';
   idioma?: string;
-  encabezado_tipo?: 'TEXTO' | 'IMAGEN' | 'NINGUNO';
+  encabezado_tipo?: 'TEXTO' | 'IMAGEN' | 'VIDEO' | 'NINGUNO';
   encabezado_contenido?: string | null;
   cuerpo: string;
   pie?: string | null;
-  botones?: { tipo: string; texto: string; url?: string; telefono?: string }[];
+  botones?: { tipo: string; texto: string; url?: string; telefono?: string; codigo?: string }[];
+  optica_id?: number;
 }): Promise<{ exito: boolean; plantilla?: PlantillaWhatsApp; error?: string }> {
   try {
+    const payload = {
+      ...datos,
+      optica_id: datos.optica_id || obtenerIdOpticaActiva() || undefined,
+    };
     const res = await fetch('/api/plantillas', {
       method: 'POST',
       headers: crearEncabezados({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(datos),
+      body: JSON.stringify(payload),
     });
     const texto = await res.text();
     try {
@@ -912,14 +919,16 @@ export async function lanzarLoteCampanaApi(parametros: {
   return { exito: false, error: 'Error de comunicación persistente con el servidor' };
 }
 
-export async function obtenerHistorialLotesApi(): Promise<{
+export async function obtenerHistorialLotesApi(opticaId?: number): Promise<{
   exito: boolean;
   historial?: CampanaEnvioHistorial[];
   error?: string;
 }> {
   try {
-    const res = await fetch('/api/plantillas/historial-lotes', {
-      headers: crearEncabezados(),
+    const idOptica = opticaId || obtenerIdOpticaActiva();
+    const url = idOptica ? `/api/plantillas/historial-lotes?optica_id=${idOptica}` : '/api/plantillas/historial-lotes';
+    const res = await fetch(url, {
+      headers: crearEncabezados(idOptica ? { 'x-optica-id': String(idOptica) } : {}),
     });
     const texto = await res.text();
     try {
@@ -946,7 +955,7 @@ export async function eliminarLoteApi(id: number): Promise<{ exito: boolean; err
   }
 }
 
-export async function sincronizarPlantillasConMetaApi(): Promise<{
+export async function sincronizarPlantillasConMetaApi(opticaId?: number): Promise<{
   exito: boolean;
   total_sincronizadas?: number;
   plantillas?: PlantillaWhatsApp[];
@@ -954,9 +963,12 @@ export async function sincronizarPlantillasConMetaApi(): Promise<{
   error?: string;
 }> {
   try {
-    const res = await fetch('/api/plantillas/sincronizar-meta', {
+    const idOptica = opticaId || obtenerIdOpticaActiva();
+    const url = idOptica ? `/api/plantillas/sincronizar-meta?optica_id=${idOptica}` : '/api/plantillas/sincronizar-meta';
+    const res = await fetch(url, {
       method: 'POST',
-      headers: crearEncabezados(),
+      headers: crearEncabezados(idOptica ? { 'x-optica-id': String(idOptica), 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' }),
+      body: JSON.stringify(idOptica ? { optica_id: idOptica } : {}),
     });
     const texto = await res.text();
     try {

@@ -142,22 +142,23 @@ function calcularEstadoSuscripcionColombia(fechaVencimiento: string | Date | nul
 function extraerSesion(request: NextRequest): { usuario: any; optica_id: number } {
   const authHeader = request.headers.get('authorization');
   const opticaSolicitada = request.headers.get('x-optica-id') || request.nextUrl.searchParams.get('optica_id');
+  const idOpticaSolicitada = opticaSolicitada ? Number(opticaSolicitada) : null;
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.split(' ')[1];
     try {
       const usuario: any = jwt.verify(token, SECRETO_JWT);
       let optica_id = Number(usuario.optica_id) || 1;
-      if (usuario.rol === 'admin' && opticaSolicitada) {
-        optica_id = Number(opticaSolicitada);
+      if (idOpticaSolicitada) {
+        optica_id = idOpticaSolicitada;
       }
       return { usuario, optica_id };
     } catch {
-      return { usuario: null, optica_id: 1 };
+      return { usuario: null, optica_id: idOpticaSolicitada || 1 };
     }
   }
 
-  return { usuario: null, optica_id: 1 };
+  return { usuario: null, optica_id: idOpticaSolicitada || 1 };
 }
 
 async function procesarPeticion(
@@ -1405,14 +1406,16 @@ async function procesarPeticion(
     }
 
     if (metodo === 'POST' && rutaStr === 'plantillas') {
-      const nueva = await crearPlantilla(optica_id, body);
+      const idOpticaDestino = body?.optica_id ? Number(body.optica_id) : optica_id;
+      const nueva = await crearPlantilla(idOpticaDestino, body);
       return NextResponse.json({ exito: true, plantilla: nueva });
     }
 
     if (metodo === 'POST' && rutaStr === 'plantillas/sincronizar-meta') {
-      const resultado = await sincronizarPlantillasConZernio(optica_id);
-      const plantillas = await obtenerPlantillas(optica_id);
-      const cuota = await obtenerCuotaDiaria(optica_id);
+      const idOpticaDestino = body?.optica_id ? Number(body.optica_id) : optica_id;
+      const resultado = await sincronizarPlantillasConZernio(idOpticaDestino);
+      const plantillas = await obtenerPlantillas(idOpticaDestino);
+      const cuota = await obtenerCuotaDiaria(idOpticaDestino);
       return NextResponse.json({ ...resultado, plantillas, cuota });
     }
 
