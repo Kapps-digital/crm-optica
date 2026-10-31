@@ -1547,6 +1547,7 @@ export default function PaginaPrincipal() {
 
         {vistaActiva === 'pacientes' && (
           <DirectorioPacientes
+            key={`pacientes-optica-${opticaActual?.id || 1}`}
             pacientes={pacientes}
             cargando={cargandoPacientes}
             alAbrirNuevaFormula={(p) => {
@@ -1560,9 +1561,11 @@ export default function PaginaPrincipal() {
 
         {vistaActiva === 'citas' && (
           <CalendarioCitas
+            key={`citas-optica-${opticaActual?.id || 1}`}
             contactos={pacientes}
             conversaciones={conversaciones}
             nombreOptica={opticaActual?.nombre}
+            opticaId={opticaActual?.id}
             esAdmin={usuarioActual?.rol === 'admin'}
             alSeleccionarContactoChat={navegarAlChatContacto}
             alEnviarMensajeWhatsApp={async (texto, convDestino) => {
@@ -1576,6 +1579,7 @@ export default function PaginaPrincipal() {
 
         {vistaActiva === 'campanas' && (
           <ModuloAutoSegmentacion
+            key={`campanas-optica-${opticaActual?.id || 1}`}
             alSeleccionarContactoChat={navegarAlChatContacto}
             nombreOptica={opticaActual?.nombre}
             opticaId={opticaActual?.id}
@@ -1584,6 +1588,7 @@ export default function PaginaPrincipal() {
 
         {vistaActiva === 'plantillas' && (
           <ModuloPlantillas
+            key={`plantillas-optica-${opticaActual?.id || 1}`}
             nombreOptica={opticaActual?.nombre}
             opticaId={opticaActual?.id}
             alSeleccionarContactoChat={navegarAlChatContacto}
@@ -1592,6 +1597,7 @@ export default function PaginaPrincipal() {
 
         {vistaActiva === 'configuracion' && (
           <ModuloConfiguracion
+            key={`configuracion-optica-${opticaActual?.id || 1}`}
             opticaActual={opticaActual}
             usuarioActual={usuarioActual}
             alActualizarOptica={(opticaActualizada) => {

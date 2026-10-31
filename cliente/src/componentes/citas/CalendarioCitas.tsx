@@ -61,6 +61,7 @@ interface PropiedadesCalendarioCitas {
   contactos: Contacto[];
   conversaciones: Conversacion[];
   nombreOptica?: string;
+  opticaId?: number;
   esAdmin?: boolean;
   alSeleccionarContactoChat?: (contactoId: number) => void;
   alEnviarMensajeWhatsApp?: (texto: string, conversacionDestino?: Conversacion | null) => Promise<void>;
@@ -108,6 +109,7 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
   contactos,
   conversaciones,
   nombreOptica,
+  opticaId,
   esAdmin: esAdminProp,
   alSeleccionarContactoChat,
   alEnviarMensajeWhatsApp,
@@ -218,7 +220,7 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
 
   useEffect(() => {
     cargarCitas();
-  }, []);
+  }, [opticaId]);
 
   const refrescar = () => {
     setRecargando(true);

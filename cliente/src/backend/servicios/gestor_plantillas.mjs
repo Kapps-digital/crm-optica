@@ -2,38 +2,54 @@ import { pool } from '../base_datos/conexion.mjs';
 import { obtenerPacientesDeSegmento } from './gestor_segmentacion.mjs';
 import { ClienteZernio, obtener_cliente_zernio } from './cliente_zernio.mjs';
 
-// Caché en memoria para evitar saturar la API de Zernio en consultas rápidas
-let ultimaSincronizacionZernio = 0;
-let cacheCuentaWp = null;
-let cacheTimestampCuenta = 0;
+// Caché en memoria por óptica para evitar saturar la API de Zernio en consultas rápidas
+const cacheCuentasPorOptica = new Map();
+const cacheTimestampsPorOptica = new Map();
+const cacheUltimaSincronizacionPorOptica = new Map();
 
 /**
- * Obtiene la cuenta activa de WhatsApp desde Zernio
+ * Obtiene la cuenta activa de WhatsApp desde Zernio para la óptica específica
  */
 export async function obtenerCuentaWhatsAppZernio(optica_id = null) {
+  const idOpticaSeguro = optica_id ? Number(optica_id) : 1;
   const ahora = Date.now();
-  if (cacheCuentaWp && (ahora - cacheTimestampCuenta < 60000)) {
-    return cacheCuentaWp;
+  const cacheCuenta = cacheCuentasPorOptica.get(idOpticaSeguro);
+  const cacheTimestamp = cacheTimestampsPorOptica.get(idOpticaSeguro) || 0;
+
+  if (cacheCuenta && (ahora - cacheTimestamp < 60000)) {
+    return cacheCuenta;
   }
 
   try {
-    const cliente = await obtener_cliente_zernio(optica_id);
+    const cliente = await obtener_cliente_zernio(idOpticaSeguro);
     const res = await cliente.solicitar('/accounts');
     if (res.exito && res.datos?.accounts) {
-      const cuenta = res.datos.accounts.find(
-        (a) => a.platform === 'whatsapp' && (a.isActive || a.enabled)
-      );
+      // Priorizar la cuenta configurada en lineas_canales para esta óptica
+      const linea = await pool.query('SELECT id_cuenta_zernio FROM "CRM_Opticas".lineas_canales WHERE optica_id = $1 AND canal = \'whatsapp\' LIMIT 1', [idOpticaSeguro]);
+      const idCuentaConfigurada = linea.rows[0]?.id_cuenta_zernio;
+
+      let cuenta = null;
+      if (idCuentaConfigurada) {
+        cuenta = res.datos.accounts.find(
+          (a) => (a._id === idCuentaConfigurada || a.id === idCuentaConfigurada)
+        );
+      }
+      if (!cuenta) {
+        cuenta = res.datos.accounts.find(
+          (a) => a.platform === 'whatsapp' && (a.isActive || a.enabled)
+        );
+      }
       if (cuenta) {
-        cacheCuentaWp = cuenta;
-        cacheTimestampCuenta = ahora;
+        cacheCuentasPorOptica.set(idOpticaSeguro, cuenta);
+        cacheTimestampsPorOptica.set(idOpticaSeguro, ahora);
         return cuenta;
       }
     }
   } catch (error) {
-    console.warn('Advertencia al consultar cuenta WhatsApp en Zernio:', error.message);
+    console.warn(`Advertencia al consultar cuenta WhatsApp en Zernio para óptica ${idOpticaSeguro}:`, error.message);
   }
 
-  return cacheCuentaWp;
+  return cacheCuentasPorOptica.get(idOpticaSeguro) || null;
 }
 
 /**
@@ -85,6 +101,13 @@ export async function sincronizarPlantillasConZernio(opticaId) {
 
   const templatesMeta = resMeta.datos.templates;
 
+  if (templatesMeta.length === 0) {
+    // Si no hay plantillas en Meta para esta cuenta, eliminar posibles plantillas residuales erróneas
+    await pool.query('DELETE FROM "CRM_Opticas".plantillas WHERE optica_id = $1 AND es_sistema = FALSE', [idOpticaNumerico]);
+    cacheUltimaSincronizacionPorOptica.set(idOpticaNumerico, Date.now());
+    return { exito: true, total_sincronizadas: 0 };
+  }
+
   for (const t of templatesMeta) {
     const nombre = t.name;
     const estado = (t.status || 'PENDING').toUpperCase();
@@ -133,10 +156,10 @@ export async function sincronizarPlantillasConZernio(opticaId) {
       .replace(/_/g, ' ')
       .replace(/\b\w/g, (l) => l.toUpperCase());
 
-    // Buscar si ya existe por nombre
+    // Buscar si ya existe por nombre estrictamente en esta óptica
     const existente = await pool.query(
       `SELECT id, encabezado_contenido FROM "CRM_Opticas".plantillas 
-       WHERE nombre = $1 AND (optica_id IS NULL OR optica_id = $2)
+       WHERE nombre = $1 AND optica_id = $2
        ORDER BY id ASC LIMIT 1`,
       [nombre, idOpticaNumerico]
     );
@@ -193,7 +216,14 @@ export async function sincronizarPlantillasConZernio(opticaId) {
     }
   }
 
-  ultimaSincronizacionZernio = Date.now();
+  const metaIdsValidos = templatesMeta.map((t) => String(t.id));
+  await pool.query(
+    `DELETE FROM "CRM_Opticas".plantillas 
+     WHERE optica_id = $1 AND es_sistema = FALSE AND meta_template_id != ALL($2::text[])`,
+    [idOpticaNumerico, metaIdsValidos]
+  );
+
+  cacheUltimaSincronizacionPorOptica.set(idOpticaNumerico, Date.now());
   return { exito: true, total_sincronizadas: templatesMeta.length };
 }
 
@@ -203,11 +233,12 @@ export async function sincronizarPlantillasConZernio(opticaId) {
 export async function obtenerPlantillas(opticaId) {
   const idOpticaNumerico = Number(opticaId) || 1;
 
-  // Sincronizar en segundo plano si pasaron más de 45 segundos
+  // Sincronizar en segundo plano si pasaron más de 45 segundos para esta óptica
   const ahora = Date.now();
-  if (ahora - ultimaSincronizacionZernio > 45000) {
+  const ultimaSync = cacheUltimaSincronizacionPorOptica.get(idOpticaNumerico) || 0;
+  if (ahora - ultimaSync > 45000) {
     sincronizarPlantillasConZernio(idOpticaNumerico).catch((err) => {
-      console.warn('Aviso: Sincronización automática de plantillas omitida:', err.message);
+      console.warn(`Aviso: Sincronización automática de plantillas omitida para óptica ${idOpticaNumerico}:`, err.message);
     });
   }
 
@@ -216,7 +247,7 @@ export async function obtenerPlantillas(opticaId) {
             encabezado_contenido, cuerpo, pie, botones_json, estado, es_sistema, 
             meta_template_id, creado_en, actualizado_en
      FROM "CRM_Opticas".plantillas
-     WHERE (optica_id = $1 OR optica_id IS NULL)
+     WHERE optica_id = $1
        AND es_sistema = FALSE
        AND meta_template_id IS NOT NULL
      ORDER BY id DESC`,
@@ -265,7 +296,7 @@ export async function crearPlantilla(opticaId, datos) {
   let estadoMeta = 'PENDING';
 
   // 1. Conectar con Zernio para registrar en Meta Cloud API
-  const cuentaWp = await obtenerCuentaWhatsAppZernio();
+  const cuentaWp = await obtenerCuentaWhatsAppZernio(idOpticaNumerico);
 
   if (cuentaWp) {
     const accountId = cuentaWp._id || cuentaWp.id;
@@ -440,8 +471,8 @@ export async function crearPlantilla(opticaId, datos) {
 export async function obtenerCuotaDiaria(opticaId) {
   const idOpticaNumerico = Number(opticaId) || 1;
 
-  // 1. Obtener la cuenta conectada en Zernio
-  const cuentaWp = await obtenerCuentaWhatsAppZernio();
+  // 1. Obtener la cuenta conectada en Zernio para esta óptica
+  const cuentaWp = await obtenerCuentaWhatsAppZernio(idOpticaNumerico);
   const tierMeta = cuentaWp?.metadata?.messagingLimitTier || 'TIER_250';
   const calidadMeta = cuentaWp?.metadata?.qualityRating || 'GREEN';
   const limiteDiario = calcularLimitePorTier(tierMeta);
@@ -1052,7 +1083,7 @@ export async function obtenerMapaPlantillasPorNombre(opticaId = 1) {
       `SELECT id, optica_id, nombre, etiqueta, categoria, idioma, encabezado_tipo, 
               encabezado_contenido, cuerpo, pie, botones_json, estado
        FROM "CRM_Opticas".plantillas
-       WHERE (optica_id = $1 OR optica_id IS NULL)
+       WHERE optica_id = $1
        ORDER BY id DESC`,
       [Number(opticaId) || 1]
     );
