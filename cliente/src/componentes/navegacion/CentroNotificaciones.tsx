@@ -31,6 +31,8 @@ import {
   suscribirDispositivoPush,
   desuscribirDispositivoPush,
   enviarPruebaPush,
+  esDispositivoIOS,
+  esAppInstaladaPWA,
 } from '@/utilidades/gestorNotificacionesPushCliente';
 
 interface RegistroLeida {
@@ -157,12 +159,14 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
 
   // Estados para Notificaciones Push Web (Móvil)
   const [pushSoportado, setPushSoportado] = useState(false);
+  const [esIos, setEsIos] = useState(false);
   const [pushActivo, setPushActivo] = useState(false);
   const [pushCargando, setPushCargando] = useState(false);
   const [pushMensaje, setPushMensaje] = useState<string | null>(null);
 
   // Verificar soporte y suscripción activa al montar y cada vez que se abre el menú
   useEffect(() => {
+    setEsIos(esDispositivoIOS());
     const soportado = verificarSoportePush();
     setPushSoportado(soportado);
     if (soportado) {
@@ -923,22 +927,71 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
                   <span
                     style={{
                       fontSize: '0.66rem',
-                      color: 'var(--texto-atenuado)',
-                      background: 'rgba(0,0,0,0.04)',
+                      color: esIos ? '#0284c7' : 'var(--texto-atenuado)',
+                      background: esIos ? 'rgba(2, 132, 199, 0.1)' : 'rgba(0,0,0,0.04)',
                       padding: '0.15rem 0.45rem',
                       borderRadius: '4px',
+                      fontWeight: esIos ? 700 : 500,
                     }}
                   >
-                    Requiere HTTPS
+                    {esIos ? 'Requiere Agregar al Inicio en iPhone' : 'Requiere HTTPS'}
                   </span>
                 )}
               </div>
 
-              {/* Mensaje de estado o advertencia de HTTPS en red local */}
+              {/* Mensaje de estado o advertencia de HTTPS o instrucciones para iOS */}
               {!pushSoportado && (
-                <p style={{ margin: 0, fontSize: '0.68rem', color: 'var(--texto-atenuado)', lineHeight: 1.35 }}>
-                  Los navegadores móviles requieren HTTPS para alertas push. Funcionarán en la versión oficial en producción o en localhost.
-                </p>
+                <div style={{ marginTop: '0.2rem' }}>
+                  {esIos ? (
+                    <div
+                      style={{
+                        fontSize: '0.70rem',
+                        color: 'var(--texto-secundario)',
+                        lineHeight: 1.45,
+                        background: 'rgba(2, 132, 199, 0.05)',
+                        border: '1px solid rgba(2, 132, 199, 0.2)',
+                        padding: '0.5rem 0.65rem',
+                        borderRadius: '8px',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          color: '#0284c7',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          marginBottom: '0.25rem',
+                        }}
+                      >
+                        <span>📱 Cómo activar en iPhone (Apple iOS):</span>
+                      </div>
+                      <p style={{ margin: '0 0 0.3rem 0', fontSize: '0.68rem', color: 'var(--texto-principal)' }}>
+                        Por reglas de Apple, las notificaciones push en iPhone solo funcionan si la app está en la pantalla de inicio:
+                      </p>
+                      <ol
+                        style={{
+                          margin: 0,
+                          paddingLeft: '1.1rem',
+                          fontSize: '0.67rem',
+                          color: 'var(--texto-secundario)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.15rem',
+                        }}
+                      >
+                        <li>Abre esta web en <strong>Safari</strong>.</li>
+                        <li>Toca el botón <strong>Compartir</strong> (icono de cuadrado con flecha arriba ⬆️).</li>
+                        <li>Selecciona <strong>&ldquo;Agregar al inicio&rdquo;</strong> (Add to Home Screen).</li>
+                        <li>Abre la app desde tu pantalla de inicio y pulsa <strong>&ldquo;Activar en celular&rdquo;</strong>.</li>
+                      </ol>
+                    </div>
+                  ) : (
+                    <p style={{ margin: 0, fontSize: '0.68rem', color: 'var(--texto-atenuado)', lineHeight: 1.35 }}>
+                      Los navegadores móviles requieren HTTPS para alertas push. Funcionarán en la versión oficial en producción o en localhost.
+                    </p>
+                  )}
+                </div>
               )}
 
               {pushMensaje && (

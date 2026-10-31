@@ -22,6 +22,11 @@ export const metadata: Metadata = {
     icon: "/favicon.ico",
     apple: "/apple-icon.png",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "CRM Ópticas",
+  },
 };
 
 export default function LayoutRaiz({

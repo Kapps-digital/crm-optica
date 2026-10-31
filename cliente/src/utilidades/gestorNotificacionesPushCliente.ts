@@ -13,6 +13,20 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
+export function esDispositivoIOS(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = window.navigator.userAgent;
+  return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+export function esAppInstaladaPWA(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    Boolean((window.navigator as any).standalone)
+  );
+}
+
 export function verificarSoportePush(): boolean {
   if (typeof window === 'undefined') return false;
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
