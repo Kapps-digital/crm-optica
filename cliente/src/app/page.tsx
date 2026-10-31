@@ -135,6 +135,7 @@ export default function PaginaPrincipal() {
   const conversacionActivaRef = useRef<number | null>(null);
   const conversacionesRef = useRef<Conversacion[]>([]);
   const opticaActualRef = useRef<Optica | null>(null);
+  const chatUrlProcesadoRef = useRef<string | null>(null);
   const [cargandoMensajesChat, setCargandoMensajesChat] = useState(false);
 
   useEffect(() => {
@@ -459,9 +460,22 @@ export default function PaginaPrincipal() {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const chatParam = params.get('chat');
-    if (chatParam && conversaciones.length > 0) {
+
+    // Procesar únicamente una sola vez por cada ID recibido en URL y si la lista de chats ya cargó
+    if (chatParam && chatUrlProcesadoRef.current !== chatParam && conversaciones.length > 0) {
       const convEncontrada = conversaciones.find((c) => Number(c.id) === Number(chatParam));
       if (convEncontrada) {
+        chatUrlProcesadoRef.current = chatParam;
+
+        // Limpiar inmediatamente el parámetro 'chat' de la URL para no ciclar ni atrapar el botón volver
+        try {
+          const urlLimpia = new URL(window.location.href);
+          urlLimpia.searchParams.delete('chat');
+          window.history.replaceState({}, '', urlLimpia.pathname + (urlLimpia.search ? urlLimpia.search : ''));
+        } catch {
+          // Silencioso si history no está disponible
+        }
+
         setVistaActiva('mensajeria');
         setVistaMovilChat('chat');
         manejarSeleccionarConversacion(convEncontrada);
@@ -1451,7 +1465,23 @@ export default function PaginaPrincipal() {
                     : prev
                 );
               }}
-              alVolver={() => setVistaMovilChat('lista')}
+              alVolver={() => {
+                chatUrlProcesadoRef.current = null;
+                setVistaMovilChat('lista');
+                setConversacionActiva(null);
+                conversacionActivaRef.current = null;
+                if (typeof window !== 'undefined') {
+                  try {
+                    const urlLimpia = new URL(window.location.href);
+                    if (urlLimpia.searchParams.has('chat')) {
+                      urlLimpia.searchParams.delete('chat');
+                      window.history.replaceState({}, '', urlLimpia.pathname + (urlLimpia.search ? urlLimpia.search : ''));
+                    }
+                  } catch {
+                    // Silencioso
+                  }
+                }
+              }}
             />
 
             {/* 3. Ficha Optométrica Lateral */}
