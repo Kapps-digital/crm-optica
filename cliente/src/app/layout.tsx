@@ -17,6 +17,11 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: "CRM Óptica",
   description: "Plataforma Integral de Mensajería Omnicanal y Gestión Optométrica",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
 };
 
 export default function LayoutRaiz({

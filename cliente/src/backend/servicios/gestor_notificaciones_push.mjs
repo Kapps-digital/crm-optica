@@ -75,10 +75,12 @@ export async function enviarNotificacionPushAOptica({
   optica_id,
   titulo,
   cuerpo,
-  icono = '/favicon.ico',
+  icono = '/icono-notificacion-192.png',
+  badge = '/badge-notificacion-96.png',
   url = '/',
   etiqueta = 'alerta-asesor',
   datos = {},
+  acciones = null,
 }) {
   if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
     console.warn('⚠️ [Push] No se pueden enviar notificaciones push: claves VAPID no configuradas.');
@@ -100,12 +102,16 @@ export async function enviarNotificacionPushAOptica({
     const payload = JSON.stringify({
       titulo: titulo || 'CRM Óptica',
       cuerpo: cuerpo || 'Nueva alerta de atención.',
-      icono: icono || '/favicon.ico',
-      badge: '/favicon.ico',
+      icono: icono || '/icono-notificacion-192.png',
+      badge: badge || '/badge-notificacion-96.png',
       url: url || '/',
       tag: etiqueta || 'crm-alerta',
       datos: datos || {},
-      vibrate: [200, 100, 200, 100, 200],
+      vibrate: [100, 80, 120],
+      actions: acciones || [
+        { action: 'abrir_chat', title: '💬 Abrir Chat' },
+        { action: 'cerrar', title: 'Descartar' },
+      ],
     });
 
     let enviadas = 0;
