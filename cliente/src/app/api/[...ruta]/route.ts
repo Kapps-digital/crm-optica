@@ -747,7 +747,7 @@ async function procesarPeticion(
     }
 
     if (rutaStr === 'conversaciones/sincronizar') {
-      const resultado = await sincronizar_conversaciones_zernio({ sincronizar_mensajes_profundo: true, max_conversaciones_mensajes: 15 });
+      const resultado = await sincronizar_conversaciones_zernio({ optica_id, sincronizar_mensajes_profundo: true, max_conversaciones_mensajes: 15 });
       return NextResponse.json(resultado, { headers: ENCABEZADOS_NO_CACHE });
     }
 

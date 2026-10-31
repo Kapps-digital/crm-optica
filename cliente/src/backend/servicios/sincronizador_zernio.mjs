@@ -187,6 +187,7 @@ export async function sincronizar_mensajes_conversacion(id_conversacion_zernio, 
 /**
  * Sincroniza todas las conversaciones de Zernio hacia Supabase.
  * Trae los números, nombres de contactos, últimos mensajes y opcionalmente su historial.
+ * @param {{ optica_id?: number | string | null, sincronizar_mensajes_profundo?: boolean, max_conversaciones_mensajes?: number }} [opciones]
  */
 export async function sincronizar_conversaciones_zernio({ optica_id = null, sincronizar_mensajes_profundo = true, max_conversaciones_mensajes = 15 } = {}) {
   const cliente = await obtener_cliente_zernio(optica_id);
@@ -220,17 +221,25 @@ export async function sincronizar_conversaciones_zernio({ optica_id = null, sinc
       nombre = telefono ? `Contacto ${telefono}` : 'Paciente WhatsApp';
     }
 
+    let id_optica_efectivo = optica_id ? Number(optica_id) : null;
+    if (!id_optica_efectivo && id_cuenta) {
+      const linea = await base_datos.prepare('SELECT optica_id FROM lineas_canales WHERE id_cuenta_zernio = ? LIMIT 1').get(id_cuenta);
+      if (linea?.optica_id) id_optica_efectivo = Number(linea.optica_id);
+    }
+    if (!id_optica_efectivo) id_optica_efectivo = 1;
+
     // 1. Obtener o crear el contacto en Supabase
     const contacto_id = await obtener_o_crear_contacto({
       nombre,
       telefono,
       bsuid,
+      optica_id: id_optica_efectivo,
     });
 
     // 2. Obtener o crear la conversación en Supabase
     const fecha_actualizado = formatear_fecha(conv.updatedTime);
     const no_leidos = Number(conv.unreadCount || conv.unread_count || 0);
-    let conv_existente = await base_datos.prepare('SELECT id, ultimo_leido_en, ultimo_mensaje_entrante_en, mensajes_no_leidos FROM conversaciones WHERE id_conversacion_zernio = ?').get(id_conv_zernio);
+    let conv_existente = await base_datos.prepare('SELECT id, optica_id, ultimo_leido_en, ultimo_mensaje_entrante_en, mensajes_no_leidos FROM conversaciones WHERE id_conversacion_zernio = ?').get(id_conv_zernio);
     let conversacion_id = null;
 
     if (conv_existente) {
@@ -249,15 +258,15 @@ export async function sincronizar_conversaciones_zernio({ optica_id = null, sinc
 
       await base_datos.prepare(`
         UPDATE conversaciones 
-        SET actualizado_en = ?, estado = ?, mensajes_no_leidos = ?
+        SET actualizado_en = ?, estado = ?, mensajes_no_leidos = ?, optica_id = COALESCE(optica_id, ?)
         WHERE id = ?
-      `).run(fecha_actualizado, conv.status || 'abierta', conteo_final_no_leidos, conversacion_id);
+      `).run(fecha_actualizado, conv.status || 'abierta', conteo_final_no_leidos, id_optica_efectivo, conversacion_id);
     } else {
       const insercion = await base_datos.prepare(`
         INSERT INTO conversaciones (
           contacto_id, canal, id_cuenta_zernio, id_conversacion_zernio,
-          ultimo_mensaje_entrante_en, estado, creado_en, actualizado_en, mensajes_no_leidos
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ultimo_mensaje_entrante_en, estado, creado_en, actualizado_en, mensajes_no_leidos, optica_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         contacto_id,
         canal,
@@ -267,7 +276,8 @@ export async function sincronizar_conversaciones_zernio({ optica_id = null, sinc
         conv.status || 'abierta',
         fecha_actualizado,
         fecha_actualizado,
-        no_leidos
+        no_leidos,
+        id_optica_efectivo
       );
       conversacion_id = Number(insercion.lastInsertRowid);
     }

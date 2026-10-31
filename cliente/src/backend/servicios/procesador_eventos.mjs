@@ -11,7 +11,7 @@ import { extraerNombrePersonaValido } from './motor_ia.mjs';
  * Extrae y normaliza un contacto a partir de los datos del remitente.
  * Resuelve la regla de WhatsApp donde el teléfono puede ser nulo (BSUID).
  */
-export async function obtener_o_crear_contacto({ nombre, telefono, bsuid, correo }) {
+export async function obtener_o_crear_contacto({ nombre, telefono, bsuid, correo, optica_id = null }) {
   const nombrePersonaValido = extraerNombrePersonaValido(nombre);
 
   // 1. Si viene BSUID, buscar primero por BSUID
@@ -22,6 +22,9 @@ export async function obtener_o_crear_contacto({ nombre, telefono, bsuid, correo
       const nombreActualEsValido = extraerNombrePersonaValido(contacto_existente.nombre_completo);
       if (nombrePersonaValido && !nombreActualEsValido) {
         await base_datos.prepare("UPDATE contactos SET nombre_completo = ?, actualizado_en = now() WHERE id = ?").run(nombrePersonaValido, contacto_existente.id);
+      }
+      if (optica_id && !contacto_existente.optica_id) {
+        await base_datos.prepare("UPDATE contactos SET optica_id = ?, actualizado_en = now() WHERE id = ?").run(optica_id, contacto_existente.id);
       }
       return contacto_existente.id;
     }
@@ -39,6 +42,9 @@ export async function obtener_o_crear_contacto({ nombre, telefono, bsuid, correo
       if (nombrePersonaValido && !nombreActualEsValido) {
         await base_datos.prepare("UPDATE contactos SET nombre_completo = ?, actualizado_en = now() WHERE id = ?").run(nombrePersonaValido, contacto_existente.id);
       }
+      if (optica_id && !contacto_existente.optica_id) {
+        await base_datos.prepare("UPDATE contactos SET optica_id = ?, actualizado_en = now() WHERE id = ?").run(optica_id, contacto_existente.id);
+      }
       return contacto_existente.id;
     }
   }
@@ -46,9 +52,9 @@ export async function obtener_o_crear_contacto({ nombre, telefono, bsuid, correo
   // 3. Crear nuevo contacto
   const nombreAGuardar = nombrePersonaValido || (telefono ? `Contacto ${telefono}` : 'Paciente Sin Nombre');
   const insercion = await base_datos.prepare(`
-    INSERT INTO contactos (nombre_completo, telefono, correo, business_scoped_user_id)
-    VALUES (?, ?, ?, ?)
-  `).run(nombreAGuardar, telefono || null, correo || null, bsuid || null);
+    INSERT INTO contactos (nombre_completo, telefono, correo, business_scoped_user_id, optica_id)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(nombreAGuardar, telefono || null, correo || null, bsuid || null, optica_id || 1);
 
   return Number(insercion.lastInsertRowid);
 }
@@ -119,8 +125,25 @@ export async function procesar_evento_webhook(payload) {
   const conversacion_datos = payload.conversation;
   const cuenta_datos = payload.account;
 
-  const id_cuenta = cuenta_datos?.id || cuenta_datos?._id || process.env.ZERNIO_ACCOUNT_ID || '';
+  const id_cuenta =
+    cuenta_datos?.id ||
+    cuenta_datos?._id ||
+    cuenta_datos?.accountId ||
+    payload.accountId ||
+    payload.account_id ||
+    payload.data?.accountId ||
+    payload.data?.account_id ||
+    mensaje_datos?.accountId ||
+    process.env.ZERNIO_ACCOUNT_ID ||
+    '';
   const canal = cuenta_datos?.platform || conversacion_datos?.channel || 'whatsapp';
+
+  let idOpticaEvento = null;
+  if (id_cuenta) {
+    const linea = await base_datos.prepare('SELECT optica_id FROM lineas_canales WHERE id_cuenta_zernio = ? LIMIT 1').get(id_cuenta);
+    if (linea?.optica_id) idOpticaEvento = Number(linea.optica_id);
+  }
+  if (!idOpticaEvento) idOpticaEvento = 1;
 
   switch (tipo_evento) {
     case 'message.received': {
@@ -135,6 +158,7 @@ export async function procesar_evento_webhook(payload) {
         nombre,
         telefono,
         bsuid,
+        optica_id: idOpticaEvento,
       });
 
       let fecha_mensaje = null;

@@ -54,7 +54,17 @@ export async function POST(request: NextRequest) {
 
     // Si falló con el secreto global, verificar si la cuenta pertenece a una óptica con secreto propio
     if (!firmaValida && firma) {
-      const idCuenta = payload.accountId || payload.account_id || payload.data?.accountId || payload.data?.account_id;
+      const idCuenta =
+        payload.account?.id ||
+        payload.account?._id ||
+        payload.account?.accountId ||
+        payload.accountId ||
+        payload.account_id ||
+        payload.data?.accountId ||
+        payload.data?.account_id ||
+        payload.data?.account?.id ||
+        payload.message?.accountId;
+
       if (idCuenta) {
         const linea: any = await base_datos.prepare(`
           SELECT o.zernio_webhook_secret 
@@ -66,6 +76,21 @@ export async function POST(request: NextRequest) {
 
         if (linea && typeof linea === 'object' && linea.zernio_webhook_secret) {
           firmaValida = validarFirmaWebhook(cuerpoCrudo, firma, String(linea.zernio_webhook_secret));
+        }
+      }
+
+      // Fallback seguro: probar los secretos configurados en las ópticas registradas
+      if (!firmaValida) {
+        const opticasConSecreto: any = await base_datos.prepare(`
+          SELECT zernio_webhook_secret FROM opticas WHERE zernio_webhook_secret IS NOT NULL
+        `).all();
+
+        const lista = Array.isArray(opticasConSecreto) ? opticasConSecreto : [];
+        for (const opt of lista) {
+          if (opt?.zernio_webhook_secret && validarFirmaWebhook(cuerpoCrudo, firma, String(opt.zernio_webhook_secret))) {
+            firmaValida = true;
+            break;
+          }
         }
       }
     }
