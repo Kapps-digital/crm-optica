@@ -473,7 +473,11 @@ export async function obtenerCuotaDiaria(opticaId) {
 
   // 1. Obtener la cuenta conectada en Zernio para esta óptica
   const cuentaWp = await obtenerCuentaWhatsAppZernio(idOpticaNumerico);
-  const tierMeta = cuentaWp?.metadata?.messagingLimitTier || 'TIER_250';
+  let tierMeta = cuentaWp?.metadata?.messagingLimitTier || 'TIER_250';
+  // Cuentas sin verificación de negocio en Meta (nameStatus NON_EXISTS) tienen tope real de 250 mensajes/día
+  if (cuentaWp?.metadata?.nameStatus === 'NON_EXISTS' && tierMeta === 'TIER_2K') {
+    tierMeta = 'TIER_250';
+  }
   const calidadMeta = cuentaWp?.metadata?.qualityRating || 'GREEN';
   const limiteDiario = calcularLimitePorTier(tierMeta);
 
