@@ -7582,6 +7582,10 @@ button.kpi-chip:hover {
     gap: 0.5rem !important;
   }
 
+  .barra-superior.ocultar-en-movil-chat {
+    display: none !important;
+  }
+
   .barra-superior .barra-titulo-grupo {
     display: flex;
     align-items: center;

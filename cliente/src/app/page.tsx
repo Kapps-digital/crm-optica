@@ -1277,9 +1277,8 @@ export default function PaginaPrincipal() {
 
       {/* 2. Contenido Principal */}
       <main className="contenido-principal">
-        {/* Barra Superior Compacta (Oculta en móvil si estamos dentro de una conversación activa para dar espacio completo) */}
-        {!(vistaActiva === 'mensajeria' && vistaMovilChat !== 'lista') && (
-          <header className="barra-superior">
+        {/* Barra Superior Compacta */}
+        <header className={`barra-superior ${vistaActiva === 'mensajeria' && vistaMovilChat !== 'lista' ? 'ocultar-en-movil-chat' : ''}`}>
           <div className="barra-titulo-grupo">
             <button
               type="button"
@@ -1402,7 +1401,6 @@ export default function PaginaPrincipal() {
             />
           </div>
         </header>
-        )}
 
         {/* Secciones del CRM */}
         {vistaActiva === 'mensajeria' && (

@@ -10,6 +10,7 @@ import {
   Power,
 } from 'lucide-react';
 import { ModalConfirmarCierreSesion } from './ModalConfirmarCierreSesion';
+import { TarjetaPlanSuscripcion } from './TarjetaPlanSuscripcion';
 import { cerrarSesion } from '@/servicios/api_crm';
 import type { Usuario, Optica } from '@/tipos/crm';
 
@@ -62,22 +63,6 @@ export const PerfilUsuarioCabecera: React.FC<PropiedadesPerfilUsuarioCabecera> =
     if (usuario.rol === 'admin' || usuario.rol === 'admin_optica') return 'Administrador';
     return 'Especialista';
   }, [usuario?.rol]);
-
-  // Formateador de fecha en horario Colombia
-  const fechaVencimientoFormateada = useMemo(() => {
-    if (!optica?.fecha_vencimiento) return null;
-    try {
-      const d = new Date(optica.fecha_vencimiento);
-      return new Intl.DateTimeFormat('es-CO', {
-        timeZone: 'America/Bogota',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      }).format(d);
-    } catch {
-      return String(optica.fecha_vencimiento);
-    }
-  }, [optica?.fecha_vencimiento]);
 
   if (!usuario) return null;
 
@@ -146,55 +131,16 @@ export const PerfilUsuarioCabecera: React.FC<PropiedadesPerfilUsuarioCabecera> =
             </div>
           </div>
 
-          {/* Resumen de Suscripción en Horario Colombia */}
-          {fechaVencimientoFormateada && (
-            <div
-              style={{
-                margin: '0.5rem 0.85rem',
-                padding: '0.55rem 0.75rem',
-                borderRadius: '8px',
-                background: 'var(--fondo-elevado)',
-                border: '1px solid var(--borde-tarjeta)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                fontSize: '0.74rem',
-              }}
-            >
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ color: 'var(--texto-atenuado)', fontSize: '0.67rem', fontWeight: 700, textTransform: 'uppercase' }}>
-                  Plan Mensual
-                </span>
-                <span style={{ fontWeight: 700, color: 'var(--texto-principal)' }}>
-                  {fechaVencimientoFormateada}
-                </span>
-              </div>
-              <span
-                style={{
-                  padding: '0.18rem 0.55rem',
-                  borderRadius: '9999px',
-                  fontWeight: 700,
-                  fontSize: '0.68rem',
-                  background:
-                    optica?.plan_vencido || (optica?.dias_restantes !== undefined && optica.dias_restantes < 0)
-                      ? 'rgba(239, 68, 68, 0.14)'
-                      : (optica?.dias_restantes ?? 99) <= 5
-                      ? 'rgba(245, 158, 11, 0.16)'
-                      : 'rgba(16, 185, 129, 0.14)',
-                  color:
-                    optica?.plan_vencido || (optica?.dias_restantes !== undefined && optica.dias_restantes < 0)
-                      ? '#ef4444'
-                      : (optica?.dias_restantes ?? 99) <= 5
-                      ? '#d97706'
-                      : '#059669',
-                }}
-              >
-                {optica?.plan_vencido || (optica?.dias_restantes !== undefined && optica.dias_restantes < 0)
-                  ? 'Vencido'
-                  : `${optica?.dias_restantes ?? 0} días`}
-              </span>
-            </div>
-          )}
+          {/* Resumen de Suscripción en Horario Colombia (Estilo Fintech) */}
+          <TarjetaPlanSuscripcion
+            optica={optica}
+            usuario={usuario}
+            modo="desplegable_perfil"
+            alCambiarVista={(vista) => {
+              alCambiarVista?.(vista);
+              setMenuAbierto(false);
+            }}
+          />
 
           <div className="cabecera-popover-divisor" />
 
