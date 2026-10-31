@@ -655,12 +655,18 @@ export default function PaginaPrincipal() {
       }
     }, 25000);
 
-    // 3. Reactivar al regresar a la pestaña
+    // 3. Reactivar al regresar a la pestaña y limpiar badge del icono de la app
     const alCambiarVisibilidad = () => {
       if (typeof document !== 'undefined' && !document.hidden) {
         recargarConversaciones();
+        if (typeof navigator !== 'undefined' && 'clearAppBadge' in navigator) {
+          (navigator as any).clearAppBadge().catch(() => {});
+        }
       }
     };
+    if (typeof navigator !== 'undefined' && 'clearAppBadge' in navigator) {
+      (navigator as any).clearAppBadge().catch(() => {});
+    }
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', alCambiarVisibilidad);
     }

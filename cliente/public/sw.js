@@ -39,11 +39,20 @@ self.addEventListener('push', (event) => {
     },
   };
 
-  event.waitUntil(self.registration.showNotification(titulo, opciones));
+  const promesas = [self.registration.showNotification(titulo, opciones)];
+  if ('setAppBadge' in navigator) {
+    promesas.push(navigator.setAppBadge(1).catch(() => {}));
+  }
+
+  event.waitUntil(Promise.all(promesas));
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  if ('clearAppBadge' in navigator) {
+    navigator.clearAppBadge().catch(() => {});
+  }
 
   if (event.action === 'cerrar') {
     return;
