@@ -1,6 +1,6 @@
 import { pool } from '../base_datos/conexion.mjs';
 import { obtenerPacientesDeSegmento } from './gestor_segmentacion.mjs';
-import { ClienteZernio } from './cliente_zernio.mjs';
+import { ClienteZernio, obtener_cliente_zernio } from './cliente_zernio.mjs';
 
 // Caché en memoria para evitar saturar la API de Zernio en consultas rápidas
 let ultimaSincronizacionZernio = 0;
@@ -10,14 +10,14 @@ let cacheTimestampCuenta = 0;
 /**
  * Obtiene la cuenta activa de WhatsApp desde Zernio
  */
-export async function obtenerCuentaWhatsAppZernio() {
+export async function obtenerCuentaWhatsAppZernio(optica_id = null) {
   const ahora = Date.now();
   if (cacheCuentaWp && (ahora - cacheTimestampCuenta < 60000)) {
     return cacheCuentaWp;
   }
 
   try {
-    const cliente = new ClienteZernio();
+    const cliente = await obtener_cliente_zernio(optica_id);
     const res = await cliente.solicitar('/accounts');
     if (res.exito && res.datos?.accounts) {
       const cuenta = res.datos.accounts.find(
@@ -40,13 +40,16 @@ export async function obtenerCuentaWhatsAppZernio() {
  * Obtiene el límite numérico diario según el messagingLimitTier de Meta
  */
 export function calcularLimitePorTier(tier) {
-  switch (tier) {
+  const tierNormalizado = String(tier || '').trim().toUpperCase();
+  switch (tierNormalizado) {
     case 'TIER_50':
       return 50;
     case 'TIER_250':
       return 250;
     case 'TIER_1K':
       return 1000;
+    case 'TIER_2K':
+      return 2000;
     case 'TIER_10K':
       return 10000;
     case 'TIER_100K':
@@ -63,14 +66,14 @@ export function calcularLimitePorTier(tier) {
  */
 export async function sincronizarPlantillasConZernio(opticaId) {
   const idOpticaNumerico = Number(opticaId) || 1;
-  const cuentaWp = await obtenerCuentaWhatsAppZernio();
+  const cuentaWp = await obtenerCuentaWhatsAppZernio(idOpticaNumerico);
 
   if (!cuentaWp) {
     return { exito: false, mensaje: 'No hay cuenta de WhatsApp conectada en Zernio' };
   }
 
   const accountId = cuentaWp._id || cuentaWp.id;
-  const cliente = new ClienteZernio();
+  const cliente = await obtener_cliente_zernio(idOpticaNumerico);
   const resMeta = await cliente.solicitar(`/whatsapp/templates?accountId=${encodeURIComponent(accountId)}`);
 
   if (!resMeta.exito || !resMeta.datos?.templates) {
@@ -382,7 +385,7 @@ export async function crearPlantilla(opticaId, datos) {
       });
     }
 
-    const cliente = new ClienteZernio();
+    const cliente = await obtener_cliente_zernio(idOpticaNumerico);
     const resMeta = await cliente.solicitar('/whatsapp/templates', {
       metodo: 'POST',
       cuerpo: {
@@ -725,7 +728,7 @@ export async function lanzarLoteCampana(opticaId, datos) {
   // 2. Obtener cuenta oficial conectada de WhatsApp en Zernio (forzar actualización)
   cacheCuentaWp = null;
   cacheTimestampCuenta = 0;
-  const cuentaWp = await obtenerCuentaWhatsAppZernio();
+  const cuentaWp = await obtenerCuentaWhatsAppZernio(idOpticaNumerico);
   if (!cuentaWp) {
     throw new Error('No hay una cuenta activa de WhatsApp conectada en Zernio para realizar envíos.');
   }
@@ -761,7 +764,7 @@ export async function lanzarLoteCampana(opticaId, datos) {
     });
   }
 
-  const cliente = new ClienteZernio();
+  const cliente = await obtener_cliente_zernio(idOpticaNumerico);
 
   // 4. Paso A: Crear el borrador de campaña broadcast en Zernio
   const resCrear = await cliente.solicitar('/broadcasts', {
@@ -977,7 +980,7 @@ export async function obtenerHistorialLotes(opticaId) {
 
   // Sincronizar en tiempo real los lotes más recientes con Zernio si tienen broadcast_id
   try {
-    const cliente = new ClienteZernio();
+    const cliente = await obtener_cliente_zernio(idOpticaNumerico);
     for (const c of campanas.slice(0, 5)) {
       if (c.broadcast_id && c.estado !== 'fallido') {
         const resBc = await cliente.solicitar(`/broadcasts/${c.broadcast_id}`, { sin_reintentos: true });

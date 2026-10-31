@@ -14,11 +14,24 @@ import {
   RotateCcw,
   CheckCircle2,
   FlaskConical,
+  X,
+  Smartphone,
+  BellRing,
+  BellOff,
+  Send,
+  Loader2,
 } from 'lucide-react';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import { obtenerNotificacionesApi } from '@/servicios/api_crm';
 import { obtenerFechaHoyColombia, obtenerFechaMananaColombia } from '@/utilidades/formato';
 import type { NotificacionCRM, Usuario } from '@/tipos/crm';
+import {
+  verificarSoportePush,
+  verificarSuscripcionActiva,
+  suscribirDispositivoPush,
+  desuscribirDispositivoPush,
+  enviarPruebaPush,
+} from '@/utilidades/gestorNotificacionesPushCliente';
 
 interface RegistroLeida {
   clave: string;
@@ -26,6 +39,7 @@ interface RegistroLeida {
 }
 
 interface PropiedadesCentroNotificaciones {
+  opticaId?: number;
   usuario?: Usuario | null;
   alNavegarVista?: (vista: string, datos?: any) => void;
   alCambiarConteoNoLeidas?: (conteo: number) => void;
@@ -129,6 +143,7 @@ function obtenerNotificacionesDemo(): NotificacionCRM[] {
 }
 
 export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = ({
+  opticaId = 1,
   usuario,
   alNavegarVista,
   alCambiarConteoNoLeidas,
@@ -139,6 +154,57 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
   const [cargando, setCargando] = useState(false);
   const [enModoDemo, setEnModoDemo] = useState(false);
   const refMenu = useRef<HTMLDivElement>(null);
+
+  // Estados para Notificaciones Push Web (Móvil / Escritorio)
+  const [pushSoportado, setPushSoportado] = useState(false);
+  const [pushActivo, setPushActivo] = useState(false);
+  const [pushCargando, setPushCargando] = useState(false);
+  const [pushMensaje, setPushMensaje] = useState<string | null>(null);
+
+  useEffect(() => {
+    const soportado = verificarSoportePush();
+    setPushSoportado(soportado);
+    if (soportado) {
+      verificarSuscripcionActiva().then(setPushActivo);
+    }
+  }, []);
+
+  const alternarPush = async () => {
+    setPushCargando(true);
+    setPushMensaje(null);
+    try {
+      if (pushActivo) {
+        await desuscribirDispositivoPush();
+        setPushActivo(false);
+        setPushMensaje('Alertas desactivadas en este dispositivo.');
+      } else {
+        const res = await suscribirDispositivoPush(opticaId, usuario?.id);
+        if (res.exito) {
+          setPushActivo(true);
+          setPushMensaje('¡Listo! Alertas activadas.');
+        } else {
+          setPushMensaje(`Error: ${res.error}`);
+        }
+      }
+    } finally {
+      setPushCargando(false);
+    }
+  };
+
+  const probarPush = async () => {
+    setPushCargando(true);
+    setPushMensaje(null);
+    try {
+      const res = await enviarPruebaPush(opticaId);
+      if (res.exito) {
+        setPushMensaje('¡Notificación enviada a tu dispositivo!');
+      } else {
+        setPushMensaje(`Fallo: ${res.error || 'Sin respuesta'}`);
+      }
+    } finally {
+      setPushCargando(false);
+    }
+  };
 
   // Rol exclusivo de Administrador Global ('admin')
   const esAdmin = usuario?.rol === 'admin';
@@ -285,7 +351,7 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
 
   // Cierre de menú al hacer clic fuera o presionar Escape
   useEffect(() => {
-    const manejarClickAfuera = (e: MouseEvent) => {
+    const manejarClickAfuera = (e: MouseEvent | TouchEvent) => {
       if (refMenu.current && !refMenu.current.contains(e.target as Node)) {
         setMostrarMenu(false);
       }
@@ -296,10 +362,12 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
 
     if (mostrarMenu) {
       document.addEventListener('mousedown', manejarClickAfuera);
+      document.addEventListener('touchstart', manejarClickAfuera);
       document.addEventListener('keydown', manejarEscape);
     }
     return () => {
       document.removeEventListener('mousedown', manejarClickAfuera);
+      document.removeEventListener('touchstart', manejarClickAfuera);
       document.removeEventListener('keydown', manejarEscape);
     };
   }, [mostrarMenu]);
@@ -514,24 +582,45 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
         </button>
       </EtiquetaTooltip>
 
+      {/* Backdrop oscuro para cerrar en móvil al tocar fuera */}
+      {mostrarMenu && (
+        <div
+          className="backdrop-notificaciones-movil"
+          onClick={() => setMostrarMenu(false)}
+        />
+      )}
+
       {/* Menú Desplegable Flotante (445px Glassmorphism inspirado en la Tesis) */}
       {mostrarMenu && (
         <div className="menu-desplegable-notificaciones panel-compacto">
           {/* Cabecera Compacta */}
           <div className="cabecera-panel-notif-compacta">
-            <div className="cabecera-info-izq">
-              <Bell size={15} className="icono-cabecera-a" />
-              <h4>Notificaciones</h4>
-              {totalNoLeidas > 0 ? (
-                <span className="badge-conteo-no-leidas">
-                  {totalNoLeidas === 1 ? '1 nueva' : `${totalNoLeidas} nuevas`}
-                </span>
-              ) : (
-                <span className="badge-al-dia">Al día</span>
-              )}
+            <div className="cabecera-fila-superior-movil">
+              <div className="cabecera-info-izq">
+                <Bell size={15} className="icono-cabecera-a" />
+                <h4>Notificaciones</h4>
+                {totalNoLeidas > 0 ? (
+                  <span className="badge-conteo-no-leidas">
+                    {totalNoLeidas === 1 ? '1 nueva' : `${totalNoLeidas} nuevas`}
+                  </span>
+                ) : (
+                  <span className="badge-al-dia">Al día</span>
+                )}
+              </div>
+
+              {/* Botón Cerrar exclusivo para móvil */}
+              <button
+                type="button"
+                className="btn-cerrar-notif-movil"
+                onClick={() => setMostrarMenu(false)}
+                aria-label="Cerrar notificaciones"
+                title="Cerrar panel"
+              >
+                <X size={15} />
+              </button>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexShrink: 0 }}>
+            <div className="cabecera-fila-acciones-notif">
               {totalNoLeidas > 0 && (
                 <EtiquetaTooltip texto="Marcar todas como leídas" posicion="abajo">
                   <button className="btn-marcar-todo-leido" onClick={marcarTodasComoLeidas}>
@@ -731,6 +820,123 @@ export const CentroNotificaciones: React.FC<PropiedadesCentroNotificaciones> = (
               </EtiquetaTooltip>
             </div>
           )}
+
+          {/* Sección de Notificaciones Push para Celular / Navegador */}
+          <div
+            style={{
+              padding: '0.65rem 0.85rem',
+              borderTop: '1px solid var(--borde-tarjeta)',
+              background: 'var(--fondo-elevado)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.45rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Smartphone size={14} style={{ color: pushActivo ? '#10b981' : 'var(--texto-atenuado)' }} />
+                <span style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--texto-principal)' }}>
+                  Alertas en el Celular
+                </span>
+              </div>
+              {pushSoportado ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  {pushActivo && (
+                    <button
+                      type="button"
+                      onClick={probarPush}
+                      disabled={pushCargando}
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid var(--borde-tarjeta)',
+                        borderRadius: '6px',
+                        padding: '0.2rem 0.5rem',
+                        fontSize: '0.68rem',
+                        color: 'var(--texto-secundario)',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                      }}
+                      title="Enviar notificación de prueba ahora"
+                    >
+                      <Send size={11} />
+                      Probar
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={alternarPush}
+                    disabled={pushCargando}
+                    style={{
+                      background: pushActivo ? 'rgba(239, 68, 68, 0.12)' : 'var(--color-primario)',
+                      color: pushActivo ? '#dc2626' : '#ffffff',
+                      border: pushActivo ? '1px solid rgba(239, 68, 68, 0.3)' : 'none',
+                      borderRadius: '6px',
+                      padding: '0.25rem 0.6rem',
+                      fontSize: '0.70rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.3rem',
+                    }}
+                  >
+                    {pushCargando ? (
+                      <Loader2 size={12} style={{ animation: 'girar 1s linear infinite' }} />
+                    ) : pushActivo ? (
+                      <>
+                        <BellOff size={12} />
+                        Desactivar
+                      </>
+                    ) : (
+                      <>
+                        <BellRing size={12} />
+                        Activar en celular
+                      </>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <span
+                  style={{
+                    fontSize: '0.66rem',
+                    color: 'var(--texto-atenuado)',
+                    background: 'rgba(0,0,0,0.04)',
+                    padding: '0.15rem 0.45rem',
+                    borderRadius: '4px',
+                  }}
+                >
+                  Requiere HTTPS
+                </span>
+              )}
+            </div>
+
+            {/* Mensaje de estado o advertencia de HTTPS en red local */}
+            {!pushSoportado && (
+              <p style={{ margin: 0, fontSize: '0.68rem', color: 'var(--texto-atenuado)', lineHeight: 1.35 }}>
+                Los navegadores móviles bloquean alertas push en redes locales HTTP (192.168...).
+                Funcionarán en la versión segura HTTPS en producción o en tu PC desde localhost.
+              </p>
+            )}
+
+            {pushMensaje && (
+              <div
+                style={{
+                  fontSize: '0.70rem',
+                  padding: '0.25rem 0.5rem',
+                  borderRadius: '5px',
+                  background: pushMensaje.includes('Error') || pushMensaje.includes('Fallo')
+                    ? 'rgba(239, 68, 68, 0.1)'
+                    : 'rgba(16, 185, 129, 0.1)',
+                  color: pushMensaje.includes('Error') || pushMensaje.includes('Fallo') ? '#dc2626' : '#059669',
+                  fontWeight: 500,
+                }}
+              >
+                {pushMensaje}
+              </div>
+            )}
+          </div>
 
           {/* Pie de Panel Informativo */}
           <div className="pie-panel-notif-compacto">

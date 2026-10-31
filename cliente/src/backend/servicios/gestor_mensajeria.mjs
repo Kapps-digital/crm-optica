@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 import { base_datos } from '../base_datos/conexion.mjs';
-import { ClienteZernio } from './cliente_zernio.mjs';
+import { ClienteZernio, obtener_cliente_zernio } from './cliente_zernio.mjs';
 
-const cliente_zernio = new ClienteZernio();
+const cliente_zernio_global = new ClienteZernio();
 
 /**
  * Gestor de Mensajería Omnicanal para el CRM de Óptica.
@@ -74,6 +74,13 @@ export async function enviar_mensaje({
     let resultado_envio;
 
     const id_cuenta = conv?.id_cuenta_zernio || process.env.ZERNIO_ACCOUNT_ID || '6ab6a5ade55ed05c5f3a902b';
+
+    let opticaIdFinal = conv?.optica_id;
+    if (!opticaIdFinal && id_cuenta) {
+      const linea = await base_datos.prepare('SELECT optica_id FROM lineas_canales WHERE id_cuenta_zernio = ? LIMIT 1').get(id_cuenta);
+      if (linea?.optica_id) opticaIdFinal = linea.optica_id;
+    }
+    const cliente_zernio = await obtener_cliente_zernio(opticaIdFinal || 1);
 
     // 3. Caso A: Enviar dentro de un hilo existente en Zernio
     if (id_conversacion_zernio) {

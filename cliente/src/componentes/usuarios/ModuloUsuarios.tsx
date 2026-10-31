@@ -24,6 +24,7 @@ import {
   Shield,
   Clock,
   Calendar,
+  CalendarPlus,
   Plus,
   Upload,
   RotateCcw,
@@ -32,6 +33,7 @@ import {
   X,
   Bot,
   Sparkles,
+  MessageSquare,
 } from 'lucide-react';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
 import { SelectorColorPopover } from '../comunes/SelectorColorPopover';
@@ -50,6 +52,7 @@ import {
   actualizarOpticaApi,
   cambiarEstadoOpticaApi,
   cambiarIaOpticaApi,
+  actualizarSuscripcionOpticaApi,
   subirLogoOpticaApi,
   obtenerOpticaSesion,
   guardarOpticaSesion,
@@ -116,6 +119,9 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
   const [formOpticaActivo, setFormOpticaActivo] = useState(true);
   const [formOpticaIaHabilitada, setFormOpticaIaHabilitada] = useState(true);
   const [formOpticaLogoUrl, setFormOpticaLogoUrl] = useState<string | null>(null);
+  const [formOpticaZernioApiKey, setFormOpticaZernioApiKey] = useState('');
+  const [formOpticaZernioWebhookSecret, setFormOpticaZernioWebhookSecret] = useState('');
+  const [mostrarZernioKey, setMostrarZernioKey] = useState(false);
   const [archivoLogoOptica, setArchivoLogoOptica] = useState<File | null>(null);
   const [previsualizacionLogoOptica, setPrevisualizacionLogoOptica] = useState<string | null>(null);
   const [logoEliminado, setLogoEliminado] = useState(false);
@@ -134,6 +140,13 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
       nota?: string;
     }>
   >([]);
+
+  // Modal de Suscripción / Vencimiento de Ópticas
+  const [modalSuscripcionAbierto, setModalSuscripcionAbierto] = useState(false);
+  const [opticaParaSuscripcion, setOpticaParaSuscripcion] = useState<Optica | null>(null);
+  const [fechaManualSuscripcion, setFechaManualSuscripcion] = useState('');
+  const [guardandoSuscripcion, setGuardandoSuscripcion] = useState(false);
+  const [errorSuscripcion, setErrorSuscripcion] = useState<string | null>(null);
 
   // Estados de formulario Crear / Editar Usuario
   const [formNombre, setFormNombre] = useState('');
@@ -191,6 +204,12 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
               ia_activa: Boolean(o.ia_activa ?? true),
               ia_habilitada: o.ia_habilitada !== undefined ? Boolean(o.ia_habilitada) : true,
               total_usuarios: Number(o.total_usuarios || 0),
+              zernio_api_key: o.zernio_api_key || null,
+              zernio_webhook_secret: o.zernio_webhook_secret || null,
+              fecha_vencimiento: o.fecha_vencimiento || null,
+              dias_restantes: o.dias_restantes !== undefined ? Number(o.dias_restantes) : undefined,
+              plan_vencido: Boolean(o.plan_vencido),
+              estado_plan: o.estado_plan || 'al_dia',
             }))
           );
         }
@@ -450,6 +469,9 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
     setFormOpticaActivo(true);
     setFormOpticaIaHabilitada(true);
     setFormOpticaLogoUrl(null);
+    setFormOpticaZernioApiKey('');
+    setFormOpticaZernioWebhookSecret('');
+    setMostrarZernioKey(false);
     setLogoEliminado(false);
     manejarDescartarLogoOptica();
     setErrorOptica(null);
@@ -466,6 +488,9 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
     setFormOpticaActivo(optica.activo !== false);
     setFormOpticaIaHabilitada(optica.ia_habilitada !== false);
     setFormOpticaLogoUrl(optica.logo_url || null);
+    setFormOpticaZernioApiKey(optica.zernio_api_key || '');
+    setFormOpticaZernioWebhookSecret(optica.zernio_webhook_secret || '');
+    setMostrarZernioKey(false);
     setLogoEliminado(false);
     manejarDescartarLogoOptica();
     setErrorOptica(null);
@@ -571,6 +596,29 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
       });
     }
 
+    const zernioApiKeyOriginal = (opticaParaEditar.zernio_api_key || '').trim();
+    const zernioApiKeyActual = formOpticaZernioApiKey.trim();
+    if (zernioApiKeyActual !== zernioApiKeyOriginal) {
+      cambios.push({
+        campo: 'Cuenta Zernio (API Key)',
+        anterior: zernioApiKeyOriginal ? 'Clave personalizada' : 'Cuenta global del CRM',
+        nuevo: zernioApiKeyActual ? 'Clave personalizada' : 'Cuenta global del CRM (por defecto)',
+        tipo: 'texto',
+        nota: 'Define la cuenta de Zernio que procesa los canales de esta óptica de forma aislada.',
+      });
+    }
+
+    const zernioWebhookSecretOriginal = (opticaParaEditar.zernio_webhook_secret || '').trim();
+    const zernioWebhookSecretActual = formOpticaZernioWebhookSecret.trim();
+    if (zernioWebhookSecretActual !== zernioWebhookSecretOriginal) {
+      cambios.push({
+        campo: 'Secreto Webhook Zernio',
+        anterior: zernioWebhookSecretOriginal ? 'Configurado' : 'Predeterminado',
+        nuevo: zernioWebhookSecretActual ? 'Configurado' : 'Predeterminado',
+        tipo: 'texto',
+      });
+    }
+
     if (cambios.length === 0) {
       setErrorOptica('No se han detectado modificaciones pendientes en la óptica.');
       return;
@@ -621,6 +669,8 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
           logo_url: urlLogoFinal,
           activo: formOpticaActivo,
           ia_habilitada: formOpticaIaHabilitada,
+          zernio_api_key: formOpticaZernioApiKey.trim() || null,
+          zernio_webhook_secret: formOpticaZernioWebhookSecret.trim() || null,
         });
 
         if (res.exito) {
@@ -637,6 +687,8 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
                     logo_url: urlLogoFinal,
                     activo: formOpticaActivo,
                     ia_habilitada: formOpticaIaHabilitada,
+                    zernio_api_key: formOpticaZernioApiKey.trim() || null,
+                    zernio_webhook_secret: formOpticaZernioWebhookSecret.trim() || null,
                   }
                 : o
             )
@@ -677,6 +729,8 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
           color_secundario: formOpticaColorSecundario,
           activo: formOpticaActivo,
           ia_habilitada: formOpticaIaHabilitada,
+          zernio_api_key: formOpticaZernioApiKey.trim() || null,
+          zernio_webhook_secret: formOpticaZernioWebhookSecret.trim() || null,
         });
 
         if (res.exito && res.optica) {
@@ -798,6 +852,108 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
         prev.map((o) => (o.id === optica.id ? { ...o, ia_habilitada: estadoPrevio } : o))
       );
       notificar('error', 'Error al cambiar servicio IA de la óptica');
+    }
+  };
+
+  const formatearFechaColombiaCorta = (fechaIso: string | null | undefined): string => {
+    if (!fechaIso) return 'Sin fecha';
+    try {
+      const d = new Date(fechaIso);
+      return new Intl.DateTimeFormat('es-CO', {
+        timeZone: 'America/Bogota',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }).format(d);
+    } catch {
+      return String(fechaIso);
+    }
+  };
+
+  // Renovar suscripción por 1 mes en horario Colombia (America/Bogota a las 23:59:59 COT)
+  const manejarRenovarMasUnMes = async (optica: Optica) => {
+    try {
+      const res = await actualizarSuscripcionOpticaApi(optica.id, 'mas_un_mes');
+      if (res.exito && res.optica) {
+        setOpticas((prev) => prev.map((o) => (o.id === res.optica!.id ? res.optica! : o)));
+        const optSesion = obtenerOpticaSesion();
+        if (optSesion && Number(optSesion.id) === Number(optica.id)) {
+          guardarOpticaSesion({ ...optSesion, ...res.optica });
+        }
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('crm_cambio_optica'));
+          window.dispatchEvent(new Event('crm_recargar_opticas'));
+        }
+        const fechaFormateada = formatearFechaColombiaCorta(res.optica.fecha_vencimiento);
+        notificar('exito', `✓ Suscripción de "${optica.nombre}" renovada por 1 mes (Corte: ${fechaFormateada} 11:59 PM).`);
+      } else {
+        notificar('error', res.error || 'No se pudo renovar la suscripción.');
+      }
+    } catch {
+      notificar('error', 'Error de red al renovar suscripción.');
+    }
+  };
+
+  // Abrir modal para elegir fecha manual de corte
+  const abrirModalFechaSuscripcion = (optica: Optica) => {
+    setOpticaParaSuscripcion(optica);
+    setErrorSuscripcion(null);
+    if (optica.fecha_vencimiento) {
+      const fecha = new Date(optica.fecha_vencimiento);
+      const formateador = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Bogota',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      });
+      setFechaManualSuscripcion(formateador.format(fecha));
+    } else {
+      const hoy = new Date();
+      const formateador = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Bogota',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      });
+      setFechaManualSuscripcion(formateador.format(hoy));
+    }
+    setModalSuscripcionAbierto(true);
+  };
+
+  // Guardar fecha manual de corte
+  const manejarGuardarFechaSuscripcion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!opticaParaSuscripcion || !fechaManualSuscripcion) return;
+
+    setGuardandoSuscripcion(true);
+    setErrorSuscripcion(null);
+    try {
+      const res = await actualizarSuscripcionOpticaApi(
+        opticaParaSuscripcion.id,
+        'fecha_manual',
+        fechaManualSuscripcion
+      );
+      if (res.exito && res.optica) {
+        setOpticas((prev) => prev.map((o) => (o.id === res.optica!.id ? res.optica! : o)));
+        const optSesion = obtenerOpticaSesion();
+        if (optSesion && Number(optSesion.id) === Number(opticaParaSuscripcion.id)) {
+          guardarOpticaSesion({ ...optSesion, ...res.optica });
+        }
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('crm_cambio_optica'));
+          window.dispatchEvent(new Event('crm_recargar_opticas'));
+        }
+        const fechaFormateada = formatearFechaColombiaCorta(res.optica.fecha_vencimiento);
+        notificar('exito', `✓ Fecha de corte de "${opticaParaSuscripcion.nombre}" fijada al ${fechaFormateada} 11:59 PM.`);
+        setModalSuscripcionAbierto(false);
+        setOpticaParaSuscripcion(null);
+      } else {
+        setErrorSuscripcion(res.error || 'No se pudo actualizar la fecha.');
+      }
+    } catch {
+      setErrorSuscripcion('Error de conexión al actualizar la fecha.');
+    } finally {
+      setGuardandoSuscripcion(false);
     }
   };
 
@@ -1702,10 +1858,10 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
                       }}
                     >
                       <th style={{ padding: '0.85rem 1.25rem' }}>Óptica</th>
-                      <th style={{ padding: '0.85rem 1rem' }}>Código de Óptica</th>
                       <th style={{ padding: '0.85rem 1rem' }}>Identidad Visual</th>
                       <th style={{ padding: '0.85rem 1rem' }}>Usuarios</th>
                       <th style={{ padding: '0.85rem 1rem' }}>Servicio IA</th>
+                      <th style={{ padding: '0.85rem 1rem' }}>Plan venc.</th>
                       <th style={{ padding: '0.85rem 1rem' }}>Estado</th>
                       <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>Acciones</th>
                     </tr>
@@ -1790,33 +1946,13 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
                                     {o.nombre}
                                   </div>
                                   <div style={{ fontSize: '0.70rem', color: 'var(--texto-atenuado)' }}>
-                                    ID Óptica: #{o.id}
+                                    ID #{o.id} {o.slug && `· @${o.slug}`}
                                   </div>
                                 </div>
                               </div>
                             </td>
 
-                            {/* 2. Identificador (@slug) */}
-                            <td style={{ padding: '0.85rem 1rem' }}>
-                              <span
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  padding: '0.2rem 0.55rem',
-                                  borderRadius: '6px',
-                                  fontSize: '0.72rem',
-                                  fontFamily: 'monospace',
-                                  fontWeight: 600,
-                                  background: 'var(--fondo-elevado)',
-                                  border: '1px solid var(--borde-tarjeta)',
-                                  color: 'var(--texto-principal)',
-                                }}
-                              >
-                                @{o.slug || `optica-${o.id}`}
-                              </span>
-                            </td>
-
-                            {/* 3. Identidad Visual */}
+                            {/* 2. Identidad Visual */}
                             <td style={{ padding: '0.85rem 1rem' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -1922,6 +2058,48 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
                               </EtiquetaTooltip>
                             </td>
 
+                            {/* 6. Plan / Vencimiento en Horario Colombia */}
+                            <td style={{ padding: '0.85rem 1rem' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.35rem',
+                                    padding: '0.22rem 0.65rem',
+                                    borderRadius: '9999px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    width: 'fit-content',
+                                    background:
+                                      o.plan_vencido || (o.dias_restantes !== undefined && o.dias_restantes < 0)
+                                        ? 'rgba(239, 68, 68, 0.14)'
+                                        : (o.dias_restantes ?? 99) <= 5
+                                        ? 'rgba(245, 158, 11, 0.16)'
+                                        : 'rgba(16, 185, 129, 0.14)',
+                                    color:
+                                      o.plan_vencido || (o.dias_restantes !== undefined && o.dias_restantes < 0)
+                                        ? '#ef4444'
+                                        : (o.dias_restantes ?? 99) <= 5
+                                        ? '#d97706'
+                                        : '#059669',
+                                  }}
+                                >
+                                  <Clock size={11} />
+                                  <span>
+                                    {o.plan_vencido || (o.dias_restantes !== undefined && o.dias_restantes < 0)
+                                      ? 'Vencido'
+                                      : o.dias_restantes === 0
+                                      ? 'Vence hoy'
+                                      : `${o.dias_restantes} días`}
+                                  </span>
+                                </span>
+                                <span style={{ fontSize: '0.69rem', color: 'var(--texto-atenuado)', whiteSpace: 'nowrap' }}>
+                                  Corte: {formatearFechaColombiaCorta(o.fecha_vencimiento)}
+                                </span>
+                              </div>
+                            </td>
+
                             {/* 7. Estado Interactivo (Píldora) */}
                             <td style={{ padding: '0.85rem 1rem' }}>
                               <EtiquetaTooltip
@@ -1972,34 +2150,93 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
                               </EtiquetaTooltip>
                             </td>
 
-                            {/* 7. Acciones */}
+                            {/* 8. Acciones */}
                             <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>
-                              <EtiquetaTooltip texto="Editar óptica" posicion="arriba">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    abrirModalEditarOptica(o);
-                                  }}
-                                  style={{
-                                    width: '28px',
-                                    height: '28px',
-                                    borderRadius: '6px',
-                                    background: 'var(--fondo-elevado)',
-                                    border: '1px solid var(--borde-tarjeta)',
-                                    color: 'var(--texto-principal)',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.15s ease',
-                                  }}
-                                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--fondo-hover)')}
-                                  onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--fondo-elevado)')}
-                                >
-                                  <Edit3 size={13} />
-                                </button>
-                              </EtiquetaTooltip>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                                {/* Botón Rápido +1 Mes (Solo Icono) */}
+                                <EtiquetaTooltip texto="Renovar +1 mes (Horario Colombia)" posicion="arriba">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      manejarRenovarMasUnMes(o);
+                                    }}
+                                    style={{
+                                      width: '28px',
+                                      height: '28px',
+                                      borderRadius: '6px',
+                                      background: 'rgba(2, 132, 199, 0.12)',
+                                      border: '1px solid rgba(2, 132, 199, 0.35)',
+                                      color: 'var(--color-primario, #0284c7)',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.15s ease',
+                                    }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(2, 132, 199, 0.22)')}
+                                    onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(2, 132, 199, 0.12)')}
+                                  >
+                                    <CalendarPlus size={13} />
+                                  </button>
+                                </EtiquetaTooltip>
+
+                                {/* Botón Ajustar Fecha Calendario */}
+                                <EtiquetaTooltip texto="Ajustar fecha de corte exacta" posicion="arriba">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      abrirModalFechaSuscripcion(o);
+                                    }}
+                                    style={{
+                                      width: '28px',
+                                      height: '28px',
+                                      borderRadius: '6px',
+                                      background: 'var(--fondo-elevado)',
+                                      border: '1px solid var(--borde-tarjeta)',
+                                      color: 'var(--texto-secundario)',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.15s ease',
+                                    }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--fondo-hover)')}
+                                    onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--fondo-elevado)')}
+                                  >
+                                    <Calendar size={13} />
+                                  </button>
+                                </EtiquetaTooltip>
+
+                                {/* Botón Editar Datos de Óptica */}
+                                <EtiquetaTooltip texto="Editar óptica" posicion="arriba">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      abrirModalEditarOptica(o);
+                                    }}
+                                    style={{
+                                      width: '28px',
+                                      height: '28px',
+                                      borderRadius: '6px',
+                                      background: 'var(--fondo-elevado)',
+                                      border: '1px solid var(--borde-tarjeta)',
+                                      color: 'var(--texto-principal)',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.15s ease',
+                                    }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--fondo-hover)')}
+                                    onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--fondo-elevado)')}
+                                  >
+                                    <Edit3 size={13} />
+                                  </button>
+                                </EtiquetaTooltip>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -3152,6 +3389,83 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
                 />
               </div>
 
+              {/* Cuenta Zernio Omnicanal Multi-Cuenta (Opcional) */}
+              <div
+                style={{
+                  padding: '0.85rem 1rem',
+                  borderRadius: 'var(--radio-md)',
+                  background: 'var(--fondo-elevado)',
+                  border: '1px solid var(--borde-tarjeta)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.65rem',
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <MessageSquare size={14} style={{ color: 'var(--color-primario)' }} />
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--texto-principal)' }}>
+                      Cuenta Zernio Omnicanal (Multi-Cuenta Aislada)
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.70rem', color: 'var(--texto-atenuado)', marginTop: '0.15rem' }}>
+                    Opcional. Permite que esta óptica opere con su propia cuenta y límites de Zernio. Si se deja en blanco, utilizará la cuenta central del CRM.
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div className="modal-campo-grupo" style={{ marginBottom: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                      <label className="modal-label" style={{ fontSize: '0.72rem', margin: 0 }}>
+                        Clave API de Zernio (API Key)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setMostrarZernioKey(!mostrarZernioKey)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--color-primario)',
+                          fontSize: '0.70rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.2rem',
+                          padding: 0,
+                        }}
+                      >
+                        {mostrarZernioKey ? <EyeOff size={11} /> : <Eye size={11} />}
+                        <span>{mostrarZernioKey ? 'Ocultar' : 'Mostrar'}</span>
+                      </button>
+                    </div>
+                    <input
+                      type={mostrarZernioKey ? 'text' : 'password'}
+                      placeholder="sk_... (Vacío para usar cuenta central)"
+                      value={formOpticaZernioApiKey}
+                      onChange={(e) => setFormOpticaZernioApiKey(e.target.value)}
+                      className="modal-input"
+                      style={{ fontSize: '0.78rem', fontFamily: 'monospace' }}
+                      autoComplete="off"
+                    />
+                  </div>
+
+                  <div className="modal-campo-grupo" style={{ marginBottom: 0 }}>
+                    <label className="modal-label" style={{ fontSize: '0.72rem', marginBottom: '0.25rem' }}>
+                      Secreto Webhook Zernio (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="whsec_... (Vacío para secreto global)"
+                      value={formOpticaZernioWebhookSecret}
+                      onChange={(e) => setFormOpticaZernioWebhookSecret(e.target.value)}
+                      className="modal-input"
+                      style={{ fontSize: '0.78rem', fontFamily: 'monospace' }}
+                      autoComplete="off"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Botones de acción */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.75rem' }}>
                 <button
@@ -3389,6 +3703,239 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
                 <span>{guardandoOptica ? 'Guardando...' : 'Confirmar y Guardar'}</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. MODAL AJUSTAR FECHA DE SUSCRIPCIÓN / VENCIMIENTO */}
+      {modalSuscripcionAbierto && opticaParaSuscripcion && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.6)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 999,
+            padding: '1rem',
+          }}
+          onClick={() => setModalSuscripcionAbierto(false)}
+        >
+          <div
+            style={{
+              background: 'var(--fondo-tarjeta)',
+              border: '1px solid var(--borde-tarjeta)',
+              borderRadius: 'var(--radio-lg)',
+              boxShadow: 'var(--sombra-lg)',
+              maxWidth: '460px',
+              width: '100%',
+              overflow: 'hidden',
+              animation: 'fadeIn 0.18s ease',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Cabecera */}
+            <div
+              style={{
+                padding: '1.25rem 1.5rem',
+                borderBottom: '1px solid var(--borde-tarjeta)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '8px',
+                    background: 'rgba(2, 132, 199, 0.12)',
+                    color: 'var(--color-primario, #0284c7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Calendar size={18} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '0.98rem', fontWeight: 800, margin: 0, color: 'var(--texto-principal)' }}>
+                    Gestionar Suscripción
+                  </h3>
+                  <p style={{ fontSize: '0.74rem', color: 'var(--texto-atenuado)', margin: '0.15rem 0 0 0' }}>
+                    {opticaParaSuscripcion.nombre} (@{opticaParaSuscripcion.slug})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalSuscripcionAbierto(false)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--texto-atenuado)',
+                  cursor: 'pointer',
+                  padding: '0.25rem',
+                  borderRadius: '6px',
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Contenido */}
+            <form onSubmit={manejarGuardarFechaSuscripcion} style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {errorSuscripcion && (
+                <div
+                  style={{
+                    padding: '0.6rem 0.75rem',
+                    borderRadius: 'var(--radio-md)',
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    color: '#ef4444',
+                    fontSize: '0.75rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                  }}
+                >
+                  <AlertCircle size={15} style={{ flexShrink: 0 }} />
+                  <span>{errorSuscripcion}</span>
+                </div>
+              )}
+
+              {/* Tarjeta resumen del estado actual */}
+              <div
+                style={{
+                  padding: '0.85rem 1rem',
+                  borderRadius: 'var(--radio-md)',
+                  background: 'var(--fondo-elevado)',
+                  border: '1px solid var(--borde-tarjeta)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '0.70rem', color: 'var(--texto-atenuado)', textTransform: 'uppercase', fontWeight: 700 }}>
+                    Corte Actual
+                  </div>
+                  <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--texto-principal)', marginTop: '0.15rem' }}>
+                    {formatearFechaColombiaCorta(opticaParaSuscripcion.fecha_vencimiento)}
+                  </div>
+                </div>
+                <span
+                  style={{
+                    padding: '0.22rem 0.65rem',
+                    borderRadius: '9999px',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    background:
+                      opticaParaSuscripcion.plan_vencido || (opticaParaSuscripcion.dias_restantes !== undefined && opticaParaSuscripcion.dias_restantes < 0)
+                        ? 'rgba(239, 68, 68, 0.14)'
+                        : (opticaParaSuscripcion.dias_restantes ?? 99) <= 5
+                        ? 'rgba(245, 158, 11, 0.16)'
+                        : 'rgba(16, 185, 129, 0.14)',
+                    color:
+                      opticaParaSuscripcion.plan_vencido || (opticaParaSuscripcion.dias_restantes !== undefined && opticaParaSuscripcion.dias_restantes < 0)
+                        ? '#ef4444'
+                        : (opticaParaSuscripcion.dias_restantes ?? 99) <= 5
+                        ? '#d97706'
+                        : '#059669',
+                  }}
+                >
+                  {opticaParaSuscripcion.plan_vencido || (opticaParaSuscripcion.dias_restantes !== undefined && opticaParaSuscripcion.dias_restantes < 0)
+                    ? 'Plan Vencido'
+                    : `${opticaParaSuscripcion.dias_restantes} días restantes`}
+                </span>
+              </div>
+
+              {/* Selector de Fecha */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--texto-principal)', marginBottom: '0.35rem' }}>
+                  Nueva Fecha de Vencimiento (Horario Colombia) *
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <Calendar size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--texto-atenuado)', pointerEvents: 'none' }} />
+                  <input
+                    type="date"
+                    required
+                    value={fechaManualSuscripcion}
+                    onChange={(e) => setFechaManualSuscripcion(e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '38px',
+                      padding: '0 0.75rem 0 2.2rem',
+                      borderRadius: 'var(--radio-md)',
+                      border: '1px solid var(--borde-tarjeta)',
+                      background: 'var(--fondo-elevado)',
+                      color: 'var(--texto-principal)',
+                      fontSize: '0.82rem',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      transition: 'all 0.15s ease',
+                      fontFamily: 'inherit',
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--color-primario)';
+                      e.currentTarget.style.boxShadow = '0 0 0 2.5px rgba(2, 132, 199, 0.18)';
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--borde-tarjeta)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  />
+                </div>
+                <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.71rem', color: 'var(--texto-atenuado)', lineHeight: 1.4 }}>
+                  El servicio vencerá exactamente a las <strong>11:59:59 PM (hora de Colombia)</strong> del día seleccionado.
+                </p>
+              </div>
+
+              {/* Botones de Acción */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.65rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setModalSuscripcionAbierto(false)}
+                  disabled={guardandoSuscripcion}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    borderRadius: 'var(--radio-md)',
+                    background: 'transparent',
+                    border: '1px solid var(--borde-tarjeta)',
+                    color: 'var(--texto-principal)',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={guardandoSuscripcion}
+                  style={{
+                    padding: '0.5rem 1.25rem',
+                    borderRadius: 'var(--radio-md)',
+                    background: 'var(--color-primario, #0284c7)',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: guardandoSuscripcion ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                  }}
+                >
+                  <Check size={14} />
+                  <span>{guardandoSuscripcion ? 'Guardando...' : 'Aplicar Fecha de Corte'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

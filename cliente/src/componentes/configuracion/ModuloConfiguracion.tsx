@@ -32,6 +32,10 @@ import {
   ArrowUpRight,
   RefreshCw,
   BarChart3,
+  Plus,
+  Tag,
+  Trash2,
+  Users,
 } from 'lucide-react';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
 import { SelectorColorPopover } from '../comunes/SelectorColorPopover';
@@ -51,10 +55,13 @@ import {
   guardarConfiguracionIAApi,
   probarAgenteIAApi,
   obtenerMetricasConsumoIAApi,
+  obtenerTipologiasPacientesApi,
+  crearTipologiaPacienteApi,
+  eliminarTipologiaPacienteApi,
   type ResumenConsumoIA,
   type ConsumoTokensIA,
 } from '@/servicios/api_crm';
-import type { Optica, CuentaCanalWhatsApp, ConfiguracionIA, Usuario } from '@/tipos/crm';
+import type { Optica, CuentaCanalWhatsApp, ConfiguracionIA, Usuario, TipologiaPaciente } from '@/tipos/crm';
 import { formatearTelefono, formatearNombreEspecialista } from '@/utilidades/formato';
 
 interface PropiedadesModuloConfiguracion {
@@ -267,6 +274,17 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
   const [previsualizacionNuevoLogo, setPrevisualizacionNuevoLogo] = useState<string | null>(null);
   const refInputLogo = useRef<HTMLInputElement>(null);
 
+  // Estados para gestión de Tipologías de Pacientes por Óptica
+  const [tipologias, setTipologias] = useState<TipologiaPaciente[]>([]);
+  const [cargandoTipologias, setCargandoTipologias] = useState(false);
+  const [modalNuevaTipologiaAbierto, setModalNuevaTipologiaAbierto] = useState(false);
+  const [nombreNuevaTipologia, setNombreNuevaTipologia] = useState('');
+  const [colorNuevaTipologia, setColorNuevaTipologia] = useState('#2563eb');
+  const [guardandoTipologia, setGuardandoTipologia] = useState(false);
+  const [errorTipologia, setErrorTipologia] = useState<string | null>(null);
+  const [tipologiaParaEliminar, setTipologiaParaEliminar] = useState<TipologiaPaciente | null>(null);
+  const [eliminandoTipologia, setEliminandoTipologia] = useState(false);
+
   // Modal de confirmación de cambios del perfil
   const [modalConfirmarPerfilAbierto, setModalConfirmarPerfilAbierto] = useState(false);
   const [listaCambiosPerfil, setListaCambiosPerfil] = useState<
@@ -321,9 +339,14 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
         setCuentaWhatsApp(res.cuenta_whatsapp);
         if (res.optica) {
           const opticaMapeada = {
+            ...opticaActual,
             ...res.optica,
             id: Number(res.optica.id),
-            ia_activa: res.optica.ia_activa !== undefined ? Boolean(res.optica.ia_activa) : true,
+            fecha_vencimiento: res.optica.fecha_vencimiento || opticaActual?.fecha_vencimiento,
+            dias_restantes: res.optica.dias_restantes ?? opticaActual?.dias_restantes,
+            plan_vencido: res.optica.plan_vencido ?? opticaActual?.plan_vencido,
+            estado_plan: res.optica.estado_plan || opticaActual?.estado_plan,
+            ia_activa: res.optica.ia_activa !== undefined ? Boolean(res.optica.ia_activa) : (opticaActual?.ia_activa !== false),
             ia_habilitada:
               res.optica.ia_habilitada !== undefined
                 ? Boolean(res.optica.ia_habilitada)
@@ -406,6 +429,75 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
     cargarConfiguracionIA();
     cargarMetricasConsumo();
   }, [cargarConfiguracionIA, cargarMetricasConsumo]);
+
+  // Cargar tipologías de pacientes de la óptica
+  const cargarTipologias = useCallback(async () => {
+    setCargandoTipologias(true);
+    try {
+      const res = await obtenerTipologiasPacientesApi();
+      if (res.exito) {
+        setTipologias(res.tipologias || []);
+      }
+    } catch (e) {
+      console.error('Error al cargar tipologías:', e);
+    } finally {
+      setCargandoTipologias(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    cargarTipologias();
+  }, [cargarTipologias]);
+
+  const manejarCrearTipologia = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nombreNuevaTipologia.trim()) return;
+    setGuardandoTipologia(true);
+    setErrorTipologia(null);
+    try {
+      const res = await crearTipologiaPacienteApi(nombreNuevaTipologia.trim(), colorNuevaTipologia);
+      if (res.exito && res.tipologia) {
+        setTipologias((prev) => [...prev, res.tipologia!].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+        setNombreNuevaTipologia('');
+        setColorNuevaTipologia('#2563eb');
+        setModalNuevaTipologiaAbierto(false);
+        setMensajeExito(`✓ Tipología "${res.tipologia.nombre}" creada correctamente.`);
+        setTimeout(() => setMensajeExito(null), 3500);
+      } else {
+        setErrorTipologia(res.error || 'No se pudo crear la tipología');
+      }
+    } catch {
+      setErrorTipologia('Error de conexión al guardar tipología');
+    } finally {
+      setGuardandoTipologia(false);
+    }
+  };
+
+  const abrirModalEliminarTipologia = (tipologia: TipologiaPaciente) => {
+    setTipologiaParaEliminar(tipologia);
+  };
+
+  const confirmarEliminarTipologia = async () => {
+    if (!tipologiaParaEliminar) return;
+    setEliminandoTipologia(true);
+    try {
+      const res = await eliminarTipologiaPacienteApi(tipologiaParaEliminar.id);
+      if (res.exito) {
+        setTipologias((prev) => prev.filter((t) => t.id !== tipologiaParaEliminar.id));
+        setMensajeExito(`✓ Tipología "${tipologiaParaEliminar.nombre}" eliminada.`);
+        setTimeout(() => setMensajeExito(null), 3500);
+        setTipologiaParaEliminar(null);
+      } else {
+        setMensajeError(res.error || 'No se pudo eliminar la tipología');
+        setTimeout(() => setMensajeError(null), 3500);
+      }
+    } catch {
+      setMensajeError('Error al eliminar tipología');
+      setTimeout(() => setMensajeError(null), 3500);
+    } finally {
+      setEliminandoTipologia(false);
+    }
+  };
 
   // Escuchar mensaje emitido por el callback de popup
   useEffect(() => {
@@ -1494,20 +1586,118 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                   alignItems: 'start',
                 }}
               >
-                {/* Columna Izquierda: Nombre Comercial */}
-                <div className="modal-campo-grupo">
-                  <label className="modal-label">Nombre Comercial de la Óptica</label>
-                  <input
-                    type="text"
-                    required
-                    value={formPerfil.nombre}
-                    onChange={(e) => setFormPerfil({ ...formPerfil, nombre: e.target.value })}
-                    placeholder="Ej: Tu Visión Óptica"
-                    className="modal-input"
-                  />
-                  <span style={{ fontSize: '0.70rem', color: 'var(--texto-atenuado)', marginTop: '0.25rem' }}>
-                    Nombre oficial visible en cabecera, chats y recetas.
-                  </span>
+                {/* Columna Izquierda: Nombre Comercial y Tipologías de Pacientes */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div className="modal-campo-grupo">
+                    <label className="modal-label">Nombre Comercial de la Óptica</label>
+                    <input
+                      type="text"
+                      required
+                      value={formPerfil.nombre}
+                      onChange={(e) => setFormPerfil({ ...formPerfil, nombre: e.target.value })}
+                      placeholder="Ej: Tu Visión Óptica"
+                      className="modal-input"
+                    />
+                    <span style={{ fontSize: '0.70rem', color: 'var(--texto-atenuado)', marginTop: '0.25rem' }}>
+                      Nombre oficial visible en cabecera, chats y recetas.
+                    </span>
+                  </div>
+
+                  {/* Tipologías de Pacientes (Espacio señalado en la imagen) */}
+                  <div
+                    style={{
+                      background: 'var(--fondo-elevado)',
+                      border: '1px solid var(--borde-tarjeta)',
+                      borderRadius: 'var(--radio-md)',
+                      padding: '0.75rem 0.95rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.55rem',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                      <div>
+                        <div style={{ fontSize: '0.80rem', fontWeight: 700, color: 'var(--texto-principal)' }}>
+                          Tipologías de Pacientes
+                        </div>
+                        <div style={{ fontSize: '0.67rem', color: 'var(--texto-atenuado)', marginTop: '1px' }}>
+                          Clasificaciones para diferenciar y filtrar pacientes.
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNombreNuevaTipologia('');
+                          setColorNuevaTipologia('#2563eb');
+                          setErrorTipologia(null);
+                          setModalNuevaTipologiaAbierto(true);
+                        }}
+                        className="btn-pildora-secundario"
+                        style={{ padding: '0.25rem 0.55rem', fontSize: '0.72rem', gap: '0.25rem' }}
+                      >
+                        <Plus style={{ width: '12px', height: '12px' }} />
+                        <span>Nueva</span>
+                      </button>
+                    </div>
+
+                    {/* Lista de píldoras de tipologías */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.15rem' }}>
+                      {tipologias.length === 0 ? (
+                        <span style={{ fontSize: '0.72rem', color: 'var(--texto-atenuado)', fontStyle: 'italic' }}>
+                          Sin tipologías configuradas aún.
+                        </span>
+                      ) : (
+                        tipologias.map((tip) => (
+                          <div
+                            key={tip.id}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.35rem',
+                              padding: '0.20rem 0.55rem',
+                              borderRadius: '9999px',
+                              background: 'var(--fondo-tarjeta)',
+                              border: '1px solid var(--borde-tarjeta)',
+                              fontSize: '0.74rem',
+                              fontWeight: 600,
+                              color: 'var(--texto-principal)',
+                            }}
+                          >
+                            <span
+                              style={{
+                                width: '7px',
+                                height: '7px',
+                                borderRadius: '50%',
+                                background: tip.color || '#0284c7',
+                                flexShrink: 0,
+                              }}
+                            />
+                            <span>{tip.nombre}</span>
+                            <button
+                              type="button"
+                              onClick={() => abrirModalEliminarTipologia(tip)}
+                              title={`Eliminar tipología "${tip.nombre}"`}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                padding: 0,
+                                marginLeft: '2px',
+                                cursor: 'pointer',
+                                color: 'var(--texto-atenuado)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                transition: 'color 0.15s ease',
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-peligro-rojo)')}
+                              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--texto-atenuado)')}
+                            >
+                              <X style={{ width: '11px', height: '11px' }} />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Columna Derecha: Logo Corporativo */}
@@ -2754,6 +2944,332 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
               >
                 <Check style={{ width: '14px', height: '14px' }} />
                 <span>{guardandoClinica ? 'Guardando...' : 'Confirmar y Guardar'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Crear Nueva Tipología de Paciente */}
+      {modalNuevaTipologiaAbierto && (
+        <div
+          className="modal-cierre-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !guardandoTipologia) {
+              setModalNuevaTipologiaAbierto(false);
+            }
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="modal-cierre-tarjeta"
+            style={{ maxWidth: '420px', textAlign: 'left', padding: '1.75rem 1.75rem 1.5rem 1.75rem' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    background: 'rgba(2, 132, 199, 0.12)',
+                    color: 'var(--color-primario, #0284c7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Tag size={16} />
+                </div>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: 'var(--texto-principal)' }}>
+                  Nueva Tipología de Paciente
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalNuevaTipologiaAbierto(false)}
+                disabled={guardandoTipologia}
+                className="modal-cierre-btn-cerrar"
+                style={{ position: 'static' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={manejarCrearTipologia} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {errorTipologia && (
+                <div className="login-alerta-error" role="alert" style={{ padding: '0.5rem 0.75rem', fontSize: '0.78rem' }}>
+                  <span>⚠️</span>
+                  <span>{errorTipologia}</span>
+                </div>
+              )}
+
+              <div className="modal-campo-grupo">
+                <label className="modal-label" style={{ fontSize: '0.78rem' }}>
+                  Nombre de la Tipología *
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="Ej: Profesor, Convenio Sura, Estudiante..."
+                  value={nombreNuevaTipologia}
+                  onChange={(e) => setNombreNuevaTipologia(e.target.value)}
+                  className="modal-input"
+                  style={{ fontSize: '0.84rem' }}
+                />
+              </div>
+
+              <div className="modal-campo-grupo">
+                <label className="modal-label" style={{ fontSize: '0.78rem' }}>
+                  Color del Distintivo
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                  {[
+                    '#2563eb', // Azul
+                    '#0284c7', // Celeste
+                    '#059669', // Esmeralda
+                    '#10b981', // Verde
+                    '#8b5cf6', // Violeta
+                    '#d946ef', // Fucsia
+                    '#f59e0b', // Ámbar
+                    '#ef4444', // Rojo
+                    '#64748b', // Pizarra
+                  ].map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setColorNuevaTipologia(c)}
+                      style={{
+                        width: '26px',
+                        height: '26px',
+                        borderRadius: '50%',
+                        background: c,
+                        border: colorNuevaTipologia === c ? '2.5px solid var(--texto-principal)' : '2px solid transparent',
+                        boxShadow: colorNuevaTipologia === c ? '0 0 0 2px rgba(255, 255, 255, 0.8)' : 'none',
+                        cursor: 'pointer',
+                        padding: 0,
+                        transition: 'transform 0.12s ease',
+                        transform: colorNuevaTipologia === c ? 'scale(1.15)' : 'scale(1)',
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Vista previa miniatura */}
+              <div
+                style={{
+                  background: 'var(--fondo-elevado)',
+                  border: '1px solid var(--borde-tarjeta)',
+                  borderRadius: '10px',
+                  padding: '0.6rem 0.85rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <span style={{ fontSize: '0.75rem', color: 'var(--texto-secundario)' }}>Vista previa:</span>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    padding: '0.2rem 0.6rem',
+                    borderRadius: '9999px',
+                    background: 'var(--fondo-tarjeta)',
+                    border: '1px solid var(--borde-tarjeta)',
+                    fontSize: '0.76rem',
+                    fontWeight: 700,
+                    color: 'var(--texto-principal)',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '7px',
+                      height: '7px',
+                      borderRadius: '50%',
+                      background: colorNuevaTipologia,
+                    }}
+                  />
+                  <span>{nombreNuevaTipologia.trim() || 'Ejemplo'}</span>
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.65rem', marginTop: '0.35rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setModalNuevaTipologiaAbierto(false)}
+                  disabled={guardandoTipologia}
+                  className="btn-pildora-secundario"
+                  style={{ padding: '0.45rem 1rem', fontSize: '0.82rem' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={guardandoTipologia || !nombreNuevaTipologia.trim()}
+                  className="btn-pildora-primario"
+                  style={{ padding: '0.45rem 1.25rem', fontSize: '0.82rem' }}
+                >
+                  {guardandoTipologia ? 'Guardando...' : 'Crear Tipología'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmación Premium para Eliminar Tipología */}
+      {tipologiaParaEliminar && (
+        <div
+          className="modal-cierre-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !eliminandoTipologia) {
+              setTipologiaParaEliminar(null);
+            }
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="modal-cierre-tarjeta"
+            style={{
+              maxWidth: '410px',
+              textAlign: 'center',
+              padding: '1.75rem 1.75rem 1.5rem 1.75rem',
+              position: 'relative',
+            }}
+          >
+            {/* Botón Cerrar en Esquina */}
+            <button
+              type="button"
+              onClick={() => setTipologiaParaEliminar(null)}
+              disabled={eliminandoTipologia}
+              className="modal-cierre-btn-cerrar"
+              style={{ position: 'absolute', top: '1rem', right: '1rem' }}
+              title="Cerrar ventana"
+            >
+              <X size={16} />
+            </button>
+
+            {/* Icono de Alerta / Papelera */}
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
+                background: 'rgba(239, 68, 68, 0.12)',
+                color: '#ef4444',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 1rem auto',
+              }}
+            >
+              <Trash2 size={22} />
+            </div>
+
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--texto-principal)' }}>
+              ¿Eliminar tipología?
+            </h3>
+
+            {/* Micro-indicador de Pacientes Asociados */}
+            <div style={{ display: 'flex', justifyContent: 'center', margin: '0.65rem 0 0.85rem 0' }}>
+              {(tipologiaParaEliminar.total_pacientes || 0) > 0 ? (
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    padding: '0.35rem 0.8rem',
+                    borderRadius: '9999px',
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    border: '1px solid rgba(245, 158, 11, 0.28)',
+                    color: '#b45309',
+                    fontSize: '0.76rem',
+                    fontWeight: 700,
+                  }}
+                >
+                  <Users size={13} />
+                  <span>
+                    Asociada a {tipologiaParaEliminar.total_pacientes}{' '}
+                    {tipologiaParaEliminar.total_pacientes === 1 ? 'paciente' : 'pacientes'}
+                  </span>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    padding: '0.35rem 0.8rem',
+                    borderRadius: '9999px',
+                    background: 'var(--fondo-elevado)',
+                    border: '1px solid var(--borde-tarjeta)',
+                    color: 'var(--texto-atenuado)',
+                    fontSize: '0.74rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  <Users size={13} />
+                  <span>Sin pacientes asociados actualmente</span>
+                </div>
+              )}
+            </div>
+
+            <p
+              style={{
+                fontSize: '0.82rem',
+                color: 'var(--texto-atenuado)',
+                margin: '0 0 1.35rem 0',
+                lineHeight: '1.45',
+              }}
+            >
+              {(tipologiaParaEliminar.total_pacientes || 0) > 0 ? (
+                <>
+                  ¿Seguro que deseas eliminar la tipología{' '}
+                  <strong style={{ color: 'var(--texto-principal)' }}>
+                    "{tipologiaParaEliminar.nombre}"
+                  </strong>
+                  ? Los{' '}
+                  <strong style={{ color: 'var(--texto-principal)' }}>
+                    {tipologiaParaEliminar.total_pacientes}{' '}
+                    {tipologiaParaEliminar.total_pacientes === 1 ? 'paciente asociado' : 'pacientes asociados'}
+                  </strong>{' '}
+                  no se borrarán ni perderán sus datos clínicos, pero quedarán sin tipología asignada.
+                </>
+              ) : (
+                <>
+                  ¿Seguro que deseas eliminar la tipología{' '}
+                  <strong style={{ color: 'var(--texto-principal)' }}>
+                    "{tipologiaParaEliminar.nombre}"
+                  </strong>
+                  ? Esta acción removerá el distintivo permanentemente de la óptica.
+                </>
+              )}
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setTipologiaParaEliminar(null)}
+                disabled={eliminandoTipologia}
+                className="btn-pildora-secundario"
+                style={{ padding: '0.45rem 1.15rem', fontSize: '0.82rem' }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmarEliminarTipologia}
+                disabled={eliminandoTipologia}
+                className="btn-pildora-peligro"
+                style={{ padding: '0.45rem 1.25rem', fontSize: '0.82rem' }}
+              >
+                <Trash2 style={{ width: '13px', height: '13px' }} />
+                <span>{eliminandoTipologia ? 'Eliminando...' : 'Eliminar Tipología'}</span>
               </button>
             </div>
           </div>

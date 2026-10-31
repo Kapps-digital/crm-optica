@@ -21,9 +21,14 @@ import {
   Image as IconoImagen,
   Play,
   FileText,
+  FileSpreadsheet,
+  Presentation,
+  File,
   X,
   Download,
   Bot,
+  ArrowLeft,
+  MoreVertical,
 } from 'lucide-react';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import type { Conversacion, Mensaje, Contacto, PlantillaWhatsApp, BotonPlantilla } from '@/tipos/crm';
@@ -44,6 +49,8 @@ interface PropiedadesVentanaChat {
   alRegistrarPaciente?: () => void;
   iaGlobalActiva?: boolean;
   alResolverUrgencia?: (conversacionId: number) => Promise<void> | void;
+  alCambiarEstadoIA?: (conversacionId: number, activo: boolean) => void;
+  alVolver?: () => void;
 }
 
 function formatearSeparadorFecha(fechaStr?: string | null): string {
@@ -111,7 +118,7 @@ function IndicadorEstadoEntrega({ estado, esTemporal }: { estado?: string | null
 /**
  * Resuelve y normaliza URLs multimedia hacia el proxy local autenticado de WhatsApp / Zernio
  */
-function resolverUrlMediaProxy(url?: string | null): string {
+function resolverUrlMediaProxy(url?: string | null, nombreArchivo?: string | null): string {
   if (!url) return '';
   const match = url.match(/\/whatsapp\/media\/([a-zA-Z0-9_-]+)/);
   if (match) {
@@ -119,7 +126,11 @@ function resolverUrlMediaProxy(url?: string | null): string {
     let accountId = '6ab6a5ade55ed05c5f3a902b';
     const matchAcc = url.match(/accountId=([a-zA-Z0-9_-]+)/);
     if (matchAcc) accountId = matchAcc[1];
-    return `/api/media/whatsapp/${mediaId}?accountId=${accountId}`;
+    let res = `/api/media/whatsapp/${mediaId}?accountId=${accountId}`;
+    if (nombreArchivo) {
+      res += `&filename=${encodeURIComponent(nombreArchivo)}`;
+    }
+    return res;
   }
   return url;
 }
@@ -459,6 +470,8 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
   alRegistrarPaciente,
   iaGlobalActiva = true,
   alResolverUrgencia,
+  alCambiarEstadoIA,
+  alVolver,
 }) => {
   const [textoMensaje, setTextoMensaje] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -471,6 +484,39 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
   const [cambiandoEstadoIA, setCambiandoEstadoIA] = useState(false);
   const [resolviendoUrgencia, setResolviendoUrgencia] = useState(false);
   const [urgenciaAtendidaId, setUrgenciaAtendidaId] = useState<number | null>(null);
+  const [menuOpcionesMovilAbierto, setMenuOpcionesMovilAbierto] = useState(false);
+  const refMenuOpcionesMovil = useRef<HTMLDivElement>(null);
+
+  // Cerrar menú móvil de 3 puntos al hacer clic afuera
+  useEffect(() => {
+    function manejarClickFuera(e: MouseEvent | TouchEvent) {
+      if (refMenuOpcionesMovil.current && !refMenuOpcionesMovil.current.contains(e.target as Node)) {
+        setMenuOpcionesMovilAbierto(false);
+      }
+    }
+    if (menuOpcionesMovilAbierto) {
+      document.addEventListener('mousedown', manejarClickFuera);
+      document.addEventListener('touchstart', manejarClickFuera);
+      return () => {
+        document.removeEventListener('mousedown', manejarClickFuera);
+        document.removeEventListener('touchstart', manejarClickFuera);
+      };
+    }
+  }, [menuOpcionesMovilAbierto]);
+
+  // Nombre limpio para la cabecera del chat
+  const nombreContactoCabecera = useMemo(() => {
+    if (!conversacion) return 'Seleccione un chat';
+    const nombre = conversacion.contacto_nombre?.trim();
+    if (!nombre) {
+      return conversacion.contacto_telefono ? formatearTelefono(conversacion.contacto_telefono) : 'Sin nombre';
+    }
+    if (nombre.toLowerCase().startsWith('contacto +') || nombre.toLowerCase().startsWith('contacto ')) {
+      const telLimpio = nombre.replace(/^contacto\s*/i, '');
+      return formatearTelefono(telLimpio);
+    }
+    return nombre;
+  }, [conversacion?.contacto_nombre, conversacion?.contacto_telefono]);
 
   useEffect(() => {
     if (!conversacion?.requiere_asesor_humano) {
@@ -588,16 +634,16 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
 
   const manejarToggleIA = async () => {
     if (!conversacion?.id || cambiandoEstadoIA) return;
-    if (iaGlobalActiva === false) {
-      alert('El Agente IA está apagado globalmente en la sección de Configuración. Debes activarlo allí primero.');
-      return;
-    }
+    if (iaGlobalActiva === false) return;
     const nuevoEstado = !iaChatActiva;
     setCambiandoEstadoIA(true);
     try {
       const res = await alternarIAChatApi(conversacion.id, nuevoEstado);
       if (res.exito) {
         setIaChatActiva(nuevoEstado);
+        if (alCambiarEstadoIA) {
+          alCambiarEstadoIA(conversacion.id, nuevoEstado);
+        }
       }
     } catch (e) {
       console.error('Error al alternar IA en chat:', e);
@@ -731,22 +777,39 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
       {/* Cabecera del chat activa */}
       <div className="cabecera-chat-activa">
         <div className="chat-paciente-detalle">
+          {alVolver && (
+            <button
+              type="button"
+              className="btn-volver-chat-movil"
+              onClick={alVolver}
+              title="Volver al listado de conversaciones"
+              aria-label="Volver a lista de chats"
+            >
+              <ArrowLeft style={{ width: '20px', height: '20px' }} />
+            </button>
+          )}
           <div className="avatar-contacto" id="chat-activo-avatar">{iniciales}</div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <strong id="chat-activo-nombre" style={{ fontSize: '0.95rem', color: 'var(--texto-principal)' }}>
-                {conversacion?.contacto_nombre || 'Seleccione un chat'}
+          <div className="chat-info-contacto-cabecera">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <strong id="chat-activo-nombre" className="chat-titulo-nombre-paciente">
+                {nombreContactoCabecera}
               </strong>
-              {conversacion && <CheckCircle2 style={{ width: '14px', height: '14px', color: 'var(--color-primario)' }} />}
+              {conversacion && esPaciente && (
+                <CheckCircle2 style={{ width: '14px', height: '14px', color: 'var(--color-primario)', flexShrink: 0 }} />
+              )}
             </div>
-            <div className="chat-telefono-visible">
+            {/* Teléfono: solo visible en versión escritorio */}
+            <div className="chat-telefono-visible chat-telefono-solo-escritorio">
               <Phone style={{ width: '13px', height: '13px' }} />
-              <span id="chat-activo-telefono">{conversacion?.contacto_telefono ? formatearTelefono(conversacion.contacto_telefono) : '--'}</span>
+              <span id="chat-activo-telefono">
+                {conversacion?.contacto_telefono ? formatearTelefono(conversacion.contacto_telefono) : '--'}
+              </span>
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        {/* 1. Botones para Escritorio */}
+        <div className="acciones-chat-escritorio">
           {/* Botón de Control Toggle del Agente IA en este chat */}
           {conversacion && (
             iaGlobalActiva === false ? (
@@ -856,6 +919,72 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
                 <span id="texto-btn-ficha">Ver Ficha Clínica</span>
               </button>
             </EtiquetaTooltip>
+          )}
+        </div>
+
+        {/* 2. Menú y Controles para Móvil: Botón Toggle IA + 3 Puntos */}
+        <div className="acciones-chat-movil" ref={refMenuOpcionesMovil}>
+          {/* Botón Píldora Toggle IA para Móvil (Visible siempre en la cabecera del chat) */}
+          {conversacion && (
+            <button
+              id="btn-chat-toggle-ia-movil"
+              type="button"
+              className={`btn-ia-movil-cabecera ${iaGlobalActiva === false ? 'desactivada' : (iaChatActiva ? 'activa' : 'pausada')}`}
+              onClick={iaGlobalActiva === false ? undefined : manejarToggleIA}
+              disabled={cambiandoEstadoIA || iaGlobalActiva === false}
+              title={
+                iaGlobalActiva === false
+                  ? 'IA apagada globalmente en Ajustes'
+                  : (iaChatActiva ? 'IA respondiendo automáticamente. Toca para pausar.' : 'Control humano. Toca para reactivar IA.')
+              }
+              aria-label={iaChatActiva ? 'Pausar IA' : 'Activar IA'}
+            >
+              <Bot size={14} color={iaGlobalActiva === false ? 'var(--texto-atenuado)' : (iaChatActiva ? '#10b981' : 'var(--texto-secundario)')} />
+              <span className="etiqueta-ia-movil">
+                {iaGlobalActiva === false ? 'IA Off' : (iaChatActiva ? 'IA' : 'Humano')}
+              </span>
+              <span className={`punto-ia-movil ${iaGlobalActiva === false ? 'offline' : (iaChatActiva ? 'online' : 'offline')}`} />
+            </button>
+          )}
+
+          <button
+            type="button"
+            className="btn-opciones-tres-puntos"
+            onClick={() => setMenuOpcionesMovilAbierto((prev) => !prev)}
+            aria-label="Más opciones del chat"
+            title="Opciones del chat"
+          >
+            <MoreVertical size={20} />
+          </button>
+
+          {menuOpcionesMovilAbierto && (
+            <div className="popover-opciones-chat-movil">
+              <button
+                type="button"
+                className="item-opcion-chat-movil"
+                onClick={() => {
+                  setMenuOpcionesMovilAbierto(false);
+                  alAbrirFicha();
+                }}
+              >
+                <ClipboardList size={16} />
+                <span>Ver Ficha Clínica</span>
+              </button>
+
+              {conversacion && alRegistrarPaciente && (
+                <button
+                  type="button"
+                  className="item-opcion-chat-movil"
+                  onClick={() => {
+                    setMenuOpcionesMovilAbierto(false);
+                    alRegistrarPaciente();
+                  }}
+                >
+                  {esPaciente ? <UserCheck size={16} /> : <UserPlus size={16} />}
+                  <span>{esPaciente ? 'Ver/Editar Paciente' : 'Registrar Paciente'}</span>
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -1195,12 +1324,51 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
 
                   const tieneAdjunto = Boolean(m.url_adjunto);
                   const tipoAdj = (m.tipo_contenido || '').toLowerCase();
-                  const urlAdj = resolverUrlMediaProxy(m.url_adjunto);
+                  const nombreArchivo = m.nombre_archivo || null;
+                  const mimeTipo = (m.mime_tipo || '').toLowerCase();
+                  const urlAdj = resolverUrlMediaProxy(m.url_adjunto, nombreArchivo);
 
                   const esVideo = tieneAdjunto && (tipoAdj.includes('video') || urlAdj.match(/\.(mp4|webm|mov|m4v)/i));
                   const esAudio = tieneAdjunto && (tipoAdj.includes('audio') || urlAdj.match(/\.(ogg|mp3|wav|m4a)/i));
-                  const esDoc = tieneAdjunto && (tipoAdj.includes('document') || tipoAdj.includes('documento') || tipoAdj.includes('pdf') || urlAdj.match(/\.(pdf|docx?|xlsx?)/i));
+                  const esDoc = tieneAdjunto && !esVideo && !esAudio && (
+                    tipoAdj.includes('document') ||
+                    tipoAdj.includes('documento') ||
+                    tipoAdj.includes('file') ||
+                    tipoAdj.includes('archivo') ||
+                    tipoAdj.includes('pdf') ||
+                    Boolean(nombreArchivo) ||
+                    urlAdj.match(/\.(pdf|docx?|xlsx?|pptx?|csv|zip|rar|txt|xml)/i)
+                  );
                   const esImagen = tieneAdjunto && !esVideo && !esAudio && !esDoc;
+
+                  // Determinación de estilo e icono para documentos (estilo WhatsApp)
+                  let iconoDoc = <File size={22} style={{ color: esSaliente ? '#ffffff' : 'var(--color-primario, #0284c7)' }} />;
+                  let etiquetaDoc = 'DOCUMENTO';
+                  let colorFondoIcono = esSaliente ? 'rgba(255, 255, 255, 0.22)' : 'rgba(2, 132, 199, 0.12)';
+
+                  const nombreLower = (nombreArchivo || '').toLowerCase();
+                  if (nombreLower.endsWith('.xlsx') || nombreLower.endsWith('.xls') || nombreLower.endsWith('.csv') || mimeTipo.includes('spreadsheet') || mimeTipo.includes('excel') || mimeTipo.includes('csv')) {
+                    iconoDoc = <FileSpreadsheet size={22} style={{ color: esSaliente ? '#ffffff' : '#10b981' }} />;
+                    etiquetaDoc = nombreLower.endsWith('.csv') ? 'CSV • Hoja de cálculo' : 'Excel • Hoja de cálculo';
+                    colorFondoIcono = esSaliente ? 'rgba(255, 255, 255, 0.22)' : 'rgba(16, 185, 129, 0.14)';
+                  } else if (nombreLower.endsWith('.docx') || nombreLower.endsWith('.doc') || mimeTipo.includes('word') || mimeTipo.includes('officedocument.wordprocessingml')) {
+                    iconoDoc = <FileText size={22} style={{ color: esSaliente ? '#ffffff' : '#2563eb' }} />;
+                    etiquetaDoc = 'Word • Documento';
+                    colorFondoIcono = esSaliente ? 'rgba(255, 255, 255, 0.22)' : 'rgba(37, 99, 235, 0.14)';
+                  } else if (nombreLower.endsWith('.pptx') || nombreLower.endsWith('.ppt') || mimeTipo.includes('presentation') || mimeTipo.includes('powerpoint')) {
+                    iconoDoc = <Presentation size={22} style={{ color: esSaliente ? '#ffffff' : '#f97316' }} />;
+                    etiquetaDoc = 'PowerPoint • Presentación';
+                    colorFondoIcono = esSaliente ? 'rgba(255, 255, 255, 0.22)' : 'rgba(249, 115, 22, 0.14)';
+                  } else if (nombreLower.endsWith('.pdf') || mimeTipo.includes('pdf')) {
+                    iconoDoc = <FileText size={22} style={{ color: esSaliente ? '#ffffff' : '#ef4444' }} />;
+                    etiquetaDoc = 'PDF • Documento';
+                    colorFondoIcono = esSaliente ? 'rgba(255, 255, 255, 0.22)' : 'rgba(239, 68, 68, 0.14)';
+                  } else if (nombreArchivo) {
+                    const extMatch = nombreArchivo.split('.').pop();
+                    if (extMatch && extMatch !== nombreArchivo) {
+                      etiquetaDoc = `${extMatch.toUpperCase()} • Archivo`;
+                    }
+                  }
 
                   const tieneTexto = Boolean(m.texto && m.texto.trim() !== '' && m.texto !== '[Unsupported message]');
 
@@ -1247,29 +1415,91 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
                           )}
 
                           {esDoc && (
-                            <a
-                              href={urlAdj}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <div
                               style={{
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '0.55rem',
-                                padding: '0.5rem 0.65rem',
-                                borderRadius: '6px',
-                                background: esSaliente ? 'rgba(255, 255, 255, 0.15)' : 'var(--fondo-elevado)',
-                                color: 'inherit',
-                                textDecoration: 'none',
+                                justifyContent: 'space-between',
+                                gap: '0.65rem',
+                                padding: '0.55rem 0.7rem',
+                                borderRadius: '10px',
+                                background: esSaliente ? 'rgba(255, 255, 255, 0.16)' : 'var(--fondo-elevado, #f8fafc)',
+                                border: esSaliente ? '1px solid rgba(255, 255, 255, 0.24)' : '1px solid var(--borde-tarjeta, #e2e8f0)',
+                                minWidth: '220px',
+                                maxWidth: '320px',
                               }}
                             >
-                              <FileText size={20} style={{ color: esSaliente ? '#ffffff' : 'var(--color-primario)' }} />
-                              <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                                <span style={{ fontSize: '0.76rem', fontWeight: 600, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                                  Documento adjunto
-                                </span>
-                                <span style={{ fontSize: '0.66rem', opacity: 0.75 }}>Clic para abrir</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0, flex: 1 }}>
+                                <div
+                                  style={{
+                                    width: '38px',
+                                    height: '38px',
+                                    borderRadius: '8px',
+                                    background: colorFondoIcono,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {iconoDoc}
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                                  <span
+                                    title={nombreArchivo || 'Documento adjunto'}
+                                    style={{
+                                      fontSize: '0.82rem',
+                                      fontWeight: 600,
+                                      whiteSpace: 'nowrap',
+                                      textOverflow: 'ellipsis',
+                                      overflow: 'hidden',
+                                      color: 'inherit',
+                                      lineHeight: 1.25,
+                                    }}
+                                  >
+                                    {nombreArchivo || 'Documento adjunto'}
+                                  </span>
+                                  <span
+                                    style={{
+                                      fontSize: '0.67rem',
+                                      opacity: 0.78,
+                                      marginTop: '2px',
+                                      fontWeight: 500,
+                                    }}
+                                  >
+                                    {etiquetaDoc}
+                                  </span>
+                                </div>
                               </div>
-                            </a>
+
+                              <a
+                                href={urlAdj}
+                                download={nombreArchivo || 'documento'}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={`Descargar ${nombreArchivo || 'documento'}`}
+                                style={{
+                                  width: '32px',
+                                  height: '32px',
+                                  borderRadius: '50%',
+                                  background: esSaliente ? 'rgba(255, 255, 255, 0.24)' : 'var(--fondo-tarjeta, #ffffff)',
+                                  border: esSaliente ? 'none' : '1px solid var(--borde-tarjeta, #cbd5e1)',
+                                  boxShadow: esSaliente ? 'none' : '0 1px 3px rgba(0,0,0,0.06)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: esSaliente ? '#ffffff' : 'var(--texto-principal, #1e293b)',
+                                  cursor: 'pointer',
+                                  flexShrink: 0,
+                                  textDecoration: 'none',
+                                  transition: 'transform 0.15s ease, background 0.15s ease',
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.08)')}
+                                onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                              >
+                                <Download size={15} />
+                              </a>
+                            </div>
                           )}
                         </div>
                       )}

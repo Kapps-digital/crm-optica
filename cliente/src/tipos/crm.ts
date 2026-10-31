@@ -14,6 +14,9 @@ export interface Contacto {
   edad?: number | null;
   sexo?: 'masculino' | 'femenino' | string | null;
   es_paciente?: boolean;
+  tipologia_id?: number | null;
+  tipologia_nombre?: string | null;
+  tipologia_color?: string | null;
   telefono: string | null;
   correo: string | null;
   business_scoped_user_id: string | null;
@@ -23,6 +26,16 @@ export interface Contacto {
   total_citas?: number;
   ultima_formula_fecha?: string;
   ultimo_tipo_lente?: string;
+}
+
+export interface TipologiaPaciente {
+  id: number;
+  optica_id: number;
+  nombre: string;
+  color: string;
+  activo?: boolean;
+  creado_en?: string;
+  total_pacientes?: number;
 }
 
 export interface Conversacion {
@@ -61,6 +74,12 @@ export interface ConfiguracionIA {
   ia_preguntas_frecuentes: string;
   ia_api_key?: string;
   ia_modelo?: string;
+  zernio_api_key?: string | null;
+  zernio_webhook_secret?: string | null;
+  fecha_vencimiento?: string | null;
+  dias_restantes?: number;
+  plan_vencido?: boolean;
+  estado_plan?: 'al_dia' | 'por_vencer' | 'vencido';
 }
 
 export interface Mensaje {
@@ -72,6 +91,8 @@ export interface Mensaje {
   tipo_mensaje: string;
   tipo_contenido?: string | null;
   url_adjunto?: string | null;
+  nombre_archivo?: string | null;
+  mime_tipo?: string | null;
   texto: string | null;
   payload_json: string | null;
   estado_entrega: EstadoEntrega;
@@ -135,6 +156,12 @@ export interface Optica {
   ia_preguntas_frecuentes?: string;
   ia_api_key?: string;
   ia_modelo?: string;
+  zernio_api_key?: string | null;
+  zernio_webhook_secret?: string | null;
+  fecha_vencimiento?: string | null;
+  dias_restantes?: number;
+  plan_vencido?: boolean;
+  estado_plan?: 'al_dia' | 'por_vencer' | 'vencido';
 }
 
 export type RolUsuario = 'admin' | 'admin_optica';
@@ -189,6 +216,7 @@ export interface RespuestaLogin {
   usuario?: Usuario;
   optica?: Optica;
   error?: string;
+  codigo?: string;
 }
 
 export interface RespuestaApi<T> {

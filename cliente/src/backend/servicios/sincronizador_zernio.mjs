@@ -1,4 +1,4 @@
-import { ClienteZernio } from './cliente_zernio.mjs';
+import { ClienteZernio, obtener_cliente_zernio } from './cliente_zernio.mjs';
 import { base_datos } from '../base_datos/conexion.mjs';
 import { obtener_o_crear_contacto } from './procesador_eventos.mjs';
 
@@ -45,7 +45,16 @@ function formatear_fecha(fecha_iso) {
  * Sincroniza los mensajes de una conversación individual desde Zernio hacia Supabase.
  */
 export async function sincronizar_mensajes_conversacion(id_conversacion_zernio, id_cuenta_zernio, id_conversacion_local) {
-  const cliente = new ClienteZernio();
+  let opticaId = null;
+  if (id_conversacion_local) {
+    const conv = await base_datos.prepare('SELECT optica_id FROM conversaciones WHERE id = ?').get(id_conversacion_local);
+    if (conv?.optica_id) opticaId = conv.optica_id;
+  }
+  if (!opticaId && id_cuenta_zernio) {
+    const linea = await base_datos.prepare('SELECT optica_id FROM lineas_canales WHERE id_cuenta_zernio = ? LIMIT 1').get(id_cuenta_zernio);
+    if (linea?.optica_id) opticaId = linea.optica_id;
+  }
+  const cliente = await obtener_cliente_zernio(opticaId);
   const ruta = `/inbox/conversations/${id_conversacion_zernio}/messages?accountId=${encodeURIComponent(id_cuenta_zernio)}&sortOrder=desc&limit=50`;
 
   const respuesta = await cliente.solicitar(ruta);
@@ -65,12 +74,14 @@ export async function sincronizar_mensajes_conversacion(id_conversacion_zernio, 
   const sentencia_insertar = base_datos.prepare(`
     INSERT INTO mensajes (
       conversacion_id, id_mensaje_plataforma, id_mensaje_zernio, direccion,
-      texto, tipo_contenido, url_adjunto, estado_entrega, creado_en, reacciones
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb)
+      texto, tipo_contenido, url_adjunto, nombre_archivo, mime_tipo, estado_entrega, creado_en, reacciones
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb)
     ON CONFLICT (id_mensaje_plataforma) DO UPDATE 
     SET reacciones = COALESCE(EXCLUDED.reacciones, mensajes.reacciones),
         estado_entrega = EXCLUDED.estado_entrega,
         url_adjunto = COALESCE(mensajes.url_adjunto, EXCLUDED.url_adjunto),
+        nombre_archivo = COALESCE(mensajes.nombre_archivo, EXCLUDED.nombre_archivo),
+        mime_tipo = COALESCE(mensajes.mime_tipo, EXCLUDED.mime_tipo),
         tipo_contenido = CASE WHEN (mensajes.tipo_contenido IS NULL OR mensajes.tipo_contenido = 'texto' OR mensajes.tipo_contenido = 'adjunto') AND EXCLUDED.tipo_contenido NOT IN ('texto', 'adjunto') THEN EXCLUDED.tipo_contenido ELSE COALESCE(mensajes.tipo_contenido, EXCLUDED.tipo_contenido) END,
         texto = CASE WHEN (mensajes.texto IS NULL OR mensajes.texto = '' OR mensajes.texto = '[Unsupported message]') AND EXCLUDED.texto != '' THEN EXCLUDED.texto ELSE mensajes.texto END
   `);
@@ -84,10 +95,16 @@ export async function sincronizar_mensajes_conversacion(id_conversacion_zernio, 
     const id_plataforma = m.id || m.platformMessageId;
     const direccion = m.direction === 'outgoing' ? 'saliente' : 'entrante';
     const texto = m.message || m.text || '';
-    const url_raw = m.attachments?.[0]?.url || m.mediaUrl || null;
+    const primer_adjunto = m.attachments?.[0];
+    const url_raw = primer_adjunto?.url || m.mediaUrl || null;
     const url_adjunto = url_raw ? (url_raw.startsWith('http') ? url_raw : `https://zernio.com${url_raw.startsWith('/') ? '' : '/'}${url_raw}`) : null;
-    const tipo_adjunto = m.attachments?.[0]?.type;
-    const tipo_contenido = tipo_adjunto || m.type || (url_adjunto ? 'adjunto' : 'texto');
+    const tipo_adjunto = primer_adjunto?.type;
+    const nombre_archivo = primer_adjunto?.payload?.filename || null;
+    const mime_tipo = primer_adjunto?.payload?.mimeType || null;
+    let tipo_contenido = tipo_adjunto || m.type || (url_adjunto ? 'adjunto' : 'texto');
+    if (tipo_contenido === 'file' || nombre_archivo) {
+      tipo_contenido = 'documento';
+    }
     const estado_entrega = m.deliveryStatus || (direccion === 'saliente' ? 'enviado' : 'recibido');
     const creado_en = formatear_fecha(m.createdAt || m.sentAt);
 
@@ -107,6 +124,8 @@ export async function sincronizar_mensajes_conversacion(id_conversacion_zernio, 
         texto,
         tipo_contenido,
         url_adjunto,
+        nombre_archivo,
+        mime_tipo,
         estado_entrega,
         creado_en,
         reacciones_json
@@ -124,9 +143,11 @@ export async function sincronizar_mensajes_conversacion(id_conversacion_zernio, 
           UPDATE mensajes 
           SET reacciones = CASE WHEN ? != '[]' THEN ?::jsonb ELSE reacciones END,
               url_adjunto = COALESCE(url_adjunto, ?),
+              nombre_archivo = COALESCE(nombre_archivo, ?),
+              mime_tipo = COALESCE(mime_tipo, ?),
               tipo_contenido = CASE WHEN (tipo_contenido IS NULL OR tipo_contenido = 'texto') AND ? != 'texto' THEN ? ELSE tipo_contenido END
           WHERE (id_mensaje_plataforma = ? OR (id_mensaje_zernio IS NOT NULL AND id_mensaje_zernio = ?))
-        `).run(reacciones_json, reacciones_json, url_adjunto, tipo_contenido, tipo_contenido, id_plataforma, m.id || null);
+        `).run(reacciones_json, reacciones_json, url_adjunto, nombre_archivo, mime_tipo, tipo_contenido, tipo_contenido, id_plataforma, m.id || null);
       }
     } catch {
       // Ignorar errores de clave única
@@ -167,8 +188,8 @@ export async function sincronizar_mensajes_conversacion(id_conversacion_zernio, 
  * Sincroniza todas las conversaciones de Zernio hacia Supabase.
  * Trae los números, nombres de contactos, últimos mensajes y opcionalmente su historial.
  */
-export async function sincronizar_conversaciones_zernio({ sincronizar_mensajes_profundo = true, max_conversaciones_mensajes = 15 } = {}) {
-  const cliente = new ClienteZernio();
+export async function sincronizar_conversaciones_zernio({ optica_id = null, sincronizar_mensajes_profundo = true, max_conversaciones_mensajes = 15 } = {}) {
+  const cliente = await obtener_cliente_zernio(optica_id);
 
   const respuesta = await cliente.solicitar('/inbox/conversations');
 

@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, UserPlus, IdCard, Phone, Mail, User, Calendar, Check, AlertCircle } from 'lucide-react';
-import type { Contacto } from '@/tipos/crm';
-import { registrarPaciente, actualizarContactoPaciente, type DatosRegistroPaciente } from '@/servicios/api_crm';
+import { X, UserPlus, IdCard, Phone, Mail, User, Calendar, Check, AlertCircle, Tag } from 'lucide-react';
+import type { Contacto, TipologiaPaciente } from '@/tipos/crm';
+import { registrarPaciente, actualizarContactoPaciente, obtenerTipologiasPacientesApi, type DatosRegistroPaciente } from '@/servicios/api_crm';
 import { SelectorDesplegable, type OpcionDesplegable } from '../comunes/SelectorDesplegable';
 import { formatearSeparadorMiles } from '@/utilidades/formato';
 
@@ -125,12 +125,25 @@ export const ModalRegistrarPaciente: React.FC<PropiedadesModalRegistrarPaciente>
   const [correo, setCorreo] = useState('');
   const [edad, setEdad] = useState<string>('');
   const [sexo, setSexo] = useState<'masculino' | 'femenino' | ''>('');
+  const [tipologias, setTipologias] = useState<TipologiaPaciente[]>([]);
+  const [tipologiaId, setTipologiaId] = useState<string>('');
   const [guardando, setGuardando] = useState(false);
   const [mensajeError, setMensajeError] = useState<string | null>(null);
 
   useEffect(() => {
     setMontado(true);
   }, []);
+
+  // Cargar tipologías de la óptica activa
+  useEffect(() => {
+    if (abierto) {
+      obtenerTipologiasPacientesApi().then((res) => {
+        if (res.exito && res.tipologias) {
+          setTipologias(res.tipologias);
+        }
+      }).catch(() => {});
+    }
+  }, [abierto]);
 
   // Pre-llenar datos si viene de un contacto existente de WhatsApp
   useEffect(() => {
@@ -169,6 +182,7 @@ export const ModalRegistrarPaciente: React.FC<PropiedadesModalRegistrarPaciente>
         setEdad(contactoParaConvertir.edad ? String(contactoParaConvertir.edad).replace(/\D/g, '') : '');
         const sexoPrev = (contactoParaConvertir.sexo || '').toLowerCase();
         setSexo(sexoPrev === 'femenino' ? 'femenino' : sexoPrev === 'masculino' ? 'masculino' : '');
+        setTipologiaId(contactoParaConvertir.tipologia_id ? String(contactoParaConvertir.tipologia_id) : '');
       } else {
         setNombreCompleto('');
         setTipoDocumento('CC');
@@ -178,6 +192,7 @@ export const ModalRegistrarPaciente: React.FC<PropiedadesModalRegistrarPaciente>
         setCorreo('');
         setEdad('');
         setSexo('');
+        setTipologiaId('');
       }
     }
   }, [abierto, contactoParaConvertir]);
@@ -223,6 +238,18 @@ export const ModalRegistrarPaciente: React.FC<PropiedadesModalRegistrarPaciente>
     return true;
   }, [nombreCompleto, documento, celular, indicativo, sexo, correo, edad]);
 
+  // Opciones de tipología para el selector
+  const opcionesTipologia = useMemo<OpcionDesplegable[]>(() => {
+    return [
+      { valor: '', etiqueta: 'Sin tipología' },
+      ...tipologias.map((t) => ({
+        valor: String(t.id),
+        etiqueta: t.nombre,
+        colorIndicador: t.color,
+      })),
+    ];
+  }, [tipologias]);
+
   if (!montado || !abierto) return null;
 
   const esConversion = Boolean(contactoParaConvertir);
@@ -266,6 +293,7 @@ export const ModalRegistrarPaciente: React.FC<PropiedadesModalRegistrarPaciente>
         edad: edadNum,
         sexo: sexo || undefined,
         es_paciente: true,
+        tipologia_id: tipologiaId ? Number(tipologiaId) : null,
       };
 
       if (esConversion && contactoParaConvertir) {
@@ -668,6 +696,28 @@ export const ModalRegistrarPaciente: React.FC<PropiedadesModalRegistrarPaciente>
                 </span>
               )}
             </div>
+          </div>
+
+          {/* 5. Fila Tipología de Paciente */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--texto-principal)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <Tag size={12} style={{ color: 'var(--texto-atenuado)' }} />
+              <span>Tipología de Paciente</span>
+            </label>
+            <SelectorDesplegable
+              valor={tipologiaId}
+              alCambiar={(nuevo) => setTipologiaId(nuevo)}
+              opciones={opcionesTipologia}
+              placeholder="Seleccionar tipología..."
+              anchoMinimo="100%"
+              tamano="compacto"
+              estiloBoton={{
+                height: '36px',
+                borderRadius: 'var(--radio-sm, 6px)',
+                padding: '0 0.55rem',
+                fontSize: '0.80rem',
+              }}
+            />
           </div>
 
           {/* Botones de Acción */}

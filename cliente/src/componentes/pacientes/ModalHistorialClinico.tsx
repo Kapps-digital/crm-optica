@@ -303,6 +303,35 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                 >
                   {esPaciente ? 'Paciente Clínico' : 'Contacto de Chat'}
                 </span>
+
+                {contacto.tipologia_nombre && (
+                  <span
+                    style={{
+                      fontSize: '0.70rem',
+                      fontWeight: 700,
+                      padding: '0.12rem 0.55rem',
+                      borderRadius: '12px',
+                      background: 'var(--fondo-tarjeta)',
+                      color: contacto.tipologia_color || 'var(--texto-principal)',
+                      border: `1px solid ${contacto.tipologia_color ? `${contacto.tipologia_color}40` : 'var(--borde-tarjeta)'}`,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        background: contacto.tipologia_color || '#0284c7',
+                      }}
+                    />
+                    <span>{contacto.tipologia_nombre}</span>
+                  </span>
+                )}
               </div>
 
               {/* Fila de Datos de Identidad (Con truncado inteligente de correo largo) */}

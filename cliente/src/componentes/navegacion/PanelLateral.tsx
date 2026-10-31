@@ -10,6 +10,10 @@ import {
   ChevronLeft,
   Eye,
   Settings,
+  Clock,
+  ShieldCheck,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import type { Optica, Usuario } from '@/tipos/crm';
@@ -26,6 +30,8 @@ interface PropiedadesPanelLateral {
   conteoPacientes?: number | null;
   optica?: Optica | null;
   usuario?: Usuario | null;
+  abiertoMovil?: boolean;
+  alCerrarMovil?: () => void;
 }
 
 export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
@@ -37,6 +43,8 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
   requiereAsesorChats = false,
   optica,
   usuario,
+  abiertoMovil = false,
+  alCerrarMovil,
 }) => {
   const elementos = [
     {
@@ -69,10 +77,32 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
     setErrorCargaLogo(false);
   }, [optica?.logo_url]);
 
+  // Fecha de vencimiento formateada en horario Colombia (America/Bogota, UTC-5)
+  const fechaColombiaFormateada = React.useMemo(() => {
+    if (!optica?.fecha_vencimiento) return 'Sin fecha';
+    try {
+      const d = new Date(optica.fecha_vencimiento);
+      return new Intl.DateTimeFormat('es-CO', {
+        timeZone: 'America/Bogota',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }).format(d);
+    } catch {
+      return String(optica.fecha_vencimiento);
+    }
+  }, [optica?.fecha_vencimiento]);
+
+  const dias = optica?.dias_restantes ?? 0;
+  const esVencido = Boolean(
+    optica?.plan_vencido || (optica?.dias_restantes !== undefined && optica.dias_restantes < 0)
+  );
+  const esPorVencer = !esVencido && dias <= 5;
+
   return (
     <aside
       id="panel-lateral"
-      className={`panel-lateral ${colapsado ? 'colapsado' : 'expandido'}`}
+      className={`panel-lateral ${colapsado ? 'colapsado' : 'expandido'} ${abiertoMovil ? 'abierto-movil' : ''}`}
     >
       {/* Logotipo Corporativo Dinámico */}
       <div className="panel-lateral-cabecera">
@@ -138,6 +168,19 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
             </EtiquetaTooltip>
           </div>
         )}
+
+        {/* Botón cerrar panel en móvil */}
+        {alCerrarMovil && (
+          <button
+            type="button"
+            className="btn-cerrar-panel-movil"
+            onClick={alCerrarMovil}
+            title="Cerrar menú"
+            aria-label="Cerrar menú lateral"
+          >
+            <X style={{ width: '18px', height: '18px' }} />
+          </button>
+        )}
       </div>
 
       {/* Navegación con Botones en Píldora */}
@@ -162,7 +205,10 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
                 type="button"
                 className={`panel-item-btn ${esActivo ? 'activo' : ''}`}
                 data-vista={item.id}
-                onClick={() => alCambiarVista(item.id)}
+                onClick={() => {
+                  alCambiarVista(item.id);
+                  if (alCerrarMovil) alCerrarMovil();
+                }}
               >
                 <div className="panel-item-izq">
                   <Icono className="panel-item-icono" />
@@ -186,6 +232,144 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
           );
         })}
       </nav>
+
+      {/* 3. Indicador Premium de Suscripción en Pie del Menú Lateral (Horario Colombia) */}
+      {optica?.fecha_vencimiento && (
+        <div
+          style={{
+            borderTop: '1px solid var(--borde-tarjeta)',
+            padding: colapsado ? '0.6rem 0.2rem' : '0.65rem 0.65rem 0.75rem 0.65rem',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: colapsado ? 'center' : 'stretch',
+          }}
+        >
+          {colapsado ? (
+            <EtiquetaTooltip
+              texto={`Suscripción: ${esVencido ? 'Vencida' : `${dias} días`} • Corte: ${fechaColombiaFormateada}`}
+              posicion="derecha"
+            >
+              <div
+                onClick={() => usuario?.rol === 'admin' && alCambiarVista('usuarios')}
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: esVencido
+                    ? 'rgba(239, 68, 68, 0.14)'
+                    : esPorVencer
+                      ? 'rgba(245, 158, 11, 0.16)'
+                      : 'var(--fondo-elevado)',
+                  border: `1px solid ${esVencido
+                      ? 'rgba(239, 68, 68, 0.35)'
+                      : esPorVencer
+                        ? 'rgba(245, 158, 11, 0.4)'
+                        : 'var(--borde-tarjeta)'
+                    }`,
+                  color: esVencido
+                    ? '#ef4444'
+                    : esPorVencer
+                      ? '#d97706'
+                      : 'var(--color-primario, #0284c7)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: usuario?.rol === 'admin' ? 'pointer' : 'default',
+                  position: 'relative',
+                  transition: 'all 0.18s ease',
+                }}
+              >
+                {esVencido ? <AlertCircle size={16} /> : <Clock size={16} />}
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '5px',
+                    right: '5px',
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    background: esVencido ? '#ef4444' : esPorVencer ? '#f59e0b' : '#10b981',
+                    boxShadow: esPorVencer ? '0 0 5px #f59e0b' : undefined,
+                  }}
+                />
+              </div>
+            </EtiquetaTooltip>
+          ) : (
+            <div
+              onClick={() => usuario?.rol === 'admin' && alCambiarVista('usuarios')}
+              style={{
+                background: 'var(--fondo-elevado)',
+                border: '1px solid var(--borde-tarjeta)',
+                borderRadius: 'var(--radio-md, 12px)',
+                padding: '0.55rem 0.7rem',
+                boxShadow: 'var(--sombra-sm)',
+                cursor: usuario?.rol === 'admin' ? 'pointer' : 'default',
+                transition: 'all 0.18s ease',
+              }}
+              onMouseEnter={(e) => {
+                if (usuario?.rol === 'admin') e.currentTarget.style.borderColor = 'var(--color-primario-claro)';
+              }}
+              onMouseLeave={(e) => {
+                if (usuario?.rol === 'admin') e.currentTarget.style.borderColor = 'var(--borde-tarjeta)';
+              }}
+            >
+              {/* Fila Superior: Encabezado y Badge Semafórico */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <Clock
+                    size={12}
+                    style={{
+                      color: esVencido ? '#ef4444' : esPorVencer ? '#d97706' : 'var(--color-primario, #0284c7)',
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: '0.67rem',
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.4px',
+                      color: 'var(--texto-atenuado)',
+                    }}
+                  >
+                    PLAN MENSUAL
+                  </span>
+                </div>
+
+                <span
+                  style={{
+                    padding: '0.15rem 0.5rem',
+                    borderRadius: '9999px',
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    background: esVencido
+                      ? 'rgba(239, 68, 68, 0.14)'
+                      : esPorVencer
+                        ? 'rgba(245, 158, 11, 0.16)'
+                        : 'rgba(16, 185, 129, 0.14)',
+                    color: esVencido
+                      ? '#ef4444'
+                      : esPorVencer
+                        ? '#d97706'
+                        : '#059669',
+                  }}
+                >
+                  {esVencido ? 'Vencido' : dias === 0 ? 'Vence hoy' : `${dias} días`}
+                </span>
+              </div>
+
+              {/* Fila Inferior: Fecha de Corte */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.72rem' }}>
+                <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)' }}>
+                  Corte:
+                </span>
+                <span style={{ fontWeight: 700, color: 'var(--texto-principal)' }}>
+                  {fechaColombiaFormateada}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </aside>
   );
 };

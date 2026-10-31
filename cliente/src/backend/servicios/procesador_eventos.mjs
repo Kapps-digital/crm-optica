@@ -168,10 +168,16 @@ export async function procesar_evento_webhook(payload) {
 
       const id_plataforma = mensaje_datos.platformMessageId || mensaje_datos.id;
       const texto = mensaje_datos.text || mensaje_datos.message || '';
-      const url_raw = mensaje_datos.attachments?.[0]?.url || mensaje_datos.mediaUrl || null;
+      const primer_adjunto = mensaje_datos.attachments?.[0];
+      const url_raw = primer_adjunto?.url || mensaje_datos.mediaUrl || null;
       const url_adjunto = url_raw ? (url_raw.startsWith('http') ? url_raw : `https://zernio.com${url_raw.startsWith('/') ? '' : '/'}${url_raw}`) : null;
-      const tipo_adjunto = mensaje_datos.attachments?.[0]?.type;
-      const tipo_contenido = tipo_adjunto || mensaje_datos.type || (url_adjunto ? 'adjunto' : 'texto');
+      const tipo_adjunto = primer_adjunto?.type;
+      const nombre_archivo = primer_adjunto?.payload?.filename || null;
+      const mime_tipo = primer_adjunto?.payload?.mimeType || null;
+      let tipo_contenido = tipo_adjunto || mensaje_datos.type || (url_adjunto ? 'adjunto' : 'texto');
+      if (tipo_contenido === 'file' || nombre_archivo) {
+        tipo_contenido = 'documento';
+      }
 
       // Inserción con deduplicación por ID de plataforma
       let mensajeIdLocal = null;
@@ -179,10 +185,12 @@ export async function procesar_evento_webhook(payload) {
         const insercion = await base_datos.prepare(`
           INSERT INTO mensajes (
             conversacion_id, id_mensaje_plataforma, id_mensaje_zernio, direccion,
-            texto, tipo_contenido, url_adjunto, estado_entrega, atribucion_anuncio, creado_en
-          ) VALUES (?, ?, ?, 'entrante', ?, ?, ?, 'recibido', ?, COALESCE(?::timestamptz, now()))
+            texto, tipo_contenido, url_adjunto, nombre_archivo, mime_tipo, estado_entrega, atribucion_anuncio, creado_en
+          ) VALUES (?, ?, ?, 'entrante', ?, ?, ?, ?, ?, 'recibido', ?, COALESCE(?::timestamptz, now()))
           ON CONFLICT (id_mensaje_plataforma) DO UPDATE SET
             url_adjunto = COALESCE(mensajes.url_adjunto, EXCLUDED.url_adjunto),
+            nombre_archivo = COALESCE(mensajes.nombre_archivo, EXCLUDED.nombre_archivo),
+            mime_tipo = COALESCE(mensajes.mime_tipo, EXCLUDED.mime_tipo),
             tipo_contenido = CASE WHEN (mensajes.tipo_contenido IS NULL OR mensajes.tipo_contenido = 'texto' OR mensajes.tipo_contenido = 'adjunto') AND EXCLUDED.tipo_contenido NOT IN ('texto', 'adjunto') THEN EXCLUDED.tipo_contenido ELSE COALESCE(mensajes.tipo_contenido, EXCLUDED.tipo_contenido) END,
             texto = CASE WHEN (mensajes.texto IS NULL OR mensajes.texto = '' OR mensajes.texto = '[Unsupported message]') AND EXCLUDED.texto != '' THEN EXCLUDED.texto ELSE mensajes.texto END
         `).run(
@@ -192,6 +200,8 @@ export async function procesar_evento_webhook(payload) {
           texto,
           tipo_contenido,
           url_adjunto,
+          nombre_archivo,
+          mime_tipo,
           Object.keys(atribucion).length > 0 ? JSON.stringify(atribucion) : null,
           fecha_mensaje
         );
@@ -235,10 +245,16 @@ export async function procesar_evento_webhook(payload) {
       const id_plataforma = mensaje_datos.platformMessageId || mensaje_datos.id;
       const id_zernio = mensaje_datos.id || mensaje_datos._id;
       const texto = mensaje_datos.text || mensaje_datos.message || '';
-      const url_raw = mensaje_datos.attachments?.[0]?.url || mensaje_datos.mediaUrl || null;
+      const primer_adjunto = mensaje_datos.attachments?.[0];
+      const url_raw = primer_adjunto?.url || mensaje_datos.mediaUrl || null;
       const url_adjunto = url_raw ? (url_raw.startsWith('http') ? url_raw : `https://zernio.com${url_raw.startsWith('/') ? '' : '/'}${url_raw}`) : null;
-      const tipo_adjunto = mensaje_datos.attachments?.[0]?.type;
-      const tipo_contenido = tipo_adjunto || mensaje_datos.type || (url_adjunto ? 'adjunto' : 'texto');
+      const tipo_adjunto = primer_adjunto?.type;
+      const nombre_archivo = primer_adjunto?.payload?.filename || null;
+      const mime_tipo = primer_adjunto?.payload?.mimeType || null;
+      let tipo_contenido = tipo_adjunto || mensaje_datos.type || (url_adjunto ? 'adjunto' : 'texto');
+      if (tipo_contenido === 'file' || nombre_archivo) {
+        tipo_contenido = 'documento';
+      }
 
       // Regla de deduplicación del eco:
       // Si ya existe un mensaje saliente con este id_mensaje_zernio o id_mensaje_plataforma, actualizar
@@ -250,10 +266,12 @@ export async function procesar_evento_webhook(payload) {
             SET estado_entrega = 'enviado', 
                 id_mensaje_plataforma = COALESCE(id_mensaje_plataforma, ?),
                 url_adjunto = COALESCE(url_adjunto, ?),
+                nombre_archivo = COALESCE(nombre_archivo, ?),
+                mime_tipo = COALESCE(mime_tipo, ?),
                 tipo_contenido = CASE WHEN (tipo_contenido IS NULL OR tipo_contenido = 'texto') AND ? != 'texto' THEN ? ELSE tipo_contenido END,
                 texto = CASE WHEN (texto IS NULL OR texto = '') AND ? != '' THEN ? ELSE texto END
             WHERE id = ?
-          `).run(id_plataforma, url_adjunto, tipo_contenido, tipo_contenido, texto, texto, existente.id);
+          `).run(id_plataforma, url_adjunto, nombre_archivo, mime_tipo, tipo_contenido, tipo_contenido, texto, texto, existente.id);
           break;
         }
       }
@@ -275,9 +293,11 @@ export async function procesar_evento_webhook(payload) {
               id_mensaje_zernio = ?, 
               estado_entrega = 'enviado',
               url_adjunto = COALESCE(url_adjunto, ?),
+              nombre_archivo = COALESCE(nombre_archivo, ?),
+              mime_tipo = COALESCE(mime_tipo, ?),
               tipo_contenido = CASE WHEN (tipo_contenido IS NULL OR tipo_contenido = 'texto') AND ? != 'texto' THEN ? ELSE tipo_contenido END
           WHERE id = ?
-        `).run(id_plataforma, id_zernio, url_adjunto, tipo_contenido, tipo_contenido, mensaje_huerfano.id);
+        `).run(id_plataforma, id_zernio, url_adjunto, nombre_archivo, mime_tipo, tipo_contenido, tipo_contenido, mensaje_huerfano.id);
         break;
       }
 
@@ -297,13 +317,15 @@ export async function procesar_evento_webhook(payload) {
           await base_datos.prepare(`
             INSERT INTO mensajes (
               conversacion_id, id_mensaje_plataforma, id_mensaje_zernio, direccion,
-              texto, tipo_contenido, url_adjunto, estado_entrega, creado_en
-            ) VALUES (?, ?, ?, 'saliente', ?, ?, ?, 'enviado', COALESCE(?::timestamptz, now()))
+              texto, tipo_contenido, url_adjunto, nombre_archivo, mime_tipo, estado_entrega, creado_en
+            ) VALUES (?, ?, ?, 'saliente', ?, ?, ?, ?, ?, 'enviado', COALESCE(?::timestamptz, now()))
             ON CONFLICT (id_mensaje_plataforma) DO UPDATE SET
               url_adjunto = COALESCE(mensajes.url_adjunto, EXCLUDED.url_adjunto),
+              nombre_archivo = COALESCE(mensajes.nombre_archivo, EXCLUDED.nombre_archivo),
+              mime_tipo = COALESCE(mensajes.mime_tipo, EXCLUDED.mime_tipo),
               tipo_contenido = CASE WHEN (mensajes.tipo_contenido IS NULL OR mensajes.tipo_contenido = 'texto') AND EXCLUDED.tipo_contenido != 'texto' THEN EXCLUDED.tipo_contenido ELSE mensajes.tipo_contenido END,
               estado_entrega = EXCLUDED.estado_entrega
-          `).run(conv.id, id_plataforma, id_zernio, texto, tipo_contenido, url_adjunto, fecha_mensaje);
+          `).run(conv.id, id_plataforma, id_zernio, texto, tipo_contenido, url_adjunto, nombre_archivo, mime_tipo, fecha_mensaje);
 
           if (texto === '[reaction]' || texto.startsWith('[reaction')) {
             setImmediate(async () => {

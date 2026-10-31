@@ -19,13 +19,16 @@ import {
   ArrowRight,
   AlertCircle,
   AlertTriangle,
+  Tag,
 } from 'lucide-react';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import { ModalRegistrarPaciente } from './ModalRegistrarPaciente';
 import { ModalHistorialClinico } from './ModalHistorialClinico';
 import { BarraPaginacionTabla } from '../comunes/BarraPaginacionTabla';
 import { FiltroBusqueda } from '../comunes/FiltroBusqueda';
-import type { Contacto, Conversacion } from '@/tipos/crm';
+import { SelectorDesplegable, type OpcionDesplegable } from '../comunes/SelectorDesplegable';
+import type { Contacto, Conversacion, TipologiaPaciente } from '@/tipos/crm';
+import { obtenerTipologiasPacientesApi } from '@/servicios/api_crm';
 import { formatearTelefono, formatearSeparadorMiles, esFichaIncompleta } from '@/utilidades/formato';
 
 interface PropiedadesDirectorioPacientes {
@@ -45,6 +48,32 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
 }) => {
   const [busqueda, setBusqueda] = useState('');
   const [pestañaActiva, setPestañaActiva] = useState<'pacientes' | 'contactos' | 'incompletos' | 'todos'>('pacientes');
+  const [tipologias, setTipologias] = useState<TipologiaPaciente[]>([]);
+  const [filtroTipologia, setFiltroTipologia] = useState<string>('todas');
+
+  // Cargar tipologías de la óptica
+  useEffect(() => {
+    obtenerTipologiasPacientesApi()
+      .then((res) => {
+        if (res.exito && res.tipologias) {
+          setTipologias(res.tipologias);
+        }
+      })
+      .catch(() => { });
+  }, []);
+
+  // Opciones para el selector de filtro por tipología
+  const opcionesFiltroTipologia = useMemo<OpcionDesplegable[]>(() => {
+    return [
+      { valor: 'todas', etiqueta: 'Todas las tipologías', etiquetaCorta: 'Tipologías' },
+      ...tipologias.map((t) => ({
+        valor: String(t.id),
+        etiqueta: t.nombre,
+        colorIndicador: t.color,
+      })),
+      { valor: 'sin_tipologia', etiqueta: 'Sin tipología asignada', etiquetaCorta: 'Sin tipología' },
+    ];
+  }, [tipologias]);
 
   // Estados de paginación estandarizada (predeterminado: 5 registros)
   const [paginaActual, setPaginaActual] = useState(1);
@@ -66,7 +95,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
   // Reiniciar a la primera página al cambiar filtros o términos de búsqueda
   useEffect(() => {
     setPaginaActual(1);
-  }, [pestañaActiva, busqueda]);
+  }, [pestañaActiva, busqueda, filtroTipologia]);
 
   // Clasificación de contactos con conversión numérica segura
   const listaPacientesClinicos = useMemo(() => {
@@ -103,19 +132,31 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
     return pacientes;
   }, [pestañaActiva, listaPacientesClinicos, listaContactosChat, listaFichaIncompleta, pacientes]);
 
-  // Filtro de búsqueda
+  // Filtro de búsqueda y tipología
   const listaFiltrada = useMemo(() => {
-    const termino = busqueda.trim().toLowerCase();
-    if (!termino) return listaSegunPestana;
+    let resultado = listaSegunPestana;
 
-    return listaSegunPestana.filter((p) => {
+    // Filtro por tipología
+    if (filtroTipologia && filtroTipologia !== 'todas') {
+      if (filtroTipologia === 'sin_tipologia') {
+        resultado = resultado.filter((p) => !p.tipologia_id);
+      } else {
+        resultado = resultado.filter((p) => String(p.tipologia_id) === String(filtroTipologia));
+      }
+    }
+
+    const termino = busqueda.trim().toLowerCase();
+    if (!termino) return resultado;
+
+    return resultado.filter((p) => {
       const nom = (p.nombre_completo || p.nombre || '').toLowerCase();
       const ced = ((p.cedula || p.documento || '') + ' ' + (p.tipo_documento || '')).toLowerCase();
       const tel = (p.telefono || '').toLowerCase();
       const email = (p.correo || '').toLowerCase();
-      return nom.includes(termino) || ced.includes(termino) || tel.includes(termino) || email.includes(termino);
+      const tip = (p.tipologia_nombre || '').toLowerCase();
+      return nom.includes(termino) || ced.includes(termino) || tel.includes(termino) || email.includes(termino) || tip.includes(termino);
     });
-  }, [listaSegunPestana, busqueda]);
+  }, [listaSegunPestana, busqueda, filtroTipologia]);
 
   // Ordenamiento alfabético estricto por nombre (A-Z) respetando acentos y orden natural numérico
   const listaOrdenada = useMemo(() => {
@@ -179,8 +220,10 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '0.85rem',
+            flexWrap: 'nowrap',
+            gap: '0.5rem',
+            overflowX: 'auto',
+            paddingBottom: '2px',
           }}
         >
           {/* Pestañas de Segmentación (Tabs Corporativos) */}
@@ -193,6 +236,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
               borderRadius: 'var(--radio-md, 8px)',
               border: '1px solid var(--borde-tarjeta)',
               gap: '3px',
+              flexShrink: 0,
             }}
           >
             {/* Pestaña: Pacientes */}
@@ -202,8 +246,8 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.45rem',
-                padding: '0.35rem 0.75rem',
+                gap: '0.35rem',
+                padding: '0.3rem 0.55rem',
                 borderRadius: 'var(--radio-sm, 6px)',
                 border: 'none',
                 background: pestañaActiva === 'pacientes' ? 'var(--fondo-tarjeta)' : 'transparent',
@@ -212,6 +256,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                 fontSize: '0.76rem',
                 fontWeight: 600,
                 cursor: 'pointer',
+                whiteSpace: 'nowrap',
                 transition: 'all 0.15s ease',
               }}
             >
@@ -223,7 +268,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                   color: pestañaActiva === 'pacientes' ? 'var(--color-primario)' : 'var(--texto-atenuado)',
                   fontSize: '0.68rem',
                   fontWeight: 700,
-                  padding: '0.08rem 0.4rem',
+                  padding: '0.08rem 0.35rem',
                   borderRadius: '10px',
                 }}
               >
@@ -238,8 +283,8 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.45rem',
-                padding: '0.35rem 0.75rem',
+                gap: '0.35rem',
+                padding: '0.3rem 0.55rem',
                 borderRadius: 'var(--radio-sm, 6px)',
                 border: 'none',
                 background: pestañaActiva === 'contactos' ? 'var(--fondo-tarjeta)' : 'transparent',
@@ -248,6 +293,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                 fontSize: '0.76rem',
                 fontWeight: 600,
                 cursor: 'pointer',
+                whiteSpace: 'nowrap',
                 transition: 'all 0.15s ease',
               }}
             >
@@ -259,7 +305,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                   color: pestañaActiva === 'contactos' ? 'var(--color-primario)' : 'var(--texto-atenuado)',
                   fontSize: '0.68rem',
                   fontWeight: 700,
-                  padding: '0.08rem 0.4rem',
+                  padding: '0.08rem 0.35rem',
                   borderRadius: '10px',
                 }}
               >
@@ -267,7 +313,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
               </span>
             </button>
 
-            {/* Pestaña: Datos Incompletos */}
+            {/* Pestaña: Incompletos */}
             {(() => {
               const tieneIncompletos = listaFichaIncompleta.length > 0;
               const estaActivo = pestañaActiva === 'incompletos';
@@ -303,8 +349,8 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '0.45rem',
-                    padding: '0.35rem 0.75rem',
+                    gap: '0.35rem',
+                    padding: '0.3rem 0.55rem',
                     borderRadius: 'var(--radio-sm, 6px)',
                     border: 'none',
                     background: estaActivo ? 'var(--fondo-tarjeta)' : 'transparent',
@@ -313,18 +359,19 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                     fontSize: '0.76rem',
                     fontWeight: 600,
                     cursor: 'pointer',
+                    whiteSpace: 'nowrap',
                     transition: 'all 0.15s ease',
                   }}
                 >
                   <AlertTriangle size={14} style={{ color: colorIcono }} />
-                  <span>Datos Incompletos</span>
+                  <span>Incompletos</span>
                   <span
                     style={{
                       background: fondoBadge,
                       color: colorBadge,
                       fontSize: '0.68rem',
                       fontWeight: 700,
-                      padding: '0.08rem 0.4rem',
+                      padding: '0.08rem 0.35rem',
                       borderRadius: '10px',
                     }}
                   >
@@ -341,8 +388,8 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.45rem',
-                padding: '0.35rem 0.75rem',
+                gap: '0.35rem',
+                padding: '0.3rem 0.55rem',
                 borderRadius: 'var(--radio-sm, 6px)',
                 border: 'none',
                 background: pestañaActiva === 'todos' ? 'var(--fondo-tarjeta)' : 'transparent',
@@ -351,6 +398,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                 fontSize: '0.76rem',
                 fontWeight: 600,
                 cursor: 'pointer',
+                whiteSpace: 'nowrap',
                 transition: 'all 0.15s ease',
               }}
             >
@@ -362,7 +410,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                   color: 'var(--texto-atenuado)',
                   fontSize: '0.68rem',
                   fontWeight: 700,
-                  padding: '0.08rem 0.4rem',
+                  padding: '0.08rem 0.35rem',
                   borderRadius: '10px',
                 }}
               >
@@ -371,8 +419,28 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
             </button>
           </div>
 
-          {/* Grupo Derecho: Buscador + Botón Nuevo Paciente (Solo Icono) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          {/* Grupo Derecho: Selector Tipología + Buscador + Botón Nuevo Paciente */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexShrink: 0 }}>
+            {/* Selector Desplegable de Tipologías */}
+            <div style={{ width: '145px' }}>
+              <SelectorDesplegable
+                valor={filtroTipologia}
+                alCambiar={setFiltroTipologia}
+                opciones={opcionesFiltroTipologia}
+                icono={Tag}
+                placeholder="Tipología..."
+                tamano="compacto"
+                anchoMinimo="145px"
+                estiloBoton={{
+                  height: '34px',
+                  borderRadius: 'var(--radio-md, 8px)',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  padding: '0 0.55rem',
+                }}
+              />
+            </div>
+
             {/* Buscador de Contactos y Pacientes */}
             <FiltroBusqueda
               valor={busqueda}
@@ -382,7 +450,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                   ? 'Buscar por nombre, cédula o teléfono...'
                   : 'Buscar prospecto o WhatsApp...'
               }
-              ancho="280px"
+              ancho="190px"
               alto="34px"
             />
 
@@ -554,7 +622,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                           </div>
 
                           <div style={{ minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
                               <strong
                                 style={{
                                   display: 'block',
@@ -567,6 +635,33 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                               >
                                 {item.nombre_completo || item.nombre || 'Contacto sin nombre'}
                               </strong>
+                              {item.tipologia_nombre && (
+                                <span
+                                  style={{
+                                    fontSize: '0.67rem',
+                                    fontWeight: 700,
+                                    padding: '0.08rem 0.45rem',
+                                    borderRadius: '9999px',
+                                    background: 'var(--fondo-tarjeta)',
+                                    color: item.tipologia_color || 'var(--texto-principal)',
+                                    border: `1px solid ${item.tipologia_color ? `${item.tipologia_color}40` : 'var(--borde-tarjeta)'}`,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.28rem',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      width: '6px',
+                                      height: '6px',
+                                      borderRadius: '50%',
+                                      background: item.tipologia_color || '#0284c7',
+                                    }}
+                                  />
+                                  <span>{item.tipologia_nombre}</span>
+                                </span>
+                              )}
                             </div>
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginTop: '0.15rem' }}>

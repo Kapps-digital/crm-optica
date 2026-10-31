@@ -6845,6 +6845,27 @@ button.kpi-chip:hover {
   flex-wrap: nowrap;
 }
 
+.cabecera-fila-superior-movil {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.btn-cerrar-notif-movil {
+  display: none;
+}
+
+.cabecera-fila-acciones-notif {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.backdrop-notificaciones-movil {
+  display: none;
+}
+
 .cabecera-info-izq {
   display: flex;
   align-items: center;
@@ -7440,4 +7461,659 @@ button.kpi-chip:hover {
   border-radius: 50%;
   background: #94a3b8;
   flex-shrink: 0;
+}
+
+/* ==========================================================================
+   BOTONES Y COMPONENTES MÓVILES
+   ========================================================================== */
+.btn-hamburguesa-movil {
+  display: none;
+}
+
+.btn-volver-chat-movil {
+  display: none;
+}
+
+.btn-cerrar-panel-movil {
+  display: none;
+}
+
+.barra-inferior-movil {
+  display: none;
+}
+
+.acciones-chat-escritorio {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.acciones-chat-movil {
+  display: none;
+}
+
+.chat-info-contacto-cabecera {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-titulo-nombre-paciente {
+  font-size: 0.95rem;
+  color: var(--texto-principal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+
+.boton-notificacion-push-icono:hover {
+  background: var(--fondo-hover) !important;
+  color: var(--texto-principal) !important;
+}
+
+.boton-notificacion-push-icono.activo:hover {
+  background: rgba(16, 185, 129, 0.22) !important;
+}
+
+/* ==========================================================================
+   ADAPTACIÓN RESPONSIVE PARA DISPOSITIVOS MÓVILES (SMARTPHONES <= 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* Layout general en móvil */
+  .layout-con-panel-lateral {
+    position: relative;
+    overflow-x: hidden;
+    width: 100vw;
+  }
+
+  .contenido-principal {
+    width: 100vw !important;
+    min-width: 100vw !important;
+    max-width: 100vw !important;
+    overflow-x: hidden;
+  }
+
+  /* El panel lateral se convierte en un Drawer off-canvas flotante */
+  .panel-lateral {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 280px !important;
+    min-width: 280px !important;
+    max-width: 280px !important;
+    transform: translateX(-100%) !important;
+    z-index: 1000 !important;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3) !important;
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
+
+  .panel-lateral.abierto-movil {
+    transform: translateX(0) !important;
+  }
+
+  /* Fondo oscuro traslúcido para cerrar el menú */
+  .backdrop-panel-movil {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(2px);
+    z-index: 999;
+  }
+
+  .btn-cerrar-panel-movil {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px solid var(--borde-tarjeta);
+    background: var(--fondo-elevado);
+    color: var(--texto-principal);
+    cursor: pointer;
+    margin-left: auto;
+  }
+
+  /* Barra Superior en móvil */
+  .barra-superior {
+    padding: 0 0.85rem !important;
+    height: 48px !important;
+    gap: 0.5rem !important;
+  }
+
+  .barra-superior .barra-titulo-grupo {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .barra-superior .barra-titulo-grupo h1 {
+    font-size: 1.15rem !important;
+    font-weight: 800 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: none !important;
+    letter-spacing: -0.3px;
+  }
+
+  .barra-superior .barra-titulo-grupo p {
+    display: none !important;
+  }
+
+  .texto-largo-cabecera-escritorio {
+    display: none !important;
+  }
+
+  /* Ocultar botón hamburguesa (reemplazado por barra inferior de hojas) */
+  .btn-hamburguesa-movil {
+    display: none !important;
+  }
+
+  /* Ocultar Canal de WhatsApp en móviles (libera todo el espacio horizontal) */
+  .wa-variante-tarjeta,
+  .pildora-whatsapp,
+  .pildora-whatsapp-inactiva {
+    display: none !important;
+  }
+
+  /* En móviles: En el perfil de usuario dejar SOLO las iniciales en el avatar circular */
+  .cabecera-usuario-info,
+  .cabecera-usuario-chevron {
+    display: none !important;
+  }
+
+  .cabecera-usuario-tarjeta {
+    padding: 2px !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .cabecera-avatar-envoltorio {
+    margin: 0 !important;
+  }
+
+  /* Barra de Navegación Inferior Fija para Móviles */
+  .barra-inferior-movil {
+    display: flex !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 58px;
+    background: var(--fondo-tarjeta);
+    border-top: 1px solid var(--borde-tarjeta);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 990;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .item-barra-inferior {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--texto-secundario);
+    transition: all 0.15s ease;
+    padding: 6px 2px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .item-barra-inferior.activo {
+    color: var(--color-primario, #0284c7) !important;
+  }
+
+  .item-barra-inferior .icono-envoltorio-barra-inferior {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .item-barra-inferior .badge-barra-inferior {
+    position: absolute;
+    top: -5px;
+    right: -9px;
+    background: var(--color-primario, #0284c7);
+    color: #ffffff;
+    border-radius: 9999px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 1px 4px;
+    min-width: 15px;
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  .item-barra-inferior .badge-barra-inferior.urgente {
+    background: #ef4444;
+    animation: pulso-asesor-pestaña 1.5s infinite;
+  }
+
+  .item-barra-inferior .etiqueta-barra-inferior {
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: -0.2px;
+    line-height: 1;
+  }
+
+  .item-barra-inferior.activo .etiqueta-barra-inferior {
+    font-weight: 700;
+  }
+
+  /* Vista Tripartita de Mensajería en Móvil */
+  .vista-mensajeria-tripartita.movil-vista-lista {
+    height: calc(100vh - 48px - 58px) !important;
+    max-height: calc(100vh - 48px - 58px) !important;
+    width: 100% !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  .vista-mensajeria-tripartita.movil-vista-chat {
+    height: calc(100vh - 48px) !important;
+    max-height: calc(100vh - 48px) !important;
+    width: 100% !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  .directorio-pacientes-contenedor,
+  .calendario-citas-contenedor,
+  .modulo-campanas-contenedor,
+  .modulo-plantillas-contenedor,
+  .modulo-configuracion-contenedor {
+    padding-bottom: 64px !important;
+  }
+
+  /* 1. MODO LISTA DE CHATS */
+  .vista-mensajeria-tripartita.movil-vista-lista .columna-conversaciones {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    border-right: none !important;
+  }
+
+  .vista-mensajeria-tripartita.movil-vista-lista .columna-chat-conversacion,
+  .vista-mensajeria-tripartita.movil-vista-lista .columna-ficha-optometrica {
+    display: none !important;
+  }
+
+  /* 2. MODO CHAT ACTIVO */
+  .vista-mensajeria-tripartita.movil-vista-chat .columna-chat-conversacion {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    position: relative !important;
+  }
+
+  .vista-mensajeria-tripartita.movil-vista-chat .columna-conversaciones,
+  .vista-mensajeria-tripartita.movil-vista-chat .columna-ficha-optometrica {
+    display: none !important;
+  }
+
+  /* 3. MODO FICHA OPTOMÉTRICA */
+  .vista-mensajeria-tripartita.movil-vista-ficha .columna-ficha-optometrica {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    z-index: 50 !important;
+  }
+
+  .vista-mensajeria-tripartita.movil-vista-ficha .columna-conversaciones,
+  .vista-mensajeria-tripartita.movil-vista-ficha .columna-chat-conversacion {
+    display: none !important;
+  }
+
+  /* Cabecera del chat en móvil ultra limpia */
+  .cabecera-chat-activa {
+    height: 52px !important;
+    min-height: 52px !important;
+    padding: 0 0.65rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.4rem !important;
+    background: var(--fondo-tarjeta) !important;
+    border-bottom: 1px solid var(--borde-tarjeta) !important;
+  }
+
+  .chat-paciente-detalle {
+    flex: 1 !important;
+    min-width: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+  }
+
+  .chat-info-contacto-cabecera {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .chat-titulo-nombre-paciente {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    max-width: 100% !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: block !important;
+  }
+
+  /* Ocultar número de teléfono en móvil */
+  .chat-telefono-solo-escritorio {
+    display: none !important;
+  }
+
+  /* Ocultar botones extendidos en móvil */
+  .acciones-chat-escritorio {
+    display: none !important;
+  }
+
+  /* Mostrar menú de opciones y toggle IA en móvil */
+  .acciones-chat-movil {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+    position: relative !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Botón interactivo de alternar IA en cabecera móvil */
+  .btn-ia-movil-cabecera {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+    padding: 0.32rem 0.55rem !important;
+    border-radius: 9999px !important;
+    font-size: 0.73rem !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+    border: 1px solid var(--borde-tarjeta) !important;
+    background: var(--fondo-elevado) !important;
+    color: var(--texto-secundario) !important;
+    -webkit-tap-highlight-color: transparent !important;
+    user-select: none !important;
+  }
+
+  .btn-ia-movil-cabecera.activa {
+    background: rgba(16, 185, 129, 0.15) !important;
+    border-color: rgba(16, 185, 129, 0.45) !important;
+    color: #10b981 !important;
+  }
+
+  .btn-ia-movil-cabecera.pausada {
+    background: var(--fondo-elevado) !important;
+    border-color: var(--borde-tarjeta) !important;
+    color: var(--texto-secundario) !important;
+  }
+
+  .btn-ia-movil-cabecera.desactivada {
+    background: var(--fondo-base) !important;
+    border-color: var(--borde-tarjeta) !important;
+    color: var(--texto-atenuado) !important;
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+  }
+
+  .btn-ia-movil-cabecera:active:not(:disabled) {
+    transform: scale(0.96) !important;
+  }
+
+  .punto-ia-movil {
+    width: 7px !important;
+    height: 7px !important;
+    border-radius: 50% !important;
+    display: inline-block !important;
+    flex-shrink: 0 !important;
+  }
+
+  .punto-ia-movil.online {
+    background: #10b981 !important;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.7) !important;
+  }
+
+  .punto-ia-movil.offline {
+    background: #94a3b8 !important;
+  }
+
+  .btn-opciones-tres-puntos {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    background: transparent !important;
+    border: none !important;
+    color: var(--texto-principal) !important;
+    cursor: pointer !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
+  .btn-opciones-tres-puntos:active {
+    background: var(--fondo-hover) !important;
+  }
+
+  .popover-opciones-chat-movil {
+    position: absolute !important;
+    top: calc(100% + 4px) !important;
+    right: 0 !important;
+    background: var(--fondo-tarjeta) !important;
+    border: 1px solid var(--borde-tarjeta) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22) !important;
+    min-width: 220px !important;
+    z-index: 1000 !important;
+    padding: 6px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 3px !important;
+    animation: aparecer-suave 0.15s ease-out !important;
+  }
+
+  .item-opcion-chat-movil {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.65rem !important;
+    width: 100% !important;
+    padding: 0.65rem 0.85rem !important;
+    border-radius: 8px !important;
+    border: none !important;
+    background: transparent !important;
+    color: var(--texto-principal) !important;
+    font-size: 0.82rem !important;
+    font-weight: 600 !important;
+    text-align: left !important;
+    cursor: pointer !important;
+    transition: background 0.12s ease !important;
+  }
+
+  .item-opcion-chat-movil:active {
+    background: var(--fondo-hover) !important;
+  }
+
+  .btn-volver-chat-movil {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    background: transparent !important;
+    border: none !important;
+    color: var(--texto-principal) !important;
+    cursor: pointer !important;
+    flex-shrink: 0 !important;
+    margin-right: -2px !important;
+  }
+
+  .avatar-contacto {
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 0.85rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Barra de redacción de chat en móvil */
+  .barra-redaccion-mensajeria {
+    padding: 0.4rem 0.5rem !important;
+    gap: 0.35rem !important;
+  }
+
+  .campo-input-mensaje-wrapper textarea {
+    font-size: 0.95rem !important;
+  }
+
+  /* Popover de notificaciones push en móvil */
+  .popover-push-contenedor {
+    width: calc(100vw - 2rem) !important;
+    right: -50px !important;
+  }
+
+  /* ==========================================================================
+     CENTRO DE NOTIFICACIONES EN MÓVIL (VENTANA FLOTANTE CENTRADA Y ADAPTADA)
+     ========================================================================== */
+  .backdrop-notificaciones-movil {
+    display: block !important;
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(0, 0, 0, 0.45) !important;
+    backdrop-filter: blur(3px) !important;
+    z-index: 99998 !important;
+    animation: aparecerSuave 0.15s ease-out !important;
+  }
+
+  .menu-desplegable-notificaciones.panel-compacto {
+    position: fixed !important;
+    top: 56px !important;
+    left: 8px !important;
+    right: 8px !important;
+    width: auto !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: calc(100dvh - 75px) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid var(--borde-tarjeta) !important;
+    z-index: 99999 !important;
+    animation: deslizarNotifMovil 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  @keyframes deslizarNotifMovil {
+    from {
+      opacity: 0;
+      transform: translateY(-8px) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .cabecera-panel-notif-compacta {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 0.65rem 0.8rem !important;
+    gap: 0.5rem !important;
+  }
+
+  .cabecera-fila-superior-movil {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+  }
+
+  .btn-cerrar-notif-movil {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 50% !important;
+    background: var(--fondo-elevado) !important;
+    border: 1px solid var(--borde-tarjeta) !important;
+    color: var(--texto-secundario) !important;
+    cursor: pointer !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
+  .btn-cerrar-notif-movil:active {
+    background: var(--fondo-hover) !important;
+    color: var(--texto-principal) !important;
+  }
+
+  .cabecera-fila-acciones-notif {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.4rem !important;
+    width: 100% !important;
+  }
+
+  .pestanas-filtro-inline {
+    flex: 1 !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+  }
+
+  .btn-pestana-inline {
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.72rem !important;
+  }
+
+  .cuerpo-scroll-notificaciones-compacto {
+    max-height: calc(100dvh - 210px) !important;
+    padding: 0.5rem 0.65rem !important;
+  }
+
+  .tarjeta-notif-compacta {
+    padding: 0.55rem 0.65rem !important;
+    gap: 0.35rem !important;
+  }
+
+  .notif-c-fila-1 {
+    flex-wrap: wrap !important;
+    gap: 0.3rem !important;
+  }
+
+  .chip-desc-c {
+    max-width: 140px !important;
+    font-size: 0.62rem !important;
+  }
+
+  .notif-c-fila-2 {
+    gap: 0.4rem !important;
+    margin-top: 0.15rem !important;
+  }
+
+  .barra-acciones-admin-notif {
+    padding: 0.45rem 0.65rem !important;
+    gap: 0.35rem !important;
+    flex-wrap: wrap !important;
+  }
+
+  .btn-admin-notif {
+    font-size: 0.68rem !important;
+    padding: 0.3rem 0.55rem !important;
+  }
 }

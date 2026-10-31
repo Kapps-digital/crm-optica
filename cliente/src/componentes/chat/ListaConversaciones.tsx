@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Search, Phone, AlertCircle, Bot } from 'lucide-react';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import { FiltroBusqueda } from '../comunes/FiltroBusqueda';
@@ -57,6 +57,17 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
 }) => {
   const [busqueda, setBusqueda] = useState('');
   const [filtroSeleccionado, setFiltroSeleccionado] = useState<TipoFiltroPildora>('todos');
+  const [chatFijadoEnFiltroId, setChatFijadoEnFiltroId] = useState<number | null>(null);
+
+  const cambiarFiltro = (nuevoFiltro: TipoFiltroPildora) => {
+    setFiltroSeleccionado(nuevoFiltro);
+    setChatFijadoEnFiltroId(null);
+  };
+
+  const manejarSeleccionarItem = (conv: Conversacion) => {
+    setChatFijadoEnFiltroId(Number(conv.id));
+    alSeleccionarConversacion(conv);
+  };
 
   const normalizar = (t: string) =>
     t
@@ -84,17 +95,19 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
     return { noLeidos, urgentes, ia };
   }, [conversaciones]);
 
-  // Filtrado reactivo en memoria
+  // Filtrado reactivo en memoria (estilo WhatsApp Web: mantiene el chat abierto visible mientras se atiende)
   const conversacionesFiltradas = useMemo(() => {
     return conversaciones.filter((c) => {
+      const esFijado = chatFijadoEnFiltroId !== null && Number(c.id) === Number(chatFijadoEnFiltroId);
+
       // 1. Filtrado por píldora seleccionada
       if (filtroSeleccionado === 'no_leidos') {
         const tieneNoLeidos = Boolean(c.no_leido || (c.mensajes_no_leidos && c.mensajes_no_leidos > 0));
-        if (!tieneNoLeidos) return false;
+        if (!tieneNoLeidos && !esFijado) return false;
       } else if (filtroSeleccionado === 'urgente') {
-        if (!c.requiere_asesor_humano) return false;
+        if (!c.requiere_asesor_humano && !esFijado) return false;
       } else if (filtroSeleccionado === 'ia') {
-        if (!c.atendido_por_ia) return false;
+        if (!c.atendido_por_ia && !esFijado) return false;
       }
 
       // 2. Filtrado por término de búsqueda
@@ -105,24 +118,7 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
       const ultimoMsg = normalizar(c.ultimo_mensaje_texto || '');
       return nombre.includes(termino) || telefono.includes(termino) || ultimoMsg.includes(termino);
     });
-  }, [conversaciones, busqueda, filtroSeleccionado]);
-
-  // Si cambia la conversación activa seleccionada desde el exterior (notificaciones),
-  // asegurar que quede visible en el listado ajustando la pestaña a 'urgente' o 'todos'
-  useEffect(() => {
-    if (!conversacionActivaId) return;
-    const activaIdNum = Number(conversacionActivaId);
-    const estaVisible = conversacionesFiltradas.some((c) => Number(c.id) === activaIdNum);
-    if (!estaVisible) {
-      const convObjetivo = conversaciones.find((c) => Number(c.id) === activaIdNum);
-      if (convObjetivo?.requiere_asesor_humano) {
-        setFiltroSeleccionado('urgente');
-      } else {
-        setFiltroSeleccionado('todos');
-      }
-      setBusqueda('');
-    }
-  }, [conversacionActivaId, conversaciones, conversacionesFiltradas]);
+  }, [conversaciones, busqueda, filtroSeleccionado, chatFijadoEnFiltroId]);
 
   return (
     <div className="columna-conversaciones">
@@ -164,7 +160,7 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
         <EtiquetaTooltip texto="Ver todas las conversaciones" posicion="abajo">
           <button
             type="button"
-            onClick={() => setFiltroSeleccionado('todos')}
+            onClick={() => cambiarFiltro('todos')}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -190,7 +186,7 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
         <EtiquetaTooltip texto="Filtrar mensajes no leídos" posicion="abajo">
           <button
             type="button"
-            onClick={() => setFiltroSeleccionado('no_leidos')}
+            onClick={() => cambiarFiltro('no_leidos')}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -235,7 +231,7 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
         <EtiquetaTooltip texto="Conversaciones que requieren atención de un asesor humano" posicion="abajo">
           <button
             type="button"
-            onClick={() => setFiltroSeleccionado('urgente')}
+            onClick={() => cambiarFiltro('urgente')}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -280,7 +276,7 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
         <EtiquetaTooltip texto="Conversaciones gestionadas por el Agente IA" posicion="abajo">
           <button
             type="button"
-            onClick={() => setFiltroSeleccionado('ia')}
+            onClick={() => cambiarFiltro('ia')}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -312,7 +308,15 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
           </div>
         ) : conversacionesFiltradas.length === 0 ? (
           <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--texto-atenuado)', fontSize: '0.85rem' }}>
-            No se encontraron conversaciones
+            {busqueda.trim()
+              ? 'No se encontraron conversaciones que coincidan con la búsqueda'
+              : filtroSeleccionado === 'no_leidos'
+              ? 'No tienes conversaciones con mensajes no leídos'
+              : filtroSeleccionado === 'urgente'
+              ? 'No hay conversaciones que requieran atención de asesor'
+              : filtroSeleccionado === 'ia'
+              ? 'No hay conversaciones gestionadas por IA'
+              : 'No se encontraron conversaciones'}
           </div>
         ) : (
           conversacionesFiltradas.map((conv) => {
@@ -329,7 +333,7 @@ export const ListaConversaciones: React.FC<PropiedadesListaConversaciones> = ({
               <div
                 key={conv.id}
                 className={`tarjeta-conversacion-item ${esActiva ? 'activa' : ''} ${esUrgente ? 'requiere-humano-urgente' : ''}`}
-                onClick={() => alSeleccionarConversacion(conv)}
+                onClick={() => manejarSeleccionarItem(conv)}
                 style={{
                   borderLeft: esUrgente ? '3.5px solid #ef4444' : undefined,
                   background: esUrgente && !esActiva ? 'rgba(239, 68, 68, 0.03)' : undefined,

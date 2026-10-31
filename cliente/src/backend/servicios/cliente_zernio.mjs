@@ -214,3 +214,32 @@ export class ClienteZernio {
     return new Promise((resolver) => setTimeout(resolver, milisegundos));
   }
 }
+
+/**
+ * Resuelve y retorna la instancia del ClienteZernio para una óptica específica.
+ * Si la óptica tiene configurada su propia `zernio_api_key`, opera con esa cuenta;
+ * de lo contrario, utiliza las variables de entorno globales como respaldo.
+ *
+ * @param {number|string|null} [optica_id=null]
+ * @returns {Promise<ClienteZernio>}
+ */
+export async function obtener_cliente_zernio(optica_id = null) {
+  if (optica_id && Number(optica_id) > 0) {
+    try {
+      const { pool } = await import('../base_datos/conexion.mjs');
+      const res = await pool.query(
+        'SELECT zernio_api_key FROM "CRM_Opticas".opticas WHERE id = $1',
+        [Number(optica_id)]
+      );
+      const claveOptica = res.rows[0]?.zernio_api_key;
+      if (claveOptica && String(claveOptica).trim()) {
+        return new ClienteZernio({
+          clave_api: String(claveOptica).trim(),
+        });
+      }
+    } catch (e) {
+      console.warn(`[Zernio] Error al consultar clave de óptica ${optica_id}:`, e.message);
+    }
+  }
+  return new ClienteZernio();
+}

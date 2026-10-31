@@ -56,11 +56,88 @@ import {
   obtenerMetricasConsumoIA,
   obtenerDirectivaTonoIA,
 } from '@/backend/servicios/motor_ia.mjs';
+import {
+  guardarSuscripcionPush,
+  eliminarSuscripcionPush,
+  enviarNotificacionPushAOptica,
+} from '@/backend/servicios/gestor_notificaciones_push.mjs';
 
 const base_datos = bdModulo as any;
 const subirLogoStorage: any = subir_logo_storage_optica;
 
 const SECRETO_JWT = process.env.JWT_SECRET || 'crm_optica_secreto_super_seguro_2026';
+
+/**
+ * Formatea una fecha o timestamp a formato hispanoamericano DD/MM/AAAA en horario Colombia (America/Bogota, UTC-5).
+ */
+function formatearFechaColombia(fechaIsoOrDate: string | Date | null | undefined): string {
+  if (!fechaIsoOrDate) return 'Sin fecha';
+  try {
+    const d = new Date(fechaIsoOrDate);
+    return new Intl.DateTimeFormat('es-CO', {
+      timeZone: 'America/Bogota',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).format(d);
+  } catch {
+    return String(fechaIsoOrDate);
+  }
+}
+
+/**
+ * Calcula el estado de suscripción de una óptica respecto a la zona horaria colombiana (America/Bogota, UTC-5).
+ * Sin días de gracia: expira exactamente a las 23:59:59 COT de la fecha de corte.
+ */
+function calcularEstadoSuscripcionColombia(fechaVencimiento: string | Date | null | undefined) {
+  if (!fechaVencimiento) {
+    return {
+      dias_restantes: 9999,
+      plan_vencido: false,
+      estado_plan: 'al_dia' as const,
+      fecha_vencimiento_iso: null,
+      fecha_vencimiento_formateada: 'Sin límite',
+    };
+  }
+
+  const fechaVenc = new Date(fechaVencimiento);
+  const ahora = new Date();
+
+  // Fechas calendario en hora de Colombia (YYYY-MM-DD)
+  const formateadorFecha = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Bogota',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+
+  const [anioHoy, mesHoy, diaHoy] = formateadorFecha.format(ahora).split('-').map(Number);
+  const [anioVenc, mesVenc, diaVenc] = formateadorFecha.format(fechaVenc).split('-').map(Number);
+
+  const fechaHoyUtc = Date.UTC(anioHoy, mesHoy - 1, diaHoy);
+  const fechaVencUtc = Date.UTC(anioVenc, mesVenc - 1, diaVenc);
+
+  const milisPorDia = 1000 * 60 * 60 * 24;
+  const diasRestantes = Math.round((fechaVencUtc - fechaHoyUtc) / milisPorDia);
+
+  // Vencido si el timestamp actual superó el vencimiento (fijado a las 23:59:59 hora COT)
+  const planVencido = ahora.getTime() > fechaVenc.getTime() || diasRestantes < 0;
+
+  let estadoPlan: 'al_dia' | 'por_vencer' | 'vencido' = 'al_dia';
+  if (planVencido) {
+    estadoPlan = 'vencido';
+  } else if (diasRestantes <= 5) {
+    estadoPlan = 'por_vencer';
+  }
+
+  return {
+    dias_restantes: diasRestantes,
+    plan_vencido: planVencido,
+    estado_plan: estadoPlan,
+    fecha_vencimiento_iso: fechaVenc.toISOString(),
+    fecha_vencimiento_formateada: formatearFechaColombia(fechaVenc),
+  };
+}
 
 function extraerSesion(request: NextRequest): { usuario: any; optica_id: number } {
   const authHeader = request.headers.get('authorization');
@@ -102,6 +179,34 @@ async function procesarPeticion(
   }
 
   try {
+    // 0. GUARDIA DE SEGURIDAD Y SUSCRIPCIÓN (Excluye rutas públicas de autenticación y media)
+    if (usuario && usuario.rol !== 'admin' && !rutaStr.startsWith('auth/') && !rutaStr.startsWith('media/')) {
+      const opticaInfo = await base_datos.prepare('SELECT activo, fecha_vencimiento FROM opticas WHERE id = ?').get(optica_id);
+      if (opticaInfo) {
+        if (opticaInfo.activo === false) {
+          return NextResponse.json(
+            { exito: false, error: 'La sede u óptica asignada se encuentra desactivada temporalmente.', codigo: 'OPTICA_INACTIVA' },
+            { status: 403 }
+          );
+        }
+        if (opticaInfo.fecha_vencimiento) {
+          const suscripcion = calcularEstadoSuscripcionColombia(opticaInfo.fecha_vencimiento);
+          if (suscripcion.plan_vencido) {
+            return NextResponse.json(
+              {
+                exito: false,
+                error: `Servicio suspendido. El plan de tu óptica venció el ${suscripcion.fecha_vencimiento_formateada}. Comunícate con la administración para reactivar la cuenta.`,
+                codigo: 'SUSCRIPCION_VENCIDA',
+                fecha_vencimiento: opticaInfo.fecha_vencimiento,
+                dias_restantes: suscripcion.dias_restantes,
+              },
+              { status: 403 }
+            );
+          }
+        }
+      }
+    }
+
     // 1. ESTADO DEL SISTEMA
     if (metodo === 'GET' && rutaStr === 'estado') {
       const total_contactos = (await base_datos.prepare('SELECT COUNT(*) AS total FROM contactos WHERE optica_id = ?').get(optica_id))?.total || 0;
@@ -135,10 +240,12 @@ async function procesarPeticion(
           u.id, u.optica_id, u.nombre, u.usuario, u.hash_contrasena, u.rol, u.activo,
           o.nombre AS optica_nombre, o.slug AS optica_slug, o.logo_url AS optica_logo,
           o.color_primario, o.color_secundario, o.telefono AS optica_telefono,
-          COALESCE(o.ia_habilitada, true) AS optica_ia_habilitada
+          COALESCE(o.ia_habilitada, true) AS optica_ia_habilitada,
+          o.activo AS optica_activo,
+          o.fecha_vencimiento AS optica_fecha_vencimiento
         FROM usuarios u
-        JOIN opticas o ON u.optica_id = o.id
-        WHERE LOWER(u.usuario) = ? AND u.activo = true AND o.activo = true
+        LEFT JOIN opticas o ON u.optica_id = o.id
+        WHERE LOWER(u.usuario) = ?
       `).get(usuarioLimpio);
 
       if (!usuarioDb) {
@@ -148,6 +255,35 @@ async function procesarPeticion(
       const coincide = bcrypt.compareSync(contrasena, usuarioDb.hash_contrasena);
       if (!coincide) {
         return NextResponse.json({ exito: false, error: 'Usuario o contraseña incorrectos' }, { status: 401 });
+      }
+
+      if (!usuarioDb.activo) {
+        return NextResponse.json({
+          exito: false,
+          error: 'Tu cuenta de usuario se encuentra inactiva. Comunícate con el administrador.',
+        }, { status: 403 });
+      }
+
+      // Validar óptica y suscripción para usuarios no superadmin
+      const suscripcionOptica = calcularEstadoSuscripcionColombia(usuarioDb.optica_fecha_vencimiento);
+      if (usuarioDb.rol !== 'admin') {
+        if (usuarioDb.optica_activo === false) {
+          return NextResponse.json({
+            exito: false,
+            error: 'La sede u óptica asignada se encuentra desactivada temporalmente.',
+            codigo: 'OPTICA_INACTIVA',
+          }, { status: 403 });
+        }
+
+        if (suscripcionOptica.plan_vencido) {
+          return NextResponse.json({
+            exito: false,
+            error: `Servicio suspendido. El plan de tu óptica venció el ${suscripcionOptica.fecha_vencimiento_formateada}. Comunícate con la administración para reactivar la cuenta.`,
+            codigo: 'SUSCRIPCION_VENCIDA',
+            fecha_vencimiento: usuarioDb.optica_fecha_vencimiento,
+            dias_restantes: suscripcionOptica.dias_restantes,
+          }, { status: 403 });
+        }
       }
 
       const token = jwt.sign(
@@ -162,7 +298,7 @@ async function procesarPeticion(
         { expiresIn: '7d' }
       );
 
-      base_datos.prepare("UPDATE usuarios SET ultimo_acceso = datetime('now') WHERE id = ?").run(usuarioDb.id).catch(() => {});
+      base_datos.prepare("UPDATE usuarios SET ultimo_acceso = datetime('now') WHERE id = ?").run(usuarioDb.id).catch(() => { });
 
       return NextResponse.json({
         exito: true,
@@ -183,6 +319,10 @@ async function procesarPeticion(
           color_secundario: usuarioDb.color_secundario || '#0369a1',
           telefono: usuarioDb.optica_telefono,
           ia_habilitada: Boolean(usuarioDb.optica_ia_habilitada ?? true),
+          fecha_vencimiento: usuarioDb.optica_fecha_vencimiento ? new Date(usuarioDb.optica_fecha_vencimiento).toISOString() : null,
+          dias_restantes: suscripcionOptica.dias_restantes,
+          plan_vencido: suscripcionOptica.plan_vencido,
+          estado_plan: suscripcionOptica.estado_plan,
         },
       });
     }
@@ -346,7 +486,7 @@ async function procesarPeticion(
           UPDATE recuperacion_contrasena 
           SET usado = true 
           WHERE usuario_id = ? AND usado = false
-        `).run(usuarioDb.id).catch(() => {});
+        `).run(usuarioDb.id).catch(() => { });
 
         // Guardar en tabla de recuperación únicamente si el correo fue despachado exitosamente por Resend
         await base_datos.prepare(`
@@ -418,6 +558,50 @@ async function procesarPeticion(
       });
     }
 
+    // =========================================================================
+    // RUTAS: NOTIFICACIONES PUSH WEB (MÓVIL / ESCRITORIO)
+    // =========================================================================
+    if (metodo === 'GET' && rutaStr === 'push/clave-publica') {
+      const clavePublica = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
+      return NextResponse.json({ exito: true, clavePublica });
+    }
+
+    if (metodo === 'POST' && rutaStr === 'push/suscribir') {
+      const { suscripcion } = body;
+      const agente = request.headers.get('user-agent') || '';
+      if (!suscripcion || !suscripcion.endpoint) {
+        return NextResponse.json({ exito: false, error: 'Datos de suscripción incompletos' }, { status: 400 });
+      }
+
+      const guardado = await guardarSuscripcionPush({
+        usuario_id: usuario?.id || null,
+        optica_id,
+        suscripcion,
+        user_agent: agente,
+      });
+
+      return NextResponse.json({ exito: true, id: guardado?.id });
+    }
+
+    if (metodo === 'POST' && rutaStr === 'push/desuscribir') {
+      const { endpoint } = body;
+      if (endpoint) {
+        await eliminarSuscripcionPush(endpoint);
+      }
+      return NextResponse.json({ exito: true });
+    }
+
+    if (metodo === 'POST' && rutaStr === 'push/probar') {
+      const resPush = await enviarNotificacionPushAOptica({
+        optica_id,
+        titulo: '🔔 Notificación de Prueba CRM',
+        cuerpo: '¡Las notificaciones en tu celular están funcionando a la perfección!',
+        url: '/',
+        etiqueta: 'prueba-push',
+      });
+      return NextResponse.json({ exito: true, resultado: resPush });
+    }
+
     if (metodo === 'GET' && rutaStr === 'auth/perfil') {
       if (!usuario) {
         return NextResponse.json({ exito: false, error: 'Sesión no iniciada' }, { status: 401 });
@@ -437,9 +621,13 @@ async function procesarPeticion(
           registro_profesional_defecto, motivo_cita_defecto, notificacion_auto_citas_whatsapp,
           dias_atencion, hora_inicio_atencion, hora_fin_atencion,
           COALESCE(ia_activa, true) AS ia_activa,
-          COALESCE(ia_habilitada, true) AS ia_habilitada
-        FROM opticas WHERE id = ? AND activo = true
+          COALESCE(ia_habilitada, true) AS ia_habilitada,
+          activo,
+          fecha_vencimiento
+        FROM opticas WHERE id = ?
       `).get(optica_id);
+
+      const suscripcionOptica = calcularEstadoSuscripcionColombia(opticaDb?.fecha_vencimiento);
 
       return NextResponse.json({
         exito: true,
@@ -469,25 +657,12 @@ async function procesarPeticion(
           hora_fin_atencion: opticaDb.hora_fin_atencion || '06:00 PM',
           ia_activa: Boolean(opticaDb.ia_activa ?? true),
           ia_habilitada: Boolean(opticaDb.ia_habilitada ?? true),
+          activo: Boolean(opticaDb.activo ?? true),
+          fecha_vencimiento: opticaDb.fecha_vencimiento ? new Date(opticaDb.fecha_vencimiento).toISOString() : null,
+          dias_restantes: suscripcionOptica.dias_restantes,
+          plan_vencido: suscripcionOptica.plan_vencido,
+          estado_plan: suscripcionOptica.estado_plan,
         } : null,
-      });
-    }
-
-    if (metodo === 'GET' && rutaStr === 'opticas') {
-      const opticas = await base_datos.prepare(`
-        SELECT id, nombre, slug, logo_url, color_primario, color_secundario, telefono, activo,
-               COALESCE(ia_activa, true) AS ia_activa,
-               COALESCE(ia_habilitada, true) AS ia_habilitada
-        FROM opticas WHERE activo = true ORDER BY id ASC
-      `).all();
-      return NextResponse.json({
-        exito: true,
-        opticas: opticas.map((o: any) => ({
-          ...o,
-          id: Number(o.id),
-          ia_activa: Boolean(o.ia_activa ?? true),
-          ia_habilitada: Boolean(o.ia_habilitada ?? true),
-        })),
       });
     }
 
@@ -617,7 +792,7 @@ async function procesarPeticion(
                 id: r.id || undefined,
               }));
             }
-          } catch {}
+          } catch { }
         }
 
         return {
@@ -658,7 +833,7 @@ async function procesarPeticion(
             cuerpo: { accountId: conv.id_cuenta_zernio },
             sin_reintentos: true,
           });
-        } catch {}
+        } catch { }
       }
       return NextResponse.json({ exito: true });
     }
@@ -704,7 +879,7 @@ async function procesarPeticion(
       if (body.conversacion_id) {
         try {
           await base_datos.prepare('UPDATE conversaciones SET ia_pausada_por_humano = TRUE, requiere_asesor_humano = FALSE WHERE id = ?').run(body.conversacion_id);
-        } catch {}
+        } catch { }
       }
 
       return NextResponse.json(resultado);
@@ -716,11 +891,15 @@ async function procesarPeticion(
         SELECT 
           c.*, c.nombre_completo AS nombre,
           COALESCE(c.es_paciente, false) AS es_paciente,
+          c.tipologia_id,
+          tp.nombre AS tipologia_nombre,
+          tp.color AS tipologia_color,
           CAST((SELECT COUNT(*) FROM formulas_opticas WHERE contacto_id = c.id) AS INTEGER) AS total_formulas,
           CAST((SELECT COUNT(*) FROM citas WHERE contacto_id = c.id) AS INTEGER) AS total_citas,
           (SELECT fecha_examen FROM formulas_opticas WHERE contacto_id = c.id ORDER BY id DESC LIMIT 1) AS ultima_formula_fecha,
           (SELECT tipo_lente FROM formulas_opticas WHERE contacto_id = c.id ORDER BY id DESC LIMIT 1) AS ultimo_tipo_lente
         FROM contactos c
+        LEFT JOIN tipologias_pacientes tp ON tp.id = c.tipologia_id
         WHERE c.optica_id = ?
         ORDER BY LOWER(TRIM(COALESCE(c.nombre_completo, ''))) ASC, c.actualizado_en DESC
       `).all(optica_id);
@@ -728,7 +907,7 @@ async function procesarPeticion(
     }
 
     if (metodo === 'POST' && rutaStr === 'contactos') {
-      const { nombre, nombre_completo, tipo_documento = 'CC', cedula, documento, telefono, correo, edad, sexo = 'masculino', es_paciente = true } = body;
+      const { nombre, nombre_completo, tipo_documento = 'CC', cedula, documento, telefono, correo, edad, sexo = 'masculino', es_paciente = true, tipologia_id } = body;
       const nombreFinal = String(nombre_completo || nombre || '').trim();
       const doc = String(cedula || documento || '').trim();
       const sexoFinal = sexo ? String(sexo).trim().toLowerCase() : 'masculino';
@@ -745,6 +924,8 @@ async function procesarPeticion(
         existente = await base_datos.prepare('SELECT * FROM contactos WHERE optica_id = ? AND TRIM(telefono) = TRIM(?)').get(optica_id, String(telefono).trim());
       }
 
+      const idTipologia = tipologia_id ? Number(tipologia_id) : null;
+
       if (existente) {
         await base_datos.prepare(`
           UPDATE contactos SET 
@@ -756,25 +937,41 @@ async function procesarPeticion(
             edad = COALESCE(?, edad),
             sexo = COALESCE(?, sexo),
             es_paciente = ?,
+            tipologia_id = COALESCE(?, tipologia_id),
             actualizado_en = datetime('now')
           WHERE id = ?
-        `).run(nombreFinal, tipo_documento ? String(tipo_documento).trim().toUpperCase() : 'CC', doc || null, telefono ? String(telefono).trim() : null, correo ? String(correo).trim() : null, edad ? Number(edad) : null, sexoFinal, Boolean(es_paciente), existente.id);
-        const actualizado = await base_datos.prepare('SELECT *, nombre_completo AS nombre FROM contactos WHERE id = ?').get(existente.id);
+        `).run(nombreFinal, tipo_documento ? String(tipo_documento).trim().toUpperCase() : 'CC', doc || null, telefono ? String(telefono).trim() : null, correo ? String(correo).trim() : null, edad ? Number(edad) : null, sexoFinal, Boolean(es_paciente), idTipologia, existente.id);
+        const actualizado = await base_datos.prepare(`
+          SELECT c.*, c.nombre_completo AS nombre, tp.nombre AS tipologia_nombre, tp.color AS tipologia_color 
+          FROM contactos c 
+          LEFT JOIN tipologias_pacientes tp ON tp.id = c.tipologia_id 
+          WHERE c.id = ?
+        `).get(existente.id);
         return NextResponse.json({ exito: true, contacto: actualizado, actualizado: true });
       }
 
       const insercion = await base_datos.prepare(`
-        INSERT INTO contactos (optica_id, nombre_completo, tipo_documento, cedula, telefono, correo, edad, sexo, es_paciente)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(optica_id, nombreFinal, tipo_documento ? String(tipo_documento).trim().toUpperCase() : 'CC', doc || null, telefono ? String(telefono).trim() : null, correo ? String(correo).trim() : null, edad ? Number(edad) : null, sexoFinal, Boolean(es_paciente));
+        INSERT INTO contactos (optica_id, nombre_completo, tipo_documento, cedula, telefono, correo, edad, sexo, es_paciente, tipologia_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(optica_id, nombreFinal, tipo_documento ? String(tipo_documento).trim().toUpperCase() : 'CC', doc || null, telefono ? String(telefono).trim() : null, correo ? String(correo).trim() : null, edad ? Number(edad) : null, sexoFinal, Boolean(es_paciente), idTipologia);
 
-      const nuevo = await base_datos.prepare('SELECT *, nombre_completo AS nombre FROM contactos WHERE id = ?').get(insercion.lastInsertRowid);
+      const nuevo = await base_datos.prepare(`
+        SELECT c.*, c.nombre_completo AS nombre, tp.nombre AS tipologia_nombre, tp.color AS tipologia_color 
+        FROM contactos c 
+        LEFT JOIN tipologias_pacientes tp ON tp.id = c.tipologia_id 
+        WHERE c.id = ?
+      `).get(insercion.lastInsertRowid);
       return NextResponse.json({ exito: true, contacto: nuevo, creado: true });
     }
 
     if (metodo === 'GET' && segmentosRuta[0] === 'contactos' && segmentosRuta.length === 2) {
       const contactoId = segmentosRuta[1];
-      const contacto = await base_datos.prepare('SELECT *, nombre_completo AS nombre FROM contactos WHERE id = ?').get(contactoId);
+      const contacto = await base_datos.prepare(`
+        SELECT c.*, c.nombre_completo AS nombre, tp.nombre AS tipologia_nombre, tp.color AS tipologia_color 
+        FROM contactos c 
+        LEFT JOIN tipologias_pacientes tp ON tp.id = c.tipologia_id 
+        WHERE c.id = ?
+      `).get(contactoId);
       if (!contacto) {
         return NextResponse.json({ exito: false, mensaje: 'Paciente no encontrado' }, { status: 404 });
       }
@@ -795,13 +992,13 @@ async function procesarPeticion(
       const actual = await base_datos.prepare('SELECT * FROM contactos WHERE id = ?').get(id);
       if (!actual) return NextResponse.json({ exito: false, error: 'Contacto no encontrado' }, { status: 404 });
 
-      const { nombre, nombre_completo, tipo_documento, cedula, documento, telefono, correo, edad, sexo, es_paciente } = body;
+      const { nombre, nombre_completo, tipo_documento, cedula, documento, telefono, correo, edad, sexo, es_paciente, tipologia_id } = body;
       const nombreFinal = nombre_completo !== undefined ? nombre_completo : nombre;
       const doc = cedula !== undefined ? cedula : documento;
 
       await base_datos.prepare(`
         UPDATE contactos SET 
-          nombre_completo = ?, tipo_documento = ?, cedula = ?, telefono = ?, correo = ?, edad = ?, sexo = ?, es_paciente = ?, actualizado_en = datetime('now')
+          nombre_completo = ?, tipo_documento = ?, cedula = ?, telefono = ?, correo = ?, edad = ?, sexo = ?, es_paciente = ?, tipologia_id = ?, actualizado_en = datetime('now')
         WHERE id = ?
       `).run(
         nombreFinal !== undefined ? (nombreFinal ? String(nombreFinal).trim() : null) : actual.nombre_completo,
@@ -812,10 +1009,16 @@ async function procesarPeticion(
         edad !== undefined ? (edad ? Number(edad) : null) : actual.edad,
         sexo !== undefined ? (sexo ? String(sexo).trim().toLowerCase() : 'masculino') : (actual.sexo || 'masculino'),
         es_paciente !== undefined ? Boolean(es_paciente) : actual.es_paciente,
+        tipologia_id !== undefined ? (tipologia_id ? Number(tipologia_id) : null) : actual.tipologia_id,
         id
       );
 
-      const actualizado = await base_datos.prepare('SELECT *, nombre_completo AS nombre FROM contactos WHERE id = ?').get(id);
+      const actualizado = await base_datos.prepare(`
+        SELECT c.*, c.nombre_completo AS nombre, tp.nombre AS tipologia_nombre, tp.color AS tipologia_color 
+        FROM contactos c 
+        LEFT JOIN tipologias_pacientes tp ON tp.id = c.tipologia_id 
+        WHERE c.id = ?
+      `).get(id);
       return NextResponse.json({ exito: true, contacto: actualizado });
     }
 
@@ -1221,6 +1424,16 @@ async function procesarPeticion(
     // 9. CANALES Y CONFIGURACIÓN
     if (metodo === 'GET' && rutaStr === 'canales/estado') {
       const resultado = await obtener_canales_optica(optica_id);
+      if (resultado && resultado.optica) {
+        const susc = calcularEstadoSuscripcionColombia(resultado.optica.fecha_vencimiento);
+        resultado.optica = {
+          ...resultado.optica,
+          fecha_vencimiento: resultado.optica.fecha_vencimiento ? new Date(resultado.optica.fecha_vencimiento).toISOString() : null,
+          dias_restantes: susc.dias_restantes,
+          plan_vencido: susc.plan_vencido,
+          estado_plan: susc.estado_plan,
+        };
+      }
       return NextResponse.json(resultado);
     }
 
@@ -1269,6 +1482,61 @@ async function procesarPeticion(
       await eliminar_logo_storage_optica(idOpticaDestino);
       await base_datos.prepare('UPDATE opticas SET logo_url = NULL WHERE id = ?').run(idOpticaDestino);
       return NextResponse.json({ exito: true });
+    }
+
+    // 8.1. TIPOLOGÍAS DE PACIENTES POR ÓPTICA
+    if (metodo === 'GET' && rutaStr === 'configuracion/tipologias-pacientes') {
+      const tipologias = await base_datos.prepare(`
+        SELECT t.id, t.optica_id, t.nombre, t.color, t.activo, t.creado_en,
+               COUNT(c.id)::int AS total_pacientes
+        FROM tipologias_pacientes t
+        LEFT JOIN contactos c ON c.tipologia_id = t.id AND c.optica_id = t.optica_id AND c.es_paciente = true
+        WHERE t.optica_id = ?
+        GROUP BY t.id, t.optica_id, t.nombre, t.color, t.activo, t.creado_en
+        ORDER BY LOWER(t.nombre) ASC
+      `).all(optica_id);
+      return NextResponse.json({ exito: true, tipologias }, { headers: ENCABEZADOS_NO_CACHE });
+    }
+
+    if (metodo === 'POST' && rutaStr === 'configuracion/tipologias-pacientes') {
+      const { nombre, color } = body;
+      const nombreLimpio = String(nombre || '').trim();
+      if (!nombreLimpio) {
+        return NextResponse.json({ exito: false, error: 'El nombre de la tipología es obligatorio' }, { status: 400 });
+      }
+      const colorFinal = String(color || '#0284c7').trim();
+
+      const existente = await base_datos.prepare(`
+        SELECT * FROM tipologias_pacientes 
+        WHERE optica_id = ? AND LOWER(TRIM(nombre)) = LOWER(?)
+      `).get(optica_id, nombreLimpio);
+
+      if (existente) {
+        return NextResponse.json({ exito: false, error: 'Ya existe una tipología con ese nombre en tu óptica' }, { status: 400 });
+      }
+
+      const res = await base_datos.prepare(`
+        INSERT INTO tipologias_pacientes (optica_id, nombre, color, activo)
+        VALUES (?, ?, ?, true)
+      `).run(optica_id, nombreLimpio, colorFinal);
+
+      const nueva = await base_datos.prepare(`
+        SELECT id, optica_id, nombre, color, activo, creado_en, 0 AS total_pacientes 
+        FROM tipologias_pacientes WHERE id = ?
+      `).get(res.lastInsertRowid);
+      return NextResponse.json({ exito: true, tipologia: nueva }, { headers: ENCABEZADOS_NO_CACHE });
+    }
+
+    if (metodo === 'DELETE' && (rutaStr === 'configuracion/tipologias-pacientes' || (segmentosRuta[0] === 'configuracion' && segmentosRuta[1] === 'tipologias-pacientes'))) {
+      const idTipologia = segmentosRuta[2] || searchParams.get('id') || body.id;
+      if (!idTipologia) {
+        return NextResponse.json({ exito: false, error: 'ID de tipología requerido' }, { status: 400 });
+      }
+      // 1. Desasociar pacientes vinculados para que queden sin tipología (SET NULL)
+      await base_datos.prepare('UPDATE contactos SET tipologia_id = NULL WHERE tipologia_id = ? AND optica_id = ?').run(idTipologia, optica_id);
+      // 2. Borrado físico real de la base de datos
+      await base_datos.prepare('DELETE FROM tipologias_pacientes WHERE id = ? AND optica_id = ?').run(idTipologia, optica_id);
+      return NextResponse.json({ exito: true }, { headers: ENCABEZADOS_NO_CACHE });
     }
 
     // 9. CONFIGURACIÓN DEL AGENTE DE INTELIGENCIA ARTIFICIAL
@@ -1369,7 +1637,7 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
                 const salidaTexto = Number(data.usageMetadata.candidatesTokenCount || 0);
                 const razonamiento = Number(data.usageMetadata.thoughtsTokenCount || 0);
                 const totalApi = Number(data.usageMetadata.totalTokenCount || 0);
-                
+
                 if (totalApi > (tokensEntrada + salidaTexto)) {
                   tokensSalida = totalApi - tokensEntrada;
                   tokensTotales = totalApi;
@@ -1501,10 +1769,11 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
     if (
       metodo === 'GET' &&
       ((segmentosRuta[0] === 'media' && segmentosRuta[1] === 'whatsapp' && segmentosRuta.length >= 3) ||
-       (segmentosRuta[0] === 'v1' && segmentosRuta[1] === 'whatsapp' && segmentosRuta[2] === 'media' && segmentosRuta.length >= 4))
+        (segmentosRuta[0] === 'v1' && segmentosRuta[1] === 'whatsapp' && segmentosRuta[2] === 'media' && segmentosRuta.length >= 4))
     ) {
       const media_id = segmentosRuta[0] === 'media' ? segmentosRuta[2] : segmentosRuta[3];
       const account_id = searchParams.get('accountId') || searchParams.get('account_id') || process.env.ZERNIO_ACCOUNT_ID || '6ab6a5ade55ed05c5f3a902b';
+      const nombreDescarga = searchParams.get('filename') || searchParams.get('nombre_archivo');
 
       try {
         const url_zernio = `https://zernio.com/api/v1/whatsapp/media/${encodeURIComponent(media_id)}?accountId=${encodeURIComponent(account_id)}`;
@@ -1532,13 +1801,19 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
         const tipoContenido = respZernio.headers.get('content-type') || 'application/octet-stream';
         const buffer = await respZernio.arrayBuffer();
 
+        const encabezadosRespuesta: Record<string, string> = {
+          'Content-Type': tipoContenido,
+          'Content-Length': String(buffer.byteLength),
+          'Cache-Control': 'public, max-age=604800, immutable',
+        };
+
+        if (nombreDescarga) {
+          encabezadosRespuesta['Content-Disposition'] = `attachment; filename*=UTF-8''${encodeURIComponent(nombreDescarga)}`;
+        }
+
         return new Response(buffer, {
           status: 200,
-          headers: {
-            'Content-Type': tipoContenido,
-            'Content-Length': String(buffer.byteLength),
-            'Cache-Control': 'public, max-age=604800, immutable',
-          },
+          headers: encabezadosRespuesta,
         });
       } catch (errMedia: any) {
         console.error(`[Proxy Multimedia] Error al servir medio ${media_id}:`, errMedia);
@@ -1570,12 +1845,28 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
           SELECT 
             o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa,
             COALESCE(o.ia_habilitada, true) AS ia_habilitada,
+            o.fecha_vencimiento,
+            o.zernio_api_key,
+            o.zernio_webhook_secret,
             COUNT(u.id) AS total_usuarios
           FROM opticas o
           LEFT JOIN usuarios u ON u.optica_id = o.id
-          GROUP BY o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa, o.ia_habilitada
+          GROUP BY o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa, o.ia_habilitada, o.fecha_vencimiento, o.zernio_api_key, o.zernio_webhook_secret
           ORDER BY o.id ASC
         `).all();
+
+        const opticasConSuscripcion = opticas.map((o: any) => {
+          const susc = calcularEstadoSuscripcionColombia(o.fecha_vencimiento);
+          return {
+            ...o,
+            id: Number(o.id),
+            total_usuarios: Number(o.total_usuarios || 0),
+            fecha_vencimiento: o.fecha_vencimiento ? new Date(o.fecha_vencimiento).toISOString() : null,
+            dias_restantes: susc.dias_restantes,
+            plan_vencido: susc.plan_vencido,
+            estado_plan: susc.estado_plan,
+          };
+        });
 
         const totalUsuarios = usuarios.length;
         const totalActivos = usuarios.filter((u: any) => u.activo === true || u.activo === 1).length;
@@ -1586,7 +1877,7 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
         return NextResponse.json({
           exito: true,
           usuarios,
-          opticas,
+          opticas: opticasConSuscripcion,
           estadisticas: {
             total_usuarios: totalUsuarios,
             total_activos: totalActivos,
@@ -1750,14 +2041,30 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
           SELECT 
             o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa,
             COALESCE(o.ia_habilitada, true) AS ia_habilitada,
+            o.fecha_vencimiento,
+            o.zernio_api_key,
+            o.zernio_webhook_secret,
             COUNT(u.id) AS total_usuarios
           FROM opticas o
           LEFT JOIN usuarios u ON u.optica_id = o.id
-          GROUP BY o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa, o.ia_habilitada
+          GROUP BY o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa, o.ia_habilitada, o.fecha_vencimiento, o.zernio_api_key, o.zernio_webhook_secret
           ORDER BY o.id ASC
         `).all();
 
-        return NextResponse.json({ exito: true, opticas }, { headers: ENCABEZADOS_NO_CACHE });
+        const opticasMapeadas = opticas.map((o: any) => {
+          const suscripcion = calcularEstadoSuscripcionColombia(o.fecha_vencimiento);
+          return {
+            ...o,
+            id: Number(o.id),
+            total_usuarios: Number(o.total_usuarios || 0),
+            fecha_vencimiento: o.fecha_vencimiento ? new Date(o.fecha_vencimiento).toISOString() : null,
+            dias_restantes: suscripcion.dias_restantes,
+            plan_vencido: suscripcion.plan_vencido,
+            estado_plan: suscripcion.estado_plan,
+          };
+        });
+
+        return NextResponse.json({ exito: true, opticas: opticasMapeadas }, { headers: ENCABEZADOS_NO_CACHE });
       }
 
       // Solo administradores globales pueden crear o modificar sedes
@@ -1770,7 +2077,7 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
 
       // POST /api/opticas (Crear nueva óptica)
       if (metodo === 'POST' && rutaStr === 'opticas') {
-        const { nombre, slug, telefono, color_primario, color_secundario, logo_url, activo = true, ia_habilitada = true } = body;
+        const { nombre, slug, telefono, color_primario, color_secundario, logo_url, activo = true, ia_habilitada = true, zernio_api_key, zernio_webhook_secret } = body;
 
         if (!nombre || !String(nombre).trim()) {
           return NextResponse.json({ exito: false, error: 'El nombre de la óptica es obligatorio.' }, { status: 400 });
@@ -1780,11 +2087,11 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
         let slugBase = slug && String(slug).trim()
           ? String(slug).trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-')
           : nombreLimpio
-              .toLowerCase()
-              .normalize('NFD')
-              .replace(/[\u0300-\u036f]/g, '')
-              .replace(/[^a-z0-9]+/g, '-')
-              .replace(/^-+|-+$/g, '');
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
 
         if (!slugBase) slugBase = 'optica';
 
@@ -1808,10 +2115,19 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
 
         const telefonoLimpio = telefono && String(telefono).trim() ? String(telefono).trim() : null;
         const logoUrlLimpio = logo_url && String(logo_url).trim() ? String(logo_url).trim() : null;
+        const zernioApiKeyLimpia = zernio_api_key && String(zernio_api_key).trim() ? String(zernio_api_key).trim() : null;
+        const zernioWebhookSecretLimpio = zernio_webhook_secret && String(zernio_webhook_secret).trim() ? String(zernio_webhook_secret).trim() : null;
 
+        // Vencimiento inicial automático a 1 mes exacto en horario Colombia a las 23:59:59 COT
         const resultado = await base_datos.prepare(`
-          INSERT INTO opticas (nombre, slug, telefono, color_primario, color_secundario, logo_url, activo, ia_activa, ia_habilitada, creado_en)
-          VALUES (?, ?, ?, ?, ?, ?, ?, true, ?, datetime('now'))
+          INSERT INTO opticas (
+            nombre, slug, telefono, color_primario, color_secundario, logo_url, activo, ia_activa, ia_habilitada, zernio_api_key, zernio_webhook_secret, fecha_vencimiento, creado_en
+          )
+          VALUES (
+            ?, ?, ?, ?, ?, ?, ?, true, ?, ?, ?,
+            ((date_trunc('day', (NOW() AT TIME ZONE 'America/Bogota' + INTERVAL '1 month')) + TIME '23:59:59') AT TIME ZONE 'America/Bogota'),
+            datetime('now')
+          )
         `).run(
           nombreLimpio,
           slugFinal,
@@ -1820,23 +2136,37 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
           colorSecundarioLimpio,
           logoUrlLimpio,
           activo !== false,
-          ia_habilitada !== false
+          ia_habilitada !== false,
+          zernioApiKeyLimpia,
+          zernioWebhookSecretLimpio
         );
 
         const nuevaId = Number(resultado.lastInsertRowid);
         const opticaCreada = await base_datos.prepare(`
           SELECT o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa,
                  COALESCE(o.ia_habilitada, true) AS ia_habilitada,
+                 o.fecha_vencimiento,
+                 o.zernio_api_key,
+                 o.zernio_webhook_secret,
                  0 AS total_usuarios
           FROM opticas o WHERE o.id = ?
         `).get(nuevaId);
 
-        return NextResponse.json({ exito: true, optica: opticaCreada });
+        const suscripcion = calcularEstadoSuscripcionColombia(opticaCreada?.fecha_vencimiento);
+        const respuestaOptica = {
+          ...opticaCreada,
+          fecha_vencimiento: opticaCreada?.fecha_vencimiento ? new Date(opticaCreada.fecha_vencimiento).toISOString() : null,
+          dias_restantes: suscripcion.dias_restantes,
+          plan_vencido: suscripcion.plan_vencido,
+          estado_plan: suscripcion.estado_plan,
+        };
+
+        return NextResponse.json({ exito: true, optica: respuestaOptica });
       }
 
       // PUT /api/opticas (Actualizar óptica existente)
       if (metodo === 'PUT' && rutaStr === 'opticas') {
-        const { id, nombre, slug, telefono, color_primario, color_secundario, logo_url, activo, ia_habilitada } = body;
+        const { id, nombre, slug, telefono, color_primario, color_secundario, logo_url, activo, ia_habilitada, zernio_api_key, zernio_webhook_secret } = body;
         const idNum = Number(id || segmentosRuta[1]);
 
         if (!idNum) {
@@ -1871,6 +2201,12 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
           : opticaActual.logo_url;
         const activoFinal = activo !== undefined ? Boolean(activo) : Boolean(opticaActual.activo);
         const iaHabilitadaFinal = ia_habilitada !== undefined ? Boolean(ia_habilitada) : (opticaActual.ia_habilitada !== false);
+        const zernioApiKeyFinal = zernio_api_key !== undefined
+          ? (String(zernio_api_key).trim() || null)
+          : opticaActual.zernio_api_key;
+        const zernioWebhookSecretFinal = zernio_webhook_secret !== undefined
+          ? (String(zernio_webhook_secret).trim() || null)
+          : opticaActual.zernio_webhook_secret;
 
         // Si se eliminó el logo corporativo, purgar físicamente los archivos de Storage
         if (logo_url !== undefined && logoUrlFinal === null && opticaActual.logo_url) {
@@ -1890,21 +2226,37 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
             color_secundario = ?,
             logo_url = ?,
             activo = ?,
-            ia_habilitada = ?
+            ia_habilitada = ?,
+            zernio_api_key = ?,
+            zernio_webhook_secret = ?
           WHERE id = ?
-        `).run(nombreFinal, slugFinal, telefonoFinal, colorPrimarioFinal, colorSecundarioFinal, logoUrlFinal, activoFinal, iaHabilitadaFinal, idNum);
+        `).run(nombreFinal, slugFinal, telefonoFinal, colorPrimarioFinal, colorSecundarioFinal, logoUrlFinal, activoFinal, iaHabilitadaFinal, zernioApiKeyFinal, zernioWebhookSecretFinal, idNum);
 
         const opticaActualizada = await base_datos.prepare(`
           SELECT o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa,
                  COALESCE(o.ia_habilitada, true) AS ia_habilitada,
+                 o.fecha_vencimiento,
+                 o.zernio_api_key,
+                 o.zernio_webhook_secret,
                  COUNT(u.id) AS total_usuarios
           FROM opticas o
           LEFT JOIN usuarios u ON u.optica_id = o.id
           WHERE o.id = ?
-          GROUP BY o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa, o.ia_habilitada
+          GROUP BY o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa, o.ia_habilitada, o.fecha_vencimiento, o.zernio_api_key, o.zernio_webhook_secret
         `).get(idNum);
 
-        return NextResponse.json({ exito: true, optica: opticaActualizada });
+        const suscripcion = calcularEstadoSuscripcionColombia(opticaActualizada?.fecha_vencimiento);
+        const respuestaOptica = {
+          ...opticaActualizada,
+          id: Number(opticaActualizada?.id),
+          total_usuarios: Number(opticaActualizada?.total_usuarios || 0),
+          fecha_vencimiento: opticaActualizada?.fecha_vencimiento ? new Date(opticaActualizada.fecha_vencimiento).toISOString() : null,
+          dias_restantes: suscripcion.dias_restantes,
+          plan_vencido: suscripcion.plan_vencido,
+          estado_plan: suscripcion.estado_plan,
+        };
+
+        return NextResponse.json({ exito: true, optica: respuestaOptica });
       }
 
       // PATCH /api/opticas/estado (Alternar activo / inactivo)
@@ -1937,6 +2289,67 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
 
         await base_datos.prepare('UPDATE opticas SET ia_habilitada = ? WHERE id = ?').run(Boolean(ia_habilitada), idNum);
         return NextResponse.json({ exito: true, id: idNum, ia_habilitada: Boolean(ia_habilitada) });
+      }
+
+      // PATCH /api/opticas/suscripcion (Renovar +1 mes o asignar fecha manual en horario Colombia a las 23:59:59 COT)
+      if (metodo === 'PATCH' && rutaStr === 'opticas/suscripcion') {
+        const { id, accion, fecha_manual } = body;
+        const idNum = Number(id);
+        if (!idNum) {
+          return NextResponse.json({ exito: false, error: 'ID de óptica inválido.' }, { status: 400 });
+        }
+
+        if (accion === 'mas_un_mes') {
+          // Suma 1 mes exacto en horario Colombia terminando a las 23:59:59 COT
+          await base_datos.prepare(`
+            UPDATE opticas
+            SET fecha_vencimiento = (
+              (date_trunc('day', (
+                CASE 
+                  WHEN fecha_vencimiento > NOW() THEN fecha_vencimiento AT TIME ZONE 'America/Bogota'
+                  ELSE NOW() AT TIME ZONE 'America/Bogota'
+                END + INTERVAL '1 month'
+              )) + TIME '23:59:59') AT TIME ZONE 'America/Bogota'
+            )
+            WHERE id = ?
+          `).run(idNum);
+        } else if (accion === 'fecha_manual' && fecha_manual) {
+          const fechaLimpia = String(fecha_manual).trim();
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaLimpia)) {
+            return NextResponse.json({ exito: false, error: 'Formato de fecha inválido. Debe ser AAAA-MM-DD.' }, { status: 400 });
+          }
+          await base_datos.prepare(`
+            UPDATE opticas
+            SET fecha_vencimiento = (?::date + TIME '23:59:59') AT TIME ZONE 'America/Bogota'
+            WHERE id = ?
+          `).run(fechaLimpia, idNum);
+        } else {
+          return NextResponse.json({ exito: false, error: 'Acción de suscripción inválida.' }, { status: 400 });
+        }
+
+        const opticaActualizada = await base_datos.prepare(`
+          SELECT o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa,
+                 COALESCE(o.ia_habilitada, true) AS ia_habilitada,
+                 o.fecha_vencimiento,
+                 COUNT(u.id) AS total_usuarios
+          FROM opticas o
+          LEFT JOIN usuarios u ON u.optica_id = o.id
+          WHERE o.id = ?
+          GROUP BY o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa, o.ia_habilitada, o.fecha_vencimiento
+        `).get(idNum);
+
+        const suscripcion = calcularEstadoSuscripcionColombia(opticaActualizada?.fecha_vencimiento);
+        const respuestaOptica = {
+          ...opticaActualizada,
+          id: Number(opticaActualizada?.id),
+          total_usuarios: Number(opticaActualizada?.total_usuarios || 0),
+          fecha_vencimiento: opticaActualizada?.fecha_vencimiento ? new Date(opticaActualizada.fecha_vencimiento).toISOString() : null,
+          dias_restantes: suscripcion.dias_restantes,
+          plan_vencido: suscripcion.plan_vencido,
+          estado_plan: suscripcion.estado_plan,
+        };
+
+        return NextResponse.json({ exito: true, optica: respuestaOptica });
       }
     }
 

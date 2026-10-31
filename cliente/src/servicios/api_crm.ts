@@ -21,6 +21,7 @@ import type {
   DatosRespuestaUsuarios,
   NotificacionCRM,
   RespuestaNotificaciones,
+  TipologiaPaciente,
 } from '@/tipos/crm';
 import { TIEMPO_MAXIMO_INACTIVIDAD_MS, CLAVE_ULTIMA_ACTIVIDAD } from '@/constantes/sesion';
 
@@ -210,6 +211,7 @@ export async function iniciarSesion(usuario: string, contrasena: string): Promis
     return {
       exito: false,
       error: data.error || 'Credenciales inválidas',
+      codigo: data.codigo,
     };
   } catch (error) {
     console.error('Error al iniciar sesión:', error);
@@ -411,6 +413,7 @@ export interface DatosRegistroPaciente {
   edad?: number;
   sexo?: 'masculino' | 'femenino' | string;
   es_paciente?: boolean;
+  tipologia_id?: number | null;
 }
 
 export async function registrarPaciente(
@@ -1615,5 +1618,113 @@ export async function obtenerNotificacionesApi(): Promise<RespuestaNotificacione
   } catch (error) {
     registrarErrorApi('obtenerNotificacionesApi', error);
     return { exito: false, notificaciones: [], error: 'Error de red al obtener notificaciones' };
+  }
+}
+
+/**
+ * Renueva o actualiza la fecha de vencimiento de suscripción de una óptica (Superadmin)
+ */
+export async function actualizarSuscripcionOpticaApi(
+  id: number,
+  accion: 'mas_un_mes' | 'fecha_manual',
+  fecha_manual?: string
+): Promise<{ exito: boolean; optica?: Optica; error?: string }> {
+  try {
+    const res = await fetch('/api/opticas/suscripcion', {
+      method: 'PATCH',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ id, accion, fecha_manual }),
+    });
+    const texto = await res.text();
+    let datos;
+    try {
+      datos = JSON.parse(texto);
+    } catch {
+      return { exito: false, error: 'Respuesta inválida del servidor' };
+    }
+    if (!res.ok) {
+      return { exito: false, error: datos.error || 'Error al actualizar suscripción' };
+    }
+    return datos;
+  } catch (error) {
+    registrarErrorApi('actualizarSuscripcionOpticaApi', error);
+    return { exito: false, error: 'Error de red al actualizar suscripción de la óptica' };
+  }
+}
+
+/**
+ * Obtiene las tipologías de pacientes configuradas para la óptica activa
+ */
+export async function obtenerTipologiasPacientesApi(): Promise<{
+  exito: boolean;
+  tipologias: TipologiaPaciente[];
+  error?: string;
+}> {
+  try {
+    const res = await fetch('/api/configuracion/tipologias-pacientes', {
+      method: 'GET',
+      headers: crearEncabezados(),
+    });
+    const datos = await res.json();
+    if (!res.ok) {
+      return { exito: false, tipologias: [], error: datos.error || 'Error al obtener tipologías' };
+    }
+    return { exito: true, tipologias: datos.tipologias || [] };
+  } catch (error) {
+    registrarErrorApi('obtenerTipologiasPacientesApi', error);
+    return { exito: false, tipologias: [], error: 'Error de red al cargar tipologías' };
+  }
+}
+
+/**
+ * Crea una nueva tipología de pacientes para la óptica activa
+ */
+export async function crearTipologiaPacienteApi(
+  nombre: string,
+  color?: string
+): Promise<{
+  exito: boolean;
+  tipologia?: TipologiaPaciente;
+  error?: string;
+}> {
+  try {
+    const res = await fetch('/api/configuracion/tipologias-pacientes', {
+      method: 'POST',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ nombre, color }),
+    });
+    const datos = await res.json();
+    if (!res.ok || !datos.exito) {
+      return { exito: false, error: datos.error || 'No se pudo crear la tipología' };
+    }
+    return { exito: true, tipologia: datos.tipologia };
+  } catch (error) {
+    registrarErrorApi('crearTipologiaPacienteApi', error);
+    return { exito: false, error: 'Error de conexión al crear tipología' };
+  }
+}
+
+/**
+ * Elimina o desactiva una tipología de pacientes en la óptica activa
+ */
+export async function eliminarTipologiaPacienteApi(
+  id: number
+): Promise<{
+  exito: boolean;
+  error?: string;
+}> {
+  try {
+    const res = await fetch(`/api/configuracion/tipologias-pacientes?id=${id}`, {
+      method: 'DELETE',
+      headers: crearEncabezados(),
+    });
+    const datos = await res.json();
+    if (!res.ok || !datos.exito) {
+      return { exito: false, error: datos.error || 'No se pudo eliminar la tipología' };
+    }
+    return { exito: true };
+  } catch (error) {
+    registrarErrorApi('eliminarTipologiaPacienteApi', error);
+    return { exito: false, error: 'Error de conexión al eliminar tipología' };
   }
 }

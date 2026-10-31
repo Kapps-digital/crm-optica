@@ -2,10 +2,12 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Moon, Sun, Building2, MessageSquare } from 'lucide-react';
+import { Moon, Sun, Building2, MessageSquare, Menu } from 'lucide-react';
 import { PanelLateral } from '@/componentes/navegacion/PanelLateral';
 import { CentroNotificaciones } from '@/componentes/navegacion/CentroNotificaciones';
+import { BarraNavegacionInferiorMovil } from '@/componentes/navegacion/BarraNavegacionInferiorMovil';
 import { PerfilUsuarioCabecera } from '@/componentes/navegacion/PerfilUsuarioCabecera';
+import { ModalBloqueoSuscripcion } from '@/componentes/navegacion/ModalBloqueoSuscripcion';
 import { IndicadorCanalWhatsApp } from '@/componentes/navegacion/IndicadorCanalWhatsApp';
 import { ListaConversaciones } from '@/componentes/chat/ListaConversaciones';
 import { VentanaChat } from '@/componentes/chat/VentanaChat';
@@ -92,6 +94,10 @@ export default function PaginaPrincipal() {
   const [panelColapsado, setPanelColapsado] = useState(false);
   const [vistaActiva, setVistaActiva] = useState('mensajeria');
   const [temaOscuro, setTemaOscuro] = useState(false);
+
+  // Estados para adaptación responsive en móvil
+  const [vistaMovilChat, setVistaMovilChat] = useState<'lista' | 'chat' | 'ficha'>('lista');
+  const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
 
   // Foco de fecha y modo para navegación directa a turnos desde notificaciones
   const [citasFoco, setCitasFoco] = useState<{ fecha: string | null; modo: 'mes' | 'dia' | 'agenda' | null }>({
@@ -227,7 +233,9 @@ export default function PaginaPrincipal() {
   useEffect(() => {
     const token = obtenerTokenAutenticacion();
     if (!token) {
-      router.push('/login');
+      if (typeof window !== 'undefined') {
+        window.location.replace('/login');
+      }
       return;
     }
 
@@ -311,7 +319,12 @@ export default function PaginaPrincipal() {
       const optGuardada = obtenerOpticaSesion();
       if (optGuardada) {
         setOpticaActual((prev) => ({
+          ...prev,
           ...optGuardada,
+          fecha_vencimiento: optGuardada.fecha_vencimiento || prev?.fecha_vencimiento,
+          dias_restantes: optGuardada.dias_restantes ?? prev?.dias_restantes,
+          plan_vencido: optGuardada.plan_vencido ?? prev?.plan_vencido,
+          estado_plan: optGuardada.estado_plan || prev?.estado_plan,
           ia_activa: optGuardada.ia_activa !== undefined ? Boolean(optGuardada.ia_activa) : (prev?.ia_activa !== false),
           ia_habilitada: optGuardada.ia_habilitada !== undefined ? Boolean(optGuardada.ia_habilitada) : (prev?.ia_habilitada !== false),
         }));
@@ -327,13 +340,20 @@ export default function PaginaPrincipal() {
           const idGuardado = obtenerIdOpticaActiva();
           const actual = opts.find((o) => Number(o.id) === Number(idGuardado));
           if (actual) {
-            const optNorm: Optica = {
-              ...actual,
-              ia_activa: actual.ia_activa !== false,
-              ia_habilitada: actual.ia_habilitada !== false,
-            };
-            setOpticaActual(optNorm);
-            guardarOpticaSesion(optNorm);
+            setOpticaActual((prev) => {
+              const optNorm: Optica = {
+                ...prev,
+                ...actual,
+                fecha_vencimiento: actual.fecha_vencimiento || prev?.fecha_vencimiento,
+                dias_restantes: actual.dias_restantes ?? prev?.dias_restantes,
+                plan_vencido: actual.plan_vencido ?? prev?.plan_vencido,
+                estado_plan: actual.estado_plan || prev?.estado_plan,
+                ia_activa: actual.ia_activa !== false,
+                ia_habilitada: actual.ia_habilitada !== false,
+              };
+              guardarOpticaSesion(optNorm);
+              return optNorm;
+            });
           }
         }
       } catch (err) {
@@ -433,6 +453,21 @@ export default function PaginaPrincipal() {
       }
     }
   }, [usuarioActual, vistaActiva]);
+
+  // Detección de chat desde URL (ej. proveniente de una notificación push en el celular)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const chatParam = params.get('chat');
+    if (chatParam && conversaciones.length > 0) {
+      const convEncontrada = conversaciones.find((c) => Number(c.id) === Number(chatParam));
+      if (convEncontrada) {
+        setVistaActiva('mensajeria');
+        setVistaMovilChat('chat');
+        manejarSeleccionarConversacion(convEncontrada);
+      }
+    }
+  }, [conversaciones]);
 
   const manejarCambioVista = (v: string) => {
     if ((v === 'consumo' || v === 'usuarios') && usuarioActual?.rol !== 'admin') {
@@ -649,6 +684,7 @@ export default function PaginaPrincipal() {
 
     const convLimpia = { ...conv, no_leido: false, mensajes_no_leidos: 0 };
     setConversacionActiva(convLimpia);
+    setVistaMovilChat('chat');
 
     // Si ya están en caché verificada para este chat específico, renderizarlos de inmediato
     const cachePrevia = idNuevo && cacheMensajes.current[idNuevo] ? cacheMensajes.current[idNuevo] : null;
@@ -1216,7 +1252,10 @@ export default function PaginaPrincipal() {
         colapsado={panelColapsado}
         alAlternarColapso={() => setPanelColapsado(!panelColapsado)}
         vistaActiva={vistaActiva}
-        alCambiarVista={manejarCambioVista}
+        alCambiarVista={(v) => {
+          manejarCambioVista(v);
+          setMenuMovilAbierto(false);
+        }}
         temaOscuro={temaOscuro}
         alAlternarTema={alternarTema}
         conteoChats={conteoBadgeConversaciones}
@@ -1224,15 +1263,39 @@ export default function PaginaPrincipal() {
         conteoPacientes={null}
         optica={opticaActual}
         usuario={usuarioActual}
+        abiertoMovil={menuMovilAbierto}
+        alCerrarMovil={() => setMenuMovilAbierto(false)}
       />
+
+      {/* Backdrop para cerrar menú en móvil */}
+      {menuMovilAbierto && (
+        <div
+          className="backdrop-panel-movil"
+          onClick={() => setMenuMovilAbierto(false)}
+        />
+      )}
 
       {/* 2. Contenido Principal */}
       <main className="contenido-principal">
-        {/* Barra Superior Compacta (Título de Hoja, Píldora WhatsApp y Selector de Modo Oscuro/Claro) */}
-        <header className="barra-superior">
+        {/* Barra Superior Compacta (Oculta en móvil si estamos dentro de una conversación activa para dar espacio completo) */}
+        {!(vistaActiva === 'mensajeria' && vistaMovilChat !== 'lista') && (
+          <header className="barra-superior">
           <div className="barra-titulo-grupo">
+            <button
+              type="button"
+              className="btn-hamburguesa-movil"
+              onClick={() => setMenuMovilAbierto(!menuMovilAbierto)}
+              aria-label="Abrir menú"
+              title="Menú"
+            >
+              <Menu style={{ width: '18px', height: '18px' }} />
+            </button>
             <h1>
-              {vistaActiva === 'mensajeria' && 'Bandeja de Entrada'}
+              {vistaActiva === 'mensajeria' && (
+                <>
+                  Bandeja<span className="texto-largo-cabecera-escritorio"> de Entrada</span>
+                </>
+              )}
               {vistaActiva === 'pacientes' && (
                 <>
                   Pacientes <span className="ampersand-titular">&</span> Contactos
@@ -1294,8 +1357,9 @@ export default function PaginaPrincipal() {
               numero={estadoCanalWhatsApp.numero}
             />
 
-            {/* Centro de Notificaciones Corporativo (A la izquierda del selector de modo oscuro/claro) */}
+            {/* Centro de Notificaciones Corporativo con Gestor de Alertas Push Integrado */}
             <CentroNotificaciones
+              opticaId={opticaActual?.id || 1}
               usuario={usuarioActual}
               alNavegarVista={(vista, datos) => {
                 manejarCambioVista(vista);
@@ -1338,10 +1402,11 @@ export default function PaginaPrincipal() {
             />
           </div>
         </header>
+        )}
 
         {/* Secciones del CRM */}
         {vistaActiva === 'mensajeria' && (
-          <section id="vista-mensajeria" className={`vista-mensajeria-tripartita ${!fichaAbierta ? 'ficha-colapsada' : ''}`}>
+          <section id="vista-mensajeria" className={`vista-mensajeria-tripartita ${!fichaAbierta ? 'ficha-colapsada' : ''} movil-vista-${vistaMovilChat}`}>
             {/* 1. Lista de Conversaciones */}
             <ListaConversaciones
               conversaciones={conversaciones}
@@ -1360,7 +1425,10 @@ export default function PaginaPrincipal() {
               alEnviarMensaje={manejarEnviarMensaje}
               alReactivarConPlantilla={manejarReactivarPlantilla}
               fichaAbierta={fichaAbierta}
-              alAbrirFicha={() => setFichaAbierta(true)}
+              alAbrirFicha={() => {
+                setFichaAbierta(true);
+                setVistaMovilChat('ficha');
+              }}
               paciente={pacienteActivo}
               alRegistrarPaciente={() => setModalRegistrarPacienteChatAbierto(true)}
               iaGlobalActiva={opticaActual?.ia_activa !== false}
@@ -1373,6 +1441,19 @@ export default function PaginaPrincipal() {
                   window.dispatchEvent(new CustomEvent('crm_recargar_notificaciones'));
                 }
               }}
+              alCambiarEstadoIA={(id, activo) => {
+                setConversaciones((prev) =>
+                  prev.map((c) =>
+                    c.id === id ? { ...c, ia_activa: activo, ia_pausada_por_humano: !activo } : c
+                  )
+                );
+                setConversacionActiva((prev) =>
+                  prev && Number(prev.id) === Number(id)
+                    ? { ...prev, ia_activa: activo, ia_pausada_por_humano: !activo }
+                    : prev
+                );
+              }}
+              alVolver={() => setVistaMovilChat('lista')}
             />
 
             {/* 3. Ficha Optométrica Lateral */}
@@ -1388,7 +1469,12 @@ export default function PaginaPrincipal() {
                       ? estaEnVentana24Horas(conversaciones.find((c) => Number(c.contacto_id) === Number(pacienteActivo.id))?.ultimo_mensaje_entrante_en)
                       : false)
               }
-              alAlternarFicha={() => setFichaAbierta(!fichaAbierta)}
+              alAlternarFicha={() => {
+                setFichaAbierta(!fichaAbierta);
+                if (vistaMovilChat === 'ficha') {
+                  setVistaMovilChat('chat');
+                }
+              }}
               alAbrirNuevaFormula={() => {
                 setContactoParaFormula(pacienteActivo);
                 setModalFormulaAbierto(true);
@@ -1552,6 +1638,22 @@ export default function PaginaPrincipal() {
         }}
         contactoParaConvertir={pacienteActivo}
       />
+
+      {/* Modal de Bloqueo por Expiración de Suscripción (Horario Colombia) */}
+      <ModalBloqueoSuscripcion optica={opticaActual} usuario={usuarioActual} />
+
+      {/* Barra de Navegación Inferior Fija para Móviles (Visible fuera del chat individual activo) */}
+      {!(vistaActiva === 'mensajeria' && vistaMovilChat !== 'lista') && (
+        <BarraNavegacionInferiorMovil
+          vistaActiva={vistaActiva}
+          alCambiarVista={(v) => {
+            manejarCambioVista(v);
+            setVistaMovilChat('lista');
+          }}
+          conteoChats={conteoBadgeConversaciones}
+          requiereAsesorChats={totalRequiereAsesor > 0}
+        />
+      )}
     </div>
   );
 }

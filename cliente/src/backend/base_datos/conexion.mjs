@@ -163,6 +163,37 @@ export async function inicializar_base_datos() {
         creado_en TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_recuperacion_correo_cod ON "CRM_Opticas".recuperacion_contrasena (correo, codigo, usado);
+
+      -- Soporte de archivos y documentos enriquecidos en mensajes (Word, Excel, PPT, PDF, etc.)
+      ALTER TABLE "CRM_Opticas".mensajes ADD COLUMN IF NOT EXISTS nombre_archivo VARCHAR(255);
+      ALTER TABLE "CRM_Opticas".mensajes ADD COLUMN IF NOT EXISTS mime_tipo VARCHAR(150);
+
+      -- Soporte de tipologías/clasificación personalizada de pacientes por óptica
+      CREATE TABLE IF NOT EXISTS "CRM_Opticas".tipologias_pacientes (
+        id SERIAL PRIMARY KEY,
+        optica_id INTEGER NOT NULL REFERENCES "CRM_Opticas".opticas(id) ON DELETE CASCADE,
+        nombre VARCHAR(100) NOT NULL,
+        color VARCHAR(50) DEFAULT '#0284c7',
+        activo BOOLEAN DEFAULT true,
+        creado_en TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_tipologias_optica ON "CRM_Opticas".tipologias_pacientes (optica_id, activo);
+      ALTER TABLE "CRM_Opticas".contactos ADD COLUMN IF NOT EXISTS tipologia_id INTEGER REFERENCES "CRM_Opticas".tipologias_pacientes(id) ON DELETE SET NULL;
+      CREATE INDEX IF NOT EXISTS idx_contactos_tipologia ON "CRM_Opticas".contactos (tipologia_id);
+
+      -- Soporte de Notificaciones Push Web para celulares y navegadores
+      CREATE TABLE IF NOT EXISTS "CRM_Opticas".suscripciones_push (
+        id BIGSERIAL PRIMARY KEY,
+        usuario_id BIGINT REFERENCES "CRM_Opticas".usuarios(id) ON DELETE CASCADE,
+        optica_id BIGINT NOT NULL REFERENCES "CRM_Opticas".opticas(id) ON DELETE CASCADE,
+        endpoint TEXT NOT NULL UNIQUE,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        user_agent TEXT,
+        creado_en TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        actualizado_en TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_suscripciones_push_optica ON "CRM_Opticas".suscripciones_push (optica_id);
     `);
 
     const res = await pool.query(`

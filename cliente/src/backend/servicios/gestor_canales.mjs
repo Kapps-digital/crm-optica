@@ -3,10 +3,10 @@
  * Convención de código: Estrictamente en español
  */
 
-import { ClienteZernio } from './cliente_zernio.mjs';
+import { ClienteZernio, obtener_cliente_zernio } from './cliente_zernio.mjs';
 import { pool } from '../base_datos/conexion.mjs';
 
-const cliente_zernio = new ClienteZernio();
+const cliente_zernio_global = new ClienteZernio();
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://jwctsfnkyfokrgtcjtxs.supabase.co';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3Y3RzZm5reWZva3JndGNqdHhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA3OTE2NjgsImV4cCI6MjEwNjM2NzY2OH0.I5jL8UKofVyZCFqt2FxxqnTCxgmRNypoB3AsESKYNNo';
 
@@ -163,7 +163,8 @@ export async function obtener_canales_optica(optica_id = 1) {
         registro_profesional_defecto, motivo_cita_defecto, notificacion_auto_citas_whatsapp,
         dias_atencion, hora_inicio_atencion, hora_fin_atencion,
         COALESCE(ia_activa, true) AS ia_activa,
-        COALESCE(ia_habilitada, true) AS ia_habilitada
+        COALESCE(ia_habilitada, true) AS ia_habilitada,
+        fecha_vencimiento
        FROM "CRM_Opticas".opticas WHERE id = $1`,
       [optica_id]
     );
@@ -187,7 +188,8 @@ export async function obtener_canales_optica(optica_id = 1) {
     // 3. Consultar cuentas en Zernio API en tiempo real
     let cuentasZernio = [];
     try {
-      const resZernio = await cliente_zernio.obtener_cuentas();
+      const clienteZernioOptica = await obtener_cliente_zernio(optica_id);
+      const resZernio = await clienteZernioOptica.obtener_cuentas();
       if (resZernio.exito && Array.isArray(resZernio.datos?.accounts)) {
         cuentasZernio = resZernio.datos.accounts;
       }
@@ -248,7 +250,8 @@ export async function obtener_canales_optica(optica_id = 1) {
  */
 export async function obtener_url_conexion_whatsapp(optica_id = 1, url_redireccion = '') {
   try {
-    const res = await cliente_zernio.obtener_url_autorizacion('whatsapp', {
+    const clienteZernioOptica = await obtener_cliente_zernio(optica_id);
+    const res = await clienteZernioOptica.obtener_url_autorizacion('whatsapp', {
       url_redireccion: url_redireccion || undefined,
       modo_onboarding: 'business_app',
     });
@@ -289,7 +292,8 @@ export async function desconectar_canal_whatsapp(optica_id = 1, { cambiar_numero
 
       if (idCuentaZernio) {
         try {
-          const resZernio = await cliente_zernio.eliminar_cuenta(idCuentaZernio);
+          const clienteZernioOptica = await obtener_cliente_zernio(optica_id);
+          const resZernio = await clienteZernioOptica.eliminar_cuenta(idCuentaZernio);
           console.log(`Resultado eliminación de cuenta ${idCuentaZernio}:`, resZernio);
         } catch (errElim) {
           console.warn(`Aviso: Error no bloqueante al eliminar cuenta:`, errElim.message);
@@ -352,7 +356,8 @@ export async function reconectar_canal_whatsapp(optica_id = 1) {
  */
 export async function vincular_cuenta_whatsapp_activa(optica_id = 1) {
   try {
-    const resZernio = await cliente_zernio.obtener_cuentas();
+    const clienteZernioOptica = await obtener_cliente_zernio(optica_id);
+    const resZernio = await clienteZernioOptica.obtener_cuentas();
     if (!resZernio.exito || !Array.isArray(resZernio.datos?.accounts)) {
       return { exito: false, error: 'No se pudieron consultar cuentas activas' };
     }

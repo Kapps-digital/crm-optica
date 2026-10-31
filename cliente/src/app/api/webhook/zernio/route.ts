@@ -38,12 +38,6 @@ export async function POST(request: NextRequest) {
     const cuerpoCrudo = await request.text();
     const firma = request.headers.get('x-zernio-signature');
 
-    // Validación de firma HMAC si el secreto está configurado
-    if (SECRETO_WEBHOOK && !validarFirmaWebhook(cuerpoCrudo, firma, SECRETO_WEBHOOK)) {
-      console.warn('⚠️ Webhook rechazado en Vercel: Firma HMAC inválida o ausente.');
-      return NextResponse.json({ error: 'Firma de webhook inválida' }, { status: 401 });
-    }
-
     let payload: any = null;
     try {
       payload = JSON.parse(cuerpoCrudo);
@@ -53,6 +47,32 @@ export async function POST(request: NextRequest) {
 
     if (!payload || !payload.event) {
       return NextResponse.json({ error: 'Payload de webhook sin evento' }, { status: 400 });
+    }
+
+    // 1. Validación de firma HMAC (Global o por Óptica)
+    let firmaValida = SECRETO_WEBHOOK ? validarFirmaWebhook(cuerpoCrudo, firma, SECRETO_WEBHOOK) : true;
+
+    // Si falló con el secreto global, verificar si la cuenta pertenece a una óptica con secreto propio
+    if (!firmaValida && firma) {
+      const idCuenta = payload.accountId || payload.account_id || payload.data?.accountId || payload.data?.account_id;
+      if (idCuenta) {
+        const linea: any = await base_datos.prepare(`
+          SELECT o.zernio_webhook_secret 
+          FROM lineas_canales lc
+          JOIN opticas o ON o.id = lc.optica_id
+          WHERE lc.id_cuenta_zernio = ? AND o.zernio_webhook_secret IS NOT NULL
+          LIMIT 1
+        `).get(idCuenta);
+
+        if (linea && typeof linea === 'object' && linea.zernio_webhook_secret) {
+          firmaValida = validarFirmaWebhook(cuerpoCrudo, firma, String(linea.zernio_webhook_secret));
+        }
+      }
+    }
+
+    if (SECRETO_WEBHOOK && !firmaValida) {
+      console.warn('⚠️ Webhook rechazado: Firma HMAC inválida o ausente.');
+      return NextResponse.json({ error: 'Firma de webhook inválida' }, { status: 401 });
     }
 
     const idEvento =
