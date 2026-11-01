@@ -298,7 +298,7 @@ export const ModalNuevaFormula: React.FC<PropiedadesModalNuevaFormula> = ({
               <FilePlus2 style={{ width: '20px', height: '20px' }} />
             </div>
             <div>
-              <h3 className="modal-titulo-principal">Registrar Refracción Clínica</h3>
+              <h3 className="modal-titulo-principal">Prescripción final</h3>
               <div className="modal-subtitulo-paciente">
                 <span>Paciente:</span>
                 <strong>{obtenerNombrePaciente(contacto)}</strong>
@@ -702,7 +702,7 @@ export const ModalNuevaFormula: React.FC<PropiedadesModalNuevaFormula> = ({
                       margin: 0,
                     }}
                   >
-                    ¿Confirmar refracción clínica?
+                    ¿Confirmar prescripción final?
                   </h3>
                   <p style={{ fontSize: '0.78rem', color: 'var(--texto-atenuado)', margin: '0.15rem 0 0 0' }}>
                     Revisa los datos antes de registrar la fórmula para{' '}
