@@ -497,8 +497,8 @@ export const ModalNuevaFormula: React.FC<PropiedadesModalNuevaFormula> = ({
                   type="text"
                   value={formulario.distancia_pupilar}
                   onChange={(e) => {
-                    const soloDigitos = e.target.value.replace(/\D/g, '');
-                    setFormulario((prev) => ({ ...prev, distancia_pupilar: soloDigitos }));
+                    const limpio = e.target.value.replace(/[^0-9\/\s\-]/g, '');
+                    setFormulario((prev) => ({ ...prev, distancia_pupilar: limpio }));
                   }}
                   onBlur={() => {
                     setFormulario((prev) => ({
@@ -524,7 +524,7 @@ export const ModalNuevaFormula: React.FC<PropiedadesModalNuevaFormula> = ({
                     }
                   }}
                   className="modal-input"
-                  placeholder="Ej: 62 mm"
+                  placeholder="Ej: 64/60"
                 />
               </div>
 

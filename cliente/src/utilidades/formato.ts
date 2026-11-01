@@ -205,14 +205,50 @@ export function formatearEjeVisual(eje?: string | number | null, fallback: strin
 }
 
 /**
- * Formatea la distancia pupilar (DP) asegurando el sufijo ' mm' únicamente si hay un número válido.
- * Si el campo está vacío o no contiene dígitos, retorna una cadena vacía.
+ * Formatea la distancia pupilar (DP) asegurando el formato optométrico estándar 'XX/YY' (ej: '64/60').
+ * Si el usuario escribe dos valores separados por barra, espacio o guion (ej: '64/60', '64 60', '64-60'), los une con '/'.
+ * Si escribe solo un valor (ej: '64' o '62 mm'), calcula la distancia de cerca habitual (4 mm menos, ej: '64/60', '62/58').
+ * Si está vacío, retorna ''. NUNCA añade el sufijo 'mm'.
  */
 export function formatearDistanciaPupilar(valor?: string | number | null): string {
   if (valor === undefined || valor === null) return '';
-  const soloDigitos = String(valor).replace(/\D/g, '').trim();
+  const texto = String(valor).trim().replace(/\s*mm/gi, '').trim();
+  if (!texto) return '';
+
+  // Si ya tiene barra '/'
+  if (texto.includes('/')) {
+    const partes = texto.split('/');
+    const d1 = partes[0].replace(/\D/g, '').trim();
+    const d2 = partes[1]?.replace(/\D/g, '').trim();
+    if (d1 && d2) return `${d1}/${d2}`;
+    if (d1) return d1;
+    return '';
+  }
+
+  // Si tiene espacio o guion entre dos números (ej: '64 60', '64-60', '32 32')
+  const partesSeparadas = texto.split(/[\s\-_]+/);
+  if (partesSeparadas.length >= 2) {
+    const d1 = partesSeparadas[0].replace(/\D/g, '').trim();
+    const d2 = partesSeparadas[1].replace(/\D/g, '').trim();
+    if (d1 && d2) return `${d1}/${d2}`;
+  }
+
+  // Si solo viene un número (ej: '64', '62', '60')
+  const soloDigitos = texto.replace(/\D/g, '').trim();
   if (!soloDigitos) return '';
-  return `${soloDigitos} mm`;
+
+  const num = parseInt(soloDigitos, 10);
+  // Si es un número típico de distancia binocular de lejos (50 a 80 mm)
+  if (num >= 50 && num <= 80) {
+    return `${num}/${num - 4}`;
+  }
+
+  // Si es una distancia monocular nasopupilar (ej: 25 a 45 mm)
+  if (num >= 25 && num < 50) {
+    return `${num}/${num}`;
+  }
+
+  return soloDigitos;
 }
 
 /**

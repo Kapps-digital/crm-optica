@@ -1086,7 +1086,7 @@ async function procesarPeticion(
         contacto_id, optica_id,
         esfera_od ?? od_esfera ?? '+0.00', cilindro_od ?? od_cilindro ?? '-0.00', eje_od ?? od_eje ?? '0', adicion_od ?? od_adicion ?? '+0.00', av_od ?? od_agudeza_visual ?? '20/20',
         esfera_oi ?? oi_esfera ?? '+0.00', cilindro_oi ?? oi_cilindro ?? '-0.00', eje_oi ?? oi_eje ?? '0', adicion_oi ?? oi_adicion ?? '+0.00', av_oi ?? oi_agudeza_visual ?? '20/20',
-        distancia_pupilar || '62 mm', tipo_lente || 'Monofocal Antirreflejo', observaciones || null, optometra || 'Dr. Samir Bolívar',
+        distancia_pupilar || '64/60', tipo_lente || 'Monofocal Antirreflejo', observaciones || null, optometra || 'Dr. Samir Bolívar',
         fecha_examen ? fecha_examen.split('T')[0] : new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }),
         proximo_control_en_meses ? String(proximo_control_en_meses) : (proximo_control || '12')
       );

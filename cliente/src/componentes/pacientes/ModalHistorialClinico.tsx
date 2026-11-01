@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import type { Contacto, FormulaOptica, Cita } from '@/tipos/crm';
 import { obtenerDetalleContacto } from '@/servicios/api_crm';
-import { formatearTelefono, formatearSeparadorMiles, obtenerNombrePaciente, formatearEjeVisual } from '@/utilidades/formato';
+import { formatearTelefono, formatearSeparadorMiles, obtenerNombrePaciente, formatearEjeVisual, formatearDistanciaPupilar } from '@/utilidades/formato';
 import { BarraPaginacionTabla } from '../comunes/BarraPaginacionTabla';
 import { BarraPestanas, ElementoPestana } from '../comunes/BarraPestanas';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
@@ -695,7 +695,7 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                                         </div>
                                         {f.distancia_pupilar && (
                                           <span style={{ fontSize: '0.70rem', color: 'var(--texto-secundario)', background: 'var(--fondo-elevado)', padding: '0.15rem 0.45rem', borderRadius: '4px', border: '1px solid var(--borde-tarjeta)' }}>
-                                            <strong>DP:</strong> {f.distancia_pupilar} mm
+                                            <strong>DP:</strong> {formatearDistanciaPupilar(f.distancia_pupilar)}
                                           </span>
                                         )}
                                       </div>

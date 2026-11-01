@@ -16,7 +16,7 @@ import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
 import { ModalAlertaVentana24h } from '../comunes/ModalAlertaVentana24h';
 import type { Contacto, FormulaOptica } from '@/tipos/crm';
-import { formatearTelefono, obtenerNombrePaciente, formatearEjeVisual } from '@/utilidades/formato';
+import { formatearTelefono, obtenerNombrePaciente, formatearEjeVisual, formatearDistanciaPupilar } from '@/utilidades/formato';
 
 interface PropiedadesFichaOptometrica {
   contacto: Contacto | null;
@@ -96,7 +96,7 @@ export const FichaOptometrica: React.FC<PropiedadesFichaOptometrica> = ({
       `• Esfera: ${formulaActiva.esfera_oi || '+0.00'} | Cil: ${formulaActiva.cilindro_oi || '-0.00'} | Eje: ${formatearEjeVisual(formulaActiva.eje_oi)} | AV: ${formulaActiva.av_oi || '20/20'}${formulaActiva.adicion_oi ? ` | Adic: ${formulaActiva.adicion_oi}` : ''}`,
       ``,
       `🔬 *Tipo de Lente:* ${formulaActiva.tipo_lente || 'Monofocal Antirreflejo'}`,
-      `📏 *Distancia Pupilar (DP):* ${formulaActiva.distancia_pupilar || '62 mm'}`,
+      `📏 *Distancia Pupilar (DP):* ${formatearDistanciaPupilar(formulaActiva.distancia_pupilar) || '64/60'}`,
       `👨‍⚕️ *Optómetra:* ${formulaActiva.optometra || 'Dr. Samir Bolívar'}`,
       `📅 *Próximo Control:* ${formulaActiva.proximo_control_en_meses ? `En ${formulaActiva.proximo_control_en_meses} meses` : 'En 12 meses'}`,
     ].join('\n');
@@ -219,7 +219,7 @@ export const FichaOptometrica: React.FC<PropiedadesFichaOptometrica> = ({
             </table>
 
             <div style={{ marginTop: '0.45rem', fontSize: '0.72rem', color: 'var(--texto-secundario)', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-              <div><strong>Distancia Pupilar (DP):</strong> <span id="f-dp">{formulaActiva.distancia_pupilar || '62 mm'}</span></div>
+              <div><strong>Distancia Pupilar (DP):</strong> <span id="f-dp">{formatearDistanciaPupilar(formulaActiva.distancia_pupilar) || '64/60'}</span></div>
               <div><strong>Tipo de Lente:</strong> <span id="f-lente" style={{ background: 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.12)', color: 'var(--color-primario)', padding: '0.05rem 0.35rem', borderRadius: '4px', fontWeight: 600 }}>{formulaActiva.tipo_lente || 'Monofocal Antirreflejo'}</span></div>
               <div><strong>Optómetra:</strong> <span id="f-optometra">{formulaActiva.optometra || 'Dr. Samir Bolívar'}</span></div>
               <div><strong>Próximo Control:</strong> <span id="f-control" style={{ color: '#ea580c', fontWeight: 600 }}>{formulaActiva.proximo_control_en_meses ? `En ${formulaActiva.proximo_control_en_meses} meses` : 'En 12 meses'}</span></div>
