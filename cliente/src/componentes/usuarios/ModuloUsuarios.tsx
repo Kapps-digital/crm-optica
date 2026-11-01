@@ -57,7 +57,7 @@ import {
   obtenerOpticaSesion,
   guardarOpticaSesion,
 } from '@/servicios/api_crm';
-import type { Usuario, EstadisticasUsuarios, Optica } from '@/tipos/crm';
+import type { Usuario, EstadisticasUsuarios, Optica, RolUsuario } from '@/tipos/crm';
 
 interface PropiedadesModuloUsuarios {
   opticasDisponibles?: { id: number; nombre: string }[];
@@ -152,7 +152,7 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
   const [formNombre, setFormNombre] = useState('');
   const [formUsuario, setFormUsuario] = useState('');
   const [formCorreo, setFormCorreo] = useState('');
-  const [formRol, setFormRol] = useState<'admin' | 'admin_optica'>('admin_optica');
+  const [formRol, setFormRol] = useState<RolUsuario>('admin_optica');
   const [formOpticaId, setFormOpticaId] = useState<string>('');
   const [formContrasena, setFormContrasena] = useState('');
   const [formActivo, setFormActivo] = useState(true);
@@ -278,6 +278,7 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
       { valor: 'todos', etiqueta: 'Todos los roles' },
       { valor: 'admin', etiqueta: 'Admin Global' },
       { valor: 'admin_optica', etiqueta: 'Admin de Óptica' },
+      { valor: 'optometra', etiqueta: 'Optómetra' },
     ],
     []
   );
@@ -977,7 +978,7 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
     setFormNombre(u.nombre || '');
     setFormUsuario(u.usuario || '');
     setFormCorreo(u.correo || '');
-    setFormRol(u.rol as 'admin' | 'admin_optica');
+    setFormRol((u.rol as RolUsuario) || 'optometra');
     setFormOpticaId(u.optica_id ? String(u.optica_id) : '');
     setFormContrasena('');
     setFormActivo(Boolean(u.activo));
@@ -1001,6 +1002,11 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
 
     if (!usuarioParaEditar && (!formContrasena || formContrasena.length < 6)) {
       setErrorFormulario('La contraseña inicial debe tener al menos 6 caracteres');
+      return;
+    }
+
+    if (formRol !== 'admin' && !formOpticaId) {
+      setErrorFormulario('Debe seleccionar una óptica asignada para este rol');
       return;
     }
 
@@ -1553,6 +1559,24 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
                                 >
                                   <ShieldCheck size={12} />
                                   <span>Admin Global</span>
+                                </span>
+                              ) : u.rol === 'optometra' ? (
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.35rem',
+                                    padding: '0.25rem 0.65rem',
+                                    borderRadius: '9999px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    background: 'var(--fondo-elevado)',
+                                    border: '1px solid var(--borde-tarjeta)',
+                                    color: '#10b981',
+                                  }}
+                                >
+                                  <Eye size={12} />
+                                  <span>Optómetra</span>
                                 </span>
                               ) : (
                                 <span
@@ -2479,9 +2503,10 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
                   </label>
                   <SelectorDesplegable
                     valor={formRol}
-                    alCambiar={(v) => setFormRol(v as 'admin' | 'admin_optica')}
+                    alCambiar={(v) => setFormRol(v as RolUsuario)}
                     opciones={[
                       { valor: 'admin_optica', etiqueta: 'Admin de Óptica' },
+                      { valor: 'optometra', etiqueta: 'Optómetra' },
                       { valor: 'admin', etiqueta: 'Administrador Global' },
                     ]}
                     tamano="compacto"
@@ -2490,7 +2515,7 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
 
                 <div>
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--texto-principal)', marginBottom: '0.35rem' }}>
-                    Óptica Asignada {formRol === 'admin_optica' && '*'}
+                    Óptica Asignada {formRol !== 'admin' && '*'}
                   </label>
                   <SelectorDesplegable
                     valor={formOpticaId}

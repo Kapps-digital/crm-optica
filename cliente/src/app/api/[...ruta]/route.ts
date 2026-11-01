@@ -1964,6 +1964,7 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
         const totalInactivos = totalUsuarios - totalActivos;
         const totalAdmins = usuarios.filter((u: any) => u.rol === 'admin').length;
         const totalAdminsOptica = usuarios.filter((u: any) => u.rol === 'admin_optica').length;
+        const totalOptometras = usuarios.filter((u: any) => u.rol === 'optometra').length;
 
         return NextResponse.json({
           exito: true,
@@ -1976,6 +1977,7 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
             total_opticas: opticas.length,
             total_admins: totalAdmins,
             total_admins_optica: totalAdminsOptica,
+            total_optometras: totalOptometras,
           },
         }, { headers: ENCABEZADOS_NO_CACHE });
       }
@@ -1994,7 +1996,7 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
           return NextResponse.json({ exito: false, error: 'La contraseña debe tener al menos 4 caracteres.' }, { status: 400 });
         }
 
-        const rolValido = rol === 'admin_optica' ? 'admin_optica' : 'admin';
+        const rolValido = rol === 'admin_optica' ? 'admin_optica' : (rol === 'optometra' ? 'optometra' : 'admin');
         const usuarioLimpio = String(uNombre).trim().toLowerCase();
         const idOpticaNumerico = Number(optId) || 1;
 
@@ -2058,7 +2060,7 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
           }
         }
 
-        const rolFinal = rol === 'admin' || rol === 'admin_optica' ? rol : actual.rol;
+        const rolFinal = rol === 'admin' || rol === 'admin_optica' || rol === 'optometra' ? rol : actual.rol;
         const hashFinal = contrasena && String(contrasena).trim().length >= 4
           ? bcrypt.hashSync(contrasena, 10)
           : actual.hash_contrasena;

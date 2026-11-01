@@ -59,8 +59,10 @@ export const PerfilUsuarioCabecera: React.FC<PropiedadesPerfilUsuarioCabecera> =
 
   // Etiqueta del rol
   const etiquetaRol = useMemo(() => {
-    if (!usuario?.rol) return 'Administrador';
-    if (usuario.rol === 'admin' || usuario.rol === 'admin_optica') return 'Administrador';
+    if (!usuario?.rol) return 'Especialista';
+    if (usuario.rol === 'admin') return 'Superadmin';
+    if (usuario.rol === 'admin_optica') return 'Administrador';
+    if (usuario.rol === 'optometra') return 'Optómetra';
     return 'Especialista';
   }, [usuario?.rol]);
 
@@ -145,17 +147,19 @@ export const PerfilUsuarioCabecera: React.FC<PropiedadesPerfilUsuarioCabecera> =
           <div className="cabecera-popover-divisor" />
 
           <div className="cabecera-popover-acciones">
-            <button
-              type="button"
-              className={`cabecera-popover-btn-item ${vistaActiva === 'configuracion' ? 'activo' : ''}`}
-              onClick={() => {
-                alCambiarVista?.('configuracion');
-                setMenuAbierto(false);
-              }}
-            >
-              <Settings className="cabecera-popover-item-icono" />
-              <span>Configuración</span>
-            </button>
+            {usuario?.rol !== 'optometra' && (
+              <button
+                type="button"
+                className={`cabecera-popover-btn-item ${vistaActiva === 'configuracion' ? 'activo' : ''}`}
+                onClick={() => {
+                  alCambiarVista?.('configuracion');
+                  setMenuAbierto(false);
+                }}
+              >
+                <Settings className="cabecera-popover-item-icono" />
+                <span>Configuración</span>
+              </button>
+            )}
 
             {usuario?.rol === 'admin' && (
               <button

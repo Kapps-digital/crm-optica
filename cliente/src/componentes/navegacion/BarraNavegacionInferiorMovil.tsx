@@ -9,12 +9,14 @@ import {
   FileText,
   Settings,
 } from 'lucide-react';
+import type { Usuario } from '@/tipos/crm';
 
 interface PropiedadesBarraNavegacionInferiorMovil {
   vistaActiva: string;
   alCambiarVista: (vista: string) => void;
   conteoChats?: number | null;
   requiereAsesorChats?: boolean;
+  usuario?: Usuario | null;
 }
 
 export const BarraNavegacionInferiorMovil: React.FC<PropiedadesBarraNavegacionInferiorMovil> = ({
@@ -22,51 +24,62 @@ export const BarraNavegacionInferiorMovil: React.FC<PropiedadesBarraNavegacionIn
   alCambiarVista,
   conteoChats = 0,
   requiereAsesorChats = false,
+  usuario,
 }) => {
-  const elementos = [
-    {
-      id: 'mensajeria',
-      etiqueta: 'Bandeja',
-      icono: MessageSquare,
-      conteo: conteoChats,
-      esUrgente: Boolean(requiereAsesorChats),
-    },
-    {
-      id: 'pacientes',
-      etiqueta: 'Pacientes',
-      icono: Users,
-      conteo: null,
-      esUrgente: false,
-    },
-    {
-      id: 'citas',
-      etiqueta: 'Citas',
-      icono: CalendarDays,
-      conteo: null,
-      esUrgente: false,
-    },
-    {
-      id: 'campanas',
-      etiqueta: 'Campañas',
-      icono: Target,
-      conteo: null,
-      esUrgente: false,
-    },
-    {
-      id: 'plantillas',
-      etiqueta: 'Plantillas',
-      icono: FileText,
-      conteo: null,
-      esUrgente: false,
-    },
-    {
-      id: 'configuracion',
-      etiqueta: 'Ajustes',
-      icono: Settings,
-      conteo: null,
-      esUrgente: false,
-    },
-  ];
+  const elementos = (usuario?.rol === 'optometra')
+    ? [
+        {
+          id: 'pacientes',
+          etiqueta: 'Pacientes',
+          icono: Users,
+          conteo: null,
+          esUrgente: false,
+        },
+      ]
+    : [
+        {
+          id: 'mensajeria',
+          etiqueta: 'Bandeja',
+          icono: MessageSquare,
+          conteo: conteoChats,
+          esUrgente: Boolean(requiereAsesorChats),
+        },
+        {
+          id: 'pacientes',
+          etiqueta: 'Pacientes',
+          icono: Users,
+          conteo: null,
+          esUrgente: false,
+        },
+        {
+          id: 'citas',
+          etiqueta: 'Citas',
+          icono: CalendarDays,
+          conteo: null,
+          esUrgente: false,
+        },
+        {
+          id: 'campanas',
+          etiqueta: 'Campañas',
+          icono: Target,
+          conteo: null,
+          esUrgente: false,
+        },
+        {
+          id: 'plantillas',
+          etiqueta: 'Plantillas',
+          icono: FileText,
+          conteo: null,
+          esUrgente: false,
+        },
+        {
+          id: 'configuracion',
+          etiqueta: 'Ajustes',
+          icono: Settings,
+          conteo: null,
+          esUrgente: false,
+        },
+      ];
 
   return (
     <nav className="barra-inferior-movil" aria-label="Navegación principal móvil">

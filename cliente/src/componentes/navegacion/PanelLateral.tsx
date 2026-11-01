@@ -44,20 +44,24 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
   abiertoMovil = false,
   alCerrarMovil,
 }) => {
-  const elementos = [
-    {
-      id: 'mensajeria',
-      etiqueta: 'Conversaciones',
-      icono: MessageSquare,
-      conteo: conteoChats,
-      esUrgente: Boolean(requiereAsesorChats),
-    },
-    { id: 'pacientes', etiqueta: 'Pacientes & Contactos', icono: Users, conteo: null, esUrgente: false },
-    { id: 'citas', etiqueta: 'Calendario de Citas', icono: CalendarDays, conteo: null, esUrgente: false },
-    { id: 'campanas', etiqueta: 'Auto-Segmentación', icono: Target, conteo: null, esUrgente: false },
-    { id: 'plantillas', etiqueta: 'Plantillas', icono: FileText, conteo: null, esUrgente: false },
-    { id: 'configuracion', etiqueta: 'Configuración', icono: Settings, conteo: null, esUrgente: false },
-  ];
+  const elementos = (usuario?.rol === 'optometra')
+    ? [
+        { id: 'pacientes', etiqueta: 'Pacientes & Contactos', icono: Users, conteo: null, esUrgente: false },
+      ]
+    : [
+        {
+          id: 'mensajeria',
+          etiqueta: 'Conversaciones',
+          icono: MessageSquare,
+          conteo: conteoChats,
+          esUrgente: Boolean(requiereAsesorChats),
+        },
+        { id: 'pacientes', etiqueta: 'Pacientes & Contactos', icono: Users, conteo: null, esUrgente: false },
+        { id: 'citas', etiqueta: 'Calendario de Citas', icono: CalendarDays, conteo: null, esUrgente: false },
+        { id: 'campanas', etiqueta: 'Auto-Segmentación', icono: Target, conteo: null, esUrgente: false },
+        { id: 'plantillas', etiqueta: 'Plantillas', icono: FileText, conteo: null, esUrgente: false },
+        { id: 'configuracion', etiqueta: 'Configuración', icono: Settings, conteo: null, esUrgente: false },
+      ];
 
   const [errorCargaLogo, setErrorCargaLogo] = React.useState(false);
 
@@ -130,7 +134,7 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
               </span>
               <span className="panel-logo-subtitulo">
                 <Eye style={{ width: '13px', height: '13px', color: 'var(--color-primario-claro)' }} />
-                <span>{usuario?.rol === 'admin' ? 'Superadmin Global' : 'Gestión Clínica'}</span>
+                <span>{usuario?.rol === 'admin' ? 'Superadmin Global' : usuario?.rol === 'optometra' ? 'Atención Optométrica' : 'Gestión Clínica'}</span>
               </span>
             </div>
             <EtiquetaTooltip texto="Contraer menú" posicion="abajo">

@@ -164,7 +164,7 @@ export interface Optica {
   estado_plan?: 'al_dia' | 'por_vencer' | 'vencido';
 }
 
-export type RolUsuario = 'admin' | 'admin_optica';
+export type RolUsuario = 'admin' | 'admin_optica' | 'optometra';
 
 export interface LineaCanal {
   id: number;
@@ -200,6 +200,7 @@ export interface EstadisticasUsuarios {
   total_opticas: number;
   total_admins: number;
   total_admins_optica: number;
+  total_optometras?: number;
 }
 
 export interface DatosRespuestaUsuarios {

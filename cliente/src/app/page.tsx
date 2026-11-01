@@ -252,7 +252,12 @@ export default function PaginaPrincipal() {
 
     setIdOpticaActiva(idInicial);
 
-    if (usr) setUsuarioActual(usr);
+    if (usr) {
+      setUsuarioActual(usr);
+      if (usr.rol === 'optometra') {
+        setVistaActiva('pacientes');
+      }
+    }
     const opticaInicial =
       (optSesion && Number(optSesion.id) === idInicial ? optSesion : null) ||
       CATALOGO_OPTICAS_BASE.find((o) => Number(o.id) === idInicial) ||
@@ -279,6 +284,9 @@ export default function PaginaPrincipal() {
       if (res.exito) {
         if (res.usuario) {
           setUsuarioActual(res.usuario);
+          if (res.usuario.rol === 'optometra') {
+            setVistaActiva('pacientes');
+          }
         }
         // Aplicar la óptica fresca asociada al usuario retornada por la API
         if (res.optica) {
@@ -446,11 +454,17 @@ export default function PaginaPrincipal() {
     document.documentElement.setAttribute('data-tema', nuevoTema ? 'oscuro' : 'claro');
   };
 
-  // Redirigir a mensajería si un usuario sin rol admin intenta ver consumo o usuarios
+  // Control de acceso y redirección por roles
   useEffect(() => {
-    if (usuarioActual && usuarioActual.rol !== 'admin') {
-      if (vistaActiva === 'consumo' || vistaActiva === 'usuarios') {
-        setVistaActiva('mensajeria');
+    if (usuarioActual) {
+      if (usuarioActual.rol === 'optometra') {
+        if (vistaActiva !== 'pacientes') {
+          setVistaActiva('pacientes');
+        }
+      } else if (usuarioActual.rol !== 'admin') {
+        if (vistaActiva === 'consumo' || vistaActiva === 'usuarios') {
+          setVistaActiva('mensajeria');
+        }
       }
     }
   }, [usuarioActual, vistaActiva]);
@@ -458,6 +472,7 @@ export default function PaginaPrincipal() {
   // Detección de chat desde URL (ej. proveniente de una notificación push en el celular)
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (usuarioActual?.rol === 'optometra') return;
     const params = new URLSearchParams(window.location.search);
     const chatParam = params.get('chat');
 
@@ -481,9 +496,12 @@ export default function PaginaPrincipal() {
         manejarSeleccionarConversacion(convEncontrada);
       }
     }
-  }, [conversaciones]);
+  }, [conversaciones, usuarioActual?.rol]);
 
   const manejarCambioVista = (v: string) => {
+    if (usuarioActual?.rol === 'optometra') {
+      if (v !== 'pacientes') return;
+    }
     if ((v === 'consumo' || v === 'usuarios') && usuarioActual?.rol !== 'admin') {
       return;
     }
@@ -785,6 +803,7 @@ export default function PaginaPrincipal() {
   // Navegación universal e instantánea (0ms) hacia un chat desde cualquier vista del CRM
   const navegarAlChatContacto = useCallback(
     (contactoId: number) => {
+      if (usuarioActual?.rol === 'optometra') return;
       // 1. Cambiar inmediatamente de vista (0ms de latencia percibida)
       setVistaActiva('mensajeria');
 
@@ -846,12 +865,13 @@ export default function PaginaPrincipal() {
         }).catch(() => {});
       }
     },
-    [conversaciones, pacientes]
+    [conversaciones, pacientes, usuarioActual?.rol]
   );
 
   // Navegación universal y precisa hacia un chat desde notificaciones de atención urgente o enlaces
   const navegarAConversacionDesdeNotificacion = useCallback(
     async (datos: any) => {
+      if (usuarioActual?.rol === 'optometra') return;
       // 1. Cambiar a la vista de mensajería
       setVistaActiva('mensajeria');
 
@@ -918,7 +938,7 @@ export default function PaginaPrincipal() {
         navegarAlChatContacto(idContacto);
       }
     },
-    [conversaciones, manejarSeleccionarConversacion, navegarAlChatContacto]
+    [conversaciones, manejarSeleccionarConversacion, navegarAlChatContacto, usuarioActual?.rol]
   );
 
   // Sondeo en tiempo real de mensajes del chat abierto cada 1.5 segundos con preservación de mensajes en vuelo
@@ -1389,6 +1409,7 @@ export default function PaginaPrincipal() {
               opticaId={opticaActual?.id || 1}
               usuario={usuarioActual}
               alNavegarVista={(vista, datos) => {
+                if (usuarioActual?.rol === 'optometra') return;
                 manejarCambioVista(vista);
                 if (vista === 'citas') {
                   const fechaDestino = datos?.fecha || datos?.fecha_cita || null;
@@ -1555,7 +1576,7 @@ export default function PaginaPrincipal() {
               setModalFormulaAbierto(true);
             }}
             alRecargarPacientes={recargarPacientes}
-            alSeleccionarContactoChat={navegarAlChatContacto}
+            alSeleccionarContactoChat={usuarioActual?.rol === 'optometra' ? undefined : navegarAlChatContacto}
           />
         )}
 
@@ -1567,7 +1588,7 @@ export default function PaginaPrincipal() {
             nombreOptica={opticaActual?.nombre}
             opticaId={opticaActual?.id}
             esAdmin={usuarioActual?.rol === 'admin'}
-            alSeleccionarContactoChat={navegarAlChatContacto}
+            alSeleccionarContactoChat={usuarioActual?.rol === 'optometra' ? undefined : navegarAlChatContacto}
             alEnviarMensajeWhatsApp={async (texto, convDestino) => {
               await manejarEnviarMensaje(texto, convDestino || undefined);
             }}
@@ -1580,7 +1601,7 @@ export default function PaginaPrincipal() {
         {vistaActiva === 'campanas' && (
           <ModuloAutoSegmentacion
             key={`campanas-optica-${opticaActual?.id || 1}`}
-            alSeleccionarContactoChat={navegarAlChatContacto}
+            alSeleccionarContactoChat={usuarioActual?.rol === 'optometra' ? undefined : navegarAlChatContacto}
             nombreOptica={opticaActual?.nombre}
             opticaId={opticaActual?.id}
           />
@@ -1591,7 +1612,7 @@ export default function PaginaPrincipal() {
             key={`plantillas-optica-${opticaActual?.id || 1}`}
             nombreOptica={opticaActual?.nombre}
             opticaId={opticaActual?.id}
-            alSeleccionarContactoChat={navegarAlChatContacto}
+            alSeleccionarContactoChat={usuarioActual?.rol === 'optometra' ? undefined : navegarAlChatContacto}
           />
         )}
 
@@ -1700,6 +1721,7 @@ export default function PaginaPrincipal() {
           }}
           conteoChats={conteoBadgeConversaciones}
           requiereAsesorChats={totalRequiereAsesor > 0}
+          usuario={usuarioActual}
         />
       )}
     </div>

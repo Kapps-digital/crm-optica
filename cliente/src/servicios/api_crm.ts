@@ -5,6 +5,7 @@ import type {
   FormulaOptica,
   RespuestaLogin,
   Usuario,
+  RolUsuario,
   Optica,
   LineaCanal,
   Cita,
@@ -1420,7 +1421,7 @@ export async function crearUsuarioApi(datos: {
   usuario: string;
   correo?: string | null;
   contrasena: string;
-  rol: 'admin' | 'admin_optica';
+  rol: RolUsuario;
   activo?: boolean;
 }): Promise<{ exito: boolean; usuario?: Usuario; error?: string }> {
   try {
@@ -1448,7 +1449,7 @@ export async function actualizarUsuarioApi(datos: {
   usuario?: string;
   correo?: string | null;
   contrasena?: string;
-  rol?: 'admin' | 'admin_optica';
+  rol?: RolUsuario;
   activo?: boolean;
 }): Promise<{ exito: boolean; usuario?: Usuario; error?: string }> {
   try {
