@@ -752,7 +752,7 @@ const HERRAMIENTAS_OPENAI = [
  * Emite una notificación push a los dispositivos móviles de los asesores de la óptica
  * cuando se requiere intervención humana en una conversación.
  */
-async function notificarPushEscalacionAsesor({ conversacionId, opticaId, motivo }) {
+async function notificarPushEscalacionAsesor({ conversacionId, opticaId, motivo, textoMensajeCliente }) {
   try {
     const datosConv = await pool.query(
       `SELECT conv.optica_id, c.nombre_completo, c.telefono
@@ -767,15 +767,53 @@ async function notificarPushEscalacionAsesor({ conversacionId, opticaId, motivo 
     const nombrePaciente = fila.nombre_completo || fila.telefono || 'Paciente por WhatsApp';
     const motivoDesc = motivo || 'Solicita atención con un asesor';
 
+    // Obtener el último mensaje entrante del cliente si no fue provisto
+    let textoCliente = (textoMensajeCliente || '').trim();
+    if (!textoCliente) {
+      try {
+        const resUltimo = await pool.query(
+          `SELECT texto FROM "CRM_Opticas".mensajes 
+           WHERE conversacion_id = $1 AND direccion = 'entrante'
+             AND texto IS NOT NULL AND texto != '' AND texto != '[Unsupported message]'
+           ORDER BY id DESC LIMIT 1`,
+          [conversacionId]
+        );
+        if (resUltimo.rows.length > 0) {
+          textoCliente = (resUltimo.rows[0].texto || '').trim();
+        }
+      } catch (errUltimo) {
+        console.warn('[Push Escalación] No se pudo obtener el último mensaje entrante:', errUltimo.message);
+      }
+    }
+
+    // Detectar si es una solicitud de cotización o precio
+    const textoAnalisis = `${motivoDesc} ${textoCliente}`.toLowerCase();
+    const esCotizacion = /cotiz|precio|cu[aá]nto cuesta|cu[aá]nto vale|costo|presupuesto|valor/i.test(textoAnalisis);
+
+    const tituloPush = esCotizacion 
+      ? `🚨 Cotización: ${nombrePaciente}`
+      : `🚨 Asesor Requerido: ${nombrePaciente}`;
+
+    let cuerpoPush = '';
+    if (textoCliente) {
+      const textoLimpio = textoCliente.replace(/\s+/g, ' ').trim();
+      const textoCorto = textoLimpio.length > 95 ? `${textoLimpio.slice(0, 92)}...` : textoLimpio;
+      cuerpoPush = esCotizacion
+        ? `"${textoCorto}" • Requiere cotización. Toca para atender.`
+        : `"${textoCorto}" • Toca para atender.`;
+    } else {
+      cuerpoPush = `${motivoDesc}. Toca aquí para atenderlo.`;
+    }
+
     if (idOpticaDestino) {
       const { enviarNotificacionPushAOptica } = await import('./gestor_notificaciones_push.mjs');
       const resultadoPush = await enviarNotificacionPushAOptica({
         optica_id: idOpticaDestino,
-        titulo: `🚨 Asesor Requerido: ${nombrePaciente}`,
-        cuerpo: `${motivoDesc}. Toca aquí para atenderlo.`,
+        titulo: tituloPush,
+        cuerpo: cuerpoPush,
         url: `/?chat=${conversacionId}`,
         etiqueta: `urgente-conv-${conversacionId}`,
-        datos: { conversacionId },
+        datos: { conversacionId, esCotizacion },
       });
       console.log(`[Push Escalación] Notificación push enviada a óptica ${idOpticaDestino}:`, resultadoPush);
     }
@@ -787,7 +825,7 @@ async function notificarPushEscalacionAsesor({ conversacionId, opticaId, motivo 
 /**
  * Ejecuta una herramienta llamada por el modelo de IA y retorna el resultado
  */
-async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId, conversacionId }) {
+async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId, conversacionId, mensajeTexto }) {
   if (nombre === 'consultar_citas_paciente') {
     const hoyStr = obtenerFechaHoyColombia();
     const res = await pool.query(
@@ -1175,11 +1213,12 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId, c
         [conversacionId]
       );
 
-      // Disparar Notificación Push a los celulares de los asesores de esta óptica
+      // Disparar Notificación Push a los celulares de los asesores de esta óptica con el contexto del cliente
       await notificarPushEscalacionAsesor({
         conversacionId,
         opticaId,
         motivo: motivoTransferencia || 'Solicita atención con un asesor',
+        textoMensajeCliente: mensajeTexto,
       });
     }
     return {
@@ -1372,6 +1411,7 @@ async function ejecutarLlamadaGemini({
   let llamadasRestantes = 4;
   let respuestaFinalTexto = '';
   let ultimoMensajeConfirmacionOficial = null;
+  let asesorYaNotificado = false;
 
   let totalTokensEntrada = 0;
   let totalTokensSalida = 0;
@@ -1453,7 +1493,12 @@ async function ejecutarLlamadaGemini({
           opticaId,
           contactoId,
           conversacionId,
+          mensajeTexto,
         });
+
+        if (resultadoHerramienta?.accion === 'transferido_a_humano') {
+          asesorYaNotificado = true;
+        }
 
         if (resultadoHerramienta?.mensaje_confirmacion_oficial) {
           ultimoMensajeConfirmacionOficial = resultadoHerramienta.mensaje_confirmacion_oficial;
@@ -1487,6 +1532,7 @@ async function ejecutarLlamadaGemini({
     respuestaTexto: respuestaFinalTexto,
     ultimoMensajeConfirmacionOficial,
     modeloUsado: modeloElegido,
+    asesorYaNotificado,
     consumoTokens: {
       tokens_entrada: totalTokensEntrada,
       tokens_salida: totalTokensSalida,
@@ -1804,6 +1850,7 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
     let ultimoMensajeConfirmacionOficial = null;
     let consumoTokensFinal = { tokens_entrada: 0, tokens_salida: 0, tokens_totales: 0 };
     let modeloFinalUtilizado = '';
+    let asesorYaNotificado = false;
 
     if (esGemini) {
       console.log(`[Motor IA] Procesando con Google Gemini Oficial (modelo: ${modeloGeminiNormalizado})`);
@@ -1826,6 +1873,9 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
       respuestaFinalTexto = resGemini.respuestaTexto || '';
       ultimoMensajeConfirmacionOficial = resGemini.ultimoMensajeConfirmacionOficial;
       modeloFinalUtilizado = resGemini.modeloUsado || modeloGeminiNormalizado;
+      if (resGemini.asesorYaNotificado) {
+        asesorYaNotificado = true;
+      }
       if (resGemini.consumoTokens) {
         consumoTokensFinal = resGemini.consumoTokens;
       }
@@ -1929,7 +1979,12 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
               opticaId: optica_id,
               contactoId: idContacto,
               conversacionId: conversacion_id,
+              mensajeTexto: textoFinalParaIA,
             });
+
+            if (resultadoHerramienta?.accion === 'transferido_a_humano') {
+              asesorYaNotificado = true;
+            }
 
             if (resultadoHerramienta?.mensaje_confirmacion_oficial) {
               ultimoMensajeConfirmacionOficial = resultadoHerramienta.mensaje_confirmacion_oficial;
@@ -2001,12 +2056,16 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
         [conversacion_id]
       );
 
-      // Disparar Notificación Push a los celulares de los asesores de esta óptica
-      await notificarPushEscalacionAsesor({
-        conversacionId: conversacion_id,
-        opticaId: optica_id,
-        motivo: 'La IA ha derivado la conversación a un asesor humano',
-      });
+      // Disparar Notificación Push a los celulares SOLO si no fue disparada previamente por la herramienta
+      if (!asesorYaNotificado) {
+        await notificarPushEscalacionAsesor({
+          conversacionId: conversacion_id,
+          opticaId: optica_id,
+          motivo: 'La IA ha derivado la conversación a un asesor humano',
+          textoMensajeCliente: textoFinalParaIA,
+        });
+        asesorYaNotificado = true;
+      }
     }
 
     return {
