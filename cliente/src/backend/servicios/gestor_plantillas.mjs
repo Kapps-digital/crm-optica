@@ -2,6 +2,71 @@ import { pool } from '../base_datos/conexion.mjs';
 import { obtenerPacientesDeSegmento } from './gestor_segmentacion.mjs';
 import { ClienteZernio, obtener_cliente_zernio } from './cliente_zernio.mjs';
 
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://jwctsfnkyfokrgtcjtxs.supabase.co';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3Y3RzZm5reWZva3JndGNqdHhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA3OTE2NjgsImV4cCI6MjEwNjM2NzY2OH0.I5jL8UKofVyZCFqt2FxxqnTCxgmRNypoB3AsESKYNNo';
+
+/**
+ * Sube un archivo multimedia de plantilla (imagen o video) a Supabase Storage con URL pública
+ * @param {number} [opticaId]
+ * @param {{ buffer?: any, base64?: string | null, mimeType?: string, nombre?: string }} [opciones]
+ * @returns {Promise<{exito: boolean, url?: string, error?: string}>}
+ */
+export async function subirMultimediaStorage(opticaId = 1, { buffer = null, base64 = null, mimeType = 'image/jpeg', nombre = 'multimedia' } = {}) {
+  try {
+    const idOpticaSeguro = Number(opticaId) > 0 ? Number(opticaId) : 1;
+    let bufferFinal = buffer;
+    let tipoMimeReal = mimeType;
+
+    if (!bufferFinal && base64) {
+      const partes = base64.split(',');
+      const datosBase64 = partes.length > 1 ? partes[1] : partes[0];
+      bufferFinal = Buffer.from(datosBase64, 'base64');
+      if (partes.length > 1 && partes[0].includes('image/png')) tipoMimeReal = 'image/png';
+      else if (partes.length > 1 && partes[0].includes('image/webp')) tipoMimeReal = 'image/webp';
+      else if (partes.length > 1 && partes[0].includes('video/mp4')) tipoMimeReal = 'video/mp4';
+      else if (partes.length > 1 && partes[0].includes('application/pdf')) tipoMimeReal = 'application/pdf';
+    }
+
+    if (!bufferFinal || bufferFinal.length === 0) {
+      return { exito: false, error: 'No se recibió archivo para subir' };
+    }
+
+    let extension = 'jpg';
+    if (tipoMimeReal.includes('png')) extension = 'png';
+    else if (tipoMimeReal.includes('webp')) extension = 'webp';
+    else if (tipoMimeReal.includes('mp4')) extension = 'mp4';
+    else if (tipoMimeReal.includes('pdf')) extension = 'pdf';
+
+    const nombreLimpio = String(nombre || 'multimedia').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const nombreArchivo = `${nombreLimpio}_${Date.now()}.${extension}`;
+    const rutaBucket = `optica_${idOpticaSeguro}/${nombreArchivo}`;
+
+    const urlSubida = `${SUPABASE_URL}/storage/v1/object/plantillas-multimedia/${rutaBucket}`;
+    const resStorage = await fetch(urlSubida, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        apiKey: SUPABASE_ANON_KEY,
+        'Content-Type': tipoMimeReal,
+        'x-upsert': 'true',
+      },
+      body: bufferFinal,
+    });
+
+    if (!resStorage.ok) {
+      const errorTxt = await resStorage.text();
+      console.error('Error al subir multimedia a Supabase Storage:', resStorage.status, errorTxt);
+      return { exito: false, error: 'Error al almacenar archivo en servidor' };
+    }
+
+    const urlPublica = `${SUPABASE_URL}/storage/v1/object/public/plantillas-multimedia/${rutaBucket}`;
+    return { exito: true, url: urlPublica };
+  } catch (error) {
+    console.error('Error en subirMultimediaStorage:', error);
+    return { exito: false, error: error.message };
+  }
+}
+
 // Caché en memoria por óptica para evitar saturar la API de Zernio en consultas rápidas
 const cacheCuentasPorOptica = new Map();
 const cacheTimestampsPorOptica = new Map();
@@ -164,8 +229,16 @@ export async function sincronizarPlantillasConZernio(opticaId) {
       [nombre, idOpticaNumerico]
     );
 
-    const encabezadoContenidoFinal =
-      encabezadoContenido || (existente.rows.length > 0 ? existente.rows[0].encabezado_contenido : null);
+    const contenidoPrevio = existente.rows.length > 0 ? existente.rows[0].encabezado_contenido : null;
+    const esContenidoPersonalizadoPrevio = contenidoPrevio && (
+      contenidoPrevio.includes('supabase.co') ||
+      contenidoPrevio.includes('/uploads/') ||
+      contenidoPrevio.startsWith('data:image')
+    );
+
+    const encabezadoContenidoFinal = esContenidoPersonalizadoPrevio
+      ? contenidoPrevio
+      : (encabezadoContenido || contenidoPrevio);
 
     if (existente.rows.length > 0) {
       await pool.query(
@@ -277,6 +350,8 @@ export async function crearPlantilla(opticaId, datos) {
     botones = [],
   } = datos;
 
+  let encabezadoContenidoGuardar = encabezado_contenido;
+
   if (!etiqueta || !cuerpo) {
     throw new Error('La plantilla debe tener un título descriptivo y un mensaje en el cuerpo.');
   }
@@ -317,6 +392,19 @@ export async function crearPlantilla(opticaId, datos) {
         const contenidoLimpio = encabezado_contenido.trim();
         if (contenidoLimpio.startsWith('http://') || contenidoLimpio.startsWith('https://')) {
           urlEjemplo = contenidoLimpio;
+        } else if (contenidoLimpio.startsWith('data:image')) {
+          try {
+            const subidaStorage = await subirMultimediaStorage(idOpticaNumerico, {
+              base64: contenidoLimpio,
+              nombre: `plantilla_${nombreNormalizado}`,
+            });
+            if (subidaStorage.exito && subidaStorage.url) {
+              urlEjemplo = subidaStorage.url;
+              encabezadoContenidoGuardar = subidaStorage.url;
+            }
+          } catch (errSubida) {
+            console.warn('Aviso al subir imagen base64 a Storage para plantilla:', errSubida.message);
+          }
         } else if (contenidoLimpio.startsWith('/') && process.env.URL_BASE_APLICACION) {
           urlEjemplo = `${process.env.URL_BASE_APLICACION.replace(/\/$/, '')}${contenidoLimpio}`;
         }
@@ -337,6 +425,20 @@ export async function crearPlantilla(opticaId, datos) {
         const contenidoLimpio = encabezado_contenido.trim();
         if (contenidoLimpio.startsWith('http://') || contenidoLimpio.startsWith('https://')) {
           urlEjemplo = contenidoLimpio;
+        } else if (contenidoLimpio.startsWith('data:video')) {
+          try {
+            const subidaStorage = await subirMultimediaStorage(idOpticaNumerico, {
+              base64: contenidoLimpio,
+              mimeType: 'video/mp4',
+              nombre: `plantilla_${nombreNormalizado}`,
+            });
+            if (subidaStorage.exito && subidaStorage.url) {
+              urlEjemplo = subidaStorage.url;
+              encabezadoContenidoGuardar = subidaStorage.url;
+            }
+          } catch (errSubida) {
+            console.warn('Aviso al subir video base64 a Storage para plantilla:', errSubida.message);
+          }
         } else if (contenidoLimpio.startsWith('/') && process.env.URL_BASE_APLICACION) {
           urlEjemplo = `${process.env.URL_BASE_APLICACION.replace(/\/$/, '')}${contenidoLimpio}`;
         }
@@ -450,7 +552,7 @@ export async function crearPlantilla(opticaId, datos) {
       categoria,
       idioma,
       encabezado_tipo,
-      encabezado_contenido,
+      encabezadoContenidoGuardar,
       cuerpo.trim(),
       pie ? pie.trim() : null,
       JSON.stringify(botones),

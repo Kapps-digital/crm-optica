@@ -216,6 +216,10 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
 
   const manejarGuardar = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (subiendoArchivo) {
+      setErrorFormulario('Por favor espera un momento mientras termina de procesarse el archivo multimedia...');
+      return;
+    }
     if (!formularioValido) {
       setErrorFormulario('Por favor completa todos los campos requeridos y valida los botones.');
       return;

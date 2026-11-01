@@ -36,6 +36,7 @@ import {
   obtenerHistorialLotes,
   eliminarLoteCampana,
   obtenerMapaPlantillasPorNombre,
+  subirMultimediaStorage,
 } from '@/backend/servicios/gestor_plantillas.mjs';
 import {
   obtener_canales_optica,
@@ -1417,6 +1418,17 @@ async function procesarPeticion(
       const plantillas = await obtenerPlantillas(idOpticaDestino);
       const cuota = await obtenerCuotaDiaria(idOpticaDestino);
       return NextResponse.json({ ...resultado, plantillas, cuota });
+    }
+
+    if (metodo === 'POST' && rutaStr === 'plantillas/subir-multimedia') {
+      const { nombre, base64, mimeType, optica_id: optId } = body;
+      const idOpticaDestino = optId ? Number(optId) : optica_id;
+      const resultadoSubida = await (subirMultimediaStorage as any)(idOpticaDestino, {
+        base64,
+        mimeType,
+        nombre,
+      });
+      return NextResponse.json(resultadoSubida);
     }
 
     if (metodo === 'GET' && rutaStr === 'plantillas/cuota-diaria') {
