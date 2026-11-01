@@ -17,6 +17,14 @@ export default function PaginaLogin() {
   const [codigoError, setCodigoError] = useState<string | null>(null);
   const [temaOscuro, setTemaOscuro] = useState(false);
   const [modalRecuperarAbierto, setModalRecuperarAbierto] = useState(false);
+  const [opticasDisponiblesLogin, setOpticasDisponiblesLogin] = useState<Array<{
+    optica_id: number;
+    optica_nombre: string;
+    optica_logo?: string | null;
+    usuario_id: number;
+    nombre: string;
+    rol: string;
+  }> | null>(null);
 
   // Modo Oculto / Accesos Rápidos (Oculto por defecto, se activa con 3 clics en el logo del ojo)
   const [mostrarAccesosRapidos, setMostrarAccesosRapidos] = useState(false);
@@ -108,6 +116,8 @@ export default function PaginaLogin() {
       if (res.exito) {
         // Redireccionar al panel principal
         window.location.replace('/');
+      } else if (res.requiere_seleccion_optica && res.opticas_disponibles) {
+        setOpticasDisponiblesLogin(res.opticas_disponibles);
       } else {
         setError(res.error || 'Usuario o contraseña incorrectos');
         setCodigoError(res.codigo || null);
@@ -115,6 +125,23 @@ export default function PaginaLogin() {
     } catch {
       setError('Error de comunicación con el servidor');
       setCodigoError(null);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const seleccionarSedeLogin = async (opticaId: number) => {
+    setCargando(true);
+    setError(null);
+    try {
+      const res = await iniciarSesion(usuario.trim(), contrasena, opticaId);
+      if (res.exito) {
+        window.location.replace('/');
+      } else {
+        setError(res.error || 'No se pudo iniciar sesión con la sede seleccionada');
+      }
+    } catch {
+      setError('Error al comunicar con el servidor');
     } finally {
       setCargando(false);
     }
@@ -270,8 +297,97 @@ export default function PaginaLogin() {
           );
         })()}
 
-        {/* Formulario de Login */}
-        <form onSubmit={manejarEnvio} className="login-formulario">
+        {/* Formulario de Login o Selección de Sede */}
+        {opticasDisponiblesLogin ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', margin: '1rem 0' }}>
+            <div style={{ textAlign: 'center' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: '0 0 0.35rem 0', color: 'var(--texto-principal)' }}>
+                Selecciona tu Sede
+              </h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--texto-atenuado)', margin: 0 }}>
+                El usuario <strong>{usuario}</strong> está asignado a varias ópticas. ¿A cuál deseas acceder?
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              {opticasDisponiblesLogin.map((opt) => (
+                <button
+                  key={opt.optica_id}
+                  type="button"
+                  onClick={() => seleccionarSedeLogin(opt.optica_id)}
+                  disabled={cargando}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '10px',
+                    border: '1px solid var(--borde-tarjeta, #e2e8f0)',
+                    background: 'var(--fondo-tarjeta, #ffffff)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--color-primario, #0284c7)';
+                    e.currentTarget.style.background = 'rgba(2, 132, 199, 0.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--borde-tarjeta, #e2e8f0)';
+                    e.currentTarget.style.background = 'var(--fondo-tarjeta, #ffffff)';
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div
+                      style={{
+                        width: '38px',
+                        height: '38px',
+                        borderRadius: '8px',
+                        background: 'rgba(2, 132, 199, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--color-primario, #0284c7)',
+                      }}
+                    >
+                      <Building2 size={20} />
+                    </div>
+                    <div>
+                      <strong style={{ display: 'block', fontSize: '0.9rem', color: 'var(--texto-principal)' }}>
+                        {opt.optica_nombre}
+                      </strong>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--texto-atenuado)' }}>
+                        {opt.nombre} • {opt.rol === 'admin' ? 'Administrador Global' : (opt.rol === 'admin_optica' ? 'Admin de Sede' : 'Optómetra')}
+                      </span>
+                    </div>
+                  </div>
+                  <ArrowRight size={16} style={{ color: 'var(--color-primario, #0284c7)' }} />
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setOpticasDisponiblesLogin(null);
+                setError(null);
+              }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--texto-atenuado)',
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                textAlign: 'center',
+                padding: '0.3rem',
+                textDecoration: 'underline',
+              }}
+            >
+              Volver a ingresar credenciales
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={manejarEnvio} className="login-formulario">
           {/* Campo Usuario */}
           <div className="login-campo-grupo">
             <label htmlFor="campo-usuario" className="login-etiqueta">
@@ -372,6 +488,7 @@ export default function PaginaLogin() {
             )}
           </button>
         </form>
+        )}
 
         {/* Acceso rápido para desarrollo / evaluación (Oculto por defecto, visible tras 3 toques en el logo) */}
         {mostrarAccesosRapidos && (

@@ -195,12 +195,12 @@ function registrarErrorApi(modulo: string, error: unknown): void {
 }
 
 // Endpoints de Autenticación
-export async function iniciarSesion(usuario: string, contrasena: string): Promise<RespuestaLogin> {
+export async function iniciarSesion(usuario: string, contrasena: string, opticaId?: number): Promise<RespuestaLogin> {
   try {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ usuario, contrasena }),
+      body: JSON.stringify({ usuario, contrasena, optica_id: opticaId }),
     });
 
     const data = await res.json();
@@ -213,6 +213,8 @@ export async function iniciarSesion(usuario: string, contrasena: string): Promis
       exito: false,
       error: data.error || 'Credenciales inválidas',
       codigo: data.codigo,
+      requiere_seleccion_optica: data.requiere_seleccion_optica,
+      opticas_disponibles: data.opticas_disponibles,
     };
   } catch (error) {
     console.error('Error al iniciar sesión:', error);

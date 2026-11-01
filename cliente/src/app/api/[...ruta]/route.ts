@@ -232,12 +232,12 @@ async function procesarPeticion(
 
     // 2. AUTENTICACIÓN
     if (metodo === 'POST' && rutaStr === 'auth/login') {
-      const { usuario: uNombre, contrasena } = body;
+      const { usuario: uNombre, contrasena, optica_id: opticaIdDeseada } = body;
       if (!uNombre || !contrasena) {
         return NextResponse.json({ exito: false, error: 'Debe ingresar usuario y contraseña' }, { status: 400 });
       }
       const usuarioLimpio = String(uNombre).trim().toLowerCase();
-      const usuarioDb = await base_datos.prepare(`
+      const usuariosCandidatos = await base_datos.prepare(`
         SELECT 
           u.id, u.optica_id, u.nombre, u.usuario, u.hash_contrasena, u.rol, u.activo,
           o.nombre AS optica_nombre, o.slug AS optica_slug, o.logo_url AS optica_logo,
@@ -248,16 +248,45 @@ async function procesarPeticion(
         FROM usuarios u
         LEFT JOIN opticas o ON u.optica_id = o.id
         WHERE LOWER(u.usuario) = ?
-      `).get(usuarioLimpio);
+      `).all(usuarioLimpio);
 
-      if (!usuarioDb) {
+      if (!usuariosCandidatos || usuariosCandidatos.length === 0) {
         return NextResponse.json({ exito: false, error: 'Usuario o contraseña incorrectos' }, { status: 401 });
       }
 
-      const coincide = bcrypt.compareSync(contrasena, usuarioDb.hash_contrasena);
-      if (!coincide) {
+      // Si se especificó una óptica deseada, filtrar primero por sede
+      let candidatos = usuariosCandidatos;
+      if (opticaIdDeseada) {
+        candidatos = usuariosCandidatos.filter((u: any) => Number(u.optica_id) === Number(opticaIdDeseada));
+      }
+
+      // Filtrar aquellos cuya contraseña coincida
+      const usuariosValidos = candidatos.filter((cand: any) =>
+        bcrypt.compareSync(contrasena, cand.hash_contrasena)
+      );
+
+      if (usuariosValidos.length === 0) {
         return NextResponse.json({ exito: false, error: 'Usuario o contraseña incorrectos' }, { status: 401 });
       }
+
+      // Si hay más de un usuario con el mismo username y exactamente la misma contraseña en distintas ópticas
+      if (usuariosValidos.length > 1 && !opticaIdDeseada) {
+        return NextResponse.json({
+          exito: false,
+          requiere_seleccion_optica: true,
+          opticas_disponibles: usuariosValidos.map((u: any) => ({
+            optica_id: Number(u.optica_id),
+            optica_nombre: u.optica_nombre,
+            optica_logo: u.optica_logo,
+            usuario_id: Number(u.id),
+            nombre: u.nombre,
+            rol: u.rol,
+          })),
+          error: 'Este nombre de usuario existe en varias ópticas. Por favor selecciona tu sede.',
+        });
+      }
+
+      const usuarioDb = usuariosValidos[0];
 
       if (!usuarioDb.activo) {
         return NextResponse.json({
@@ -2012,10 +2041,12 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
         const usuarioLimpio = String(uNombre).trim().toLowerCase();
         const idOpticaNumerico = Number(optId) || 1;
 
-        // Verificar si el username ya está ocupado
-        const usuarioExistente = await base_datos.prepare('SELECT id FROM usuarios WHERE LOWER(usuario) = ?').get(usuarioLimpio);
+        // Verificar si el username ya está ocupado en la misma sede/óptica
+        const usuarioExistente = await base_datos.prepare(
+          'SELECT id FROM usuarios WHERE LOWER(usuario) = ? AND optica_id = ?'
+        ).get(usuarioLimpio, idOpticaNumerico);
         if (usuarioExistente) {
-          return NextResponse.json({ exito: false, error: `El nombre de usuario "${usuarioLimpio}" ya se encuentra registrado.` }, { status: 400 });
+          return NextResponse.json({ exito: false, error: `El nombre de usuario "${usuarioLimpio}" ya existe en esta óptica. Por favor elige otro.` }, { status: 400 });
         }
 
         const hash = bcrypt.hashSync(contrasena, 10);
@@ -2065,10 +2096,13 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
         }
 
         const usuarioLimpio = uNombre !== undefined ? String(uNombre).trim().toLowerCase() : actual.usuario;
-        if (usuarioLimpio !== actual.usuario) {
-          const conflicto = await base_datos.prepare('SELECT id FROM usuarios WHERE LOWER(usuario) = ? AND id != ?').get(usuarioLimpio, idNum);
+        const opticaDestino = optId !== undefined ? Number(optId) : actual.optica_id;
+        if (usuarioLimpio !== actual.usuario || opticaDestino !== actual.optica_id) {
+          const conflicto = await base_datos.prepare(
+            'SELECT id FROM usuarios WHERE LOWER(usuario) = ? AND optica_id = ? AND id != ?'
+          ).get(usuarioLimpio, opticaDestino, idNum);
           if (conflicto) {
-            return NextResponse.json({ exito: false, error: `El nombre de usuario "${usuarioLimpio}" ya está en uso por otra persona.` }, { status: 400 });
+            return NextResponse.json({ exito: false, error: `El nombre de usuario "${usuarioLimpio}" ya está en uso en esta óptica.` }, { status: 400 });
           }
         }
 

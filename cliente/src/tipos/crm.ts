@@ -218,6 +218,15 @@ export interface RespuestaLogin {
   optica?: Optica;
   error?: string;
   codigo?: string;
+  requiere_seleccion_optica?: boolean;
+  opticas_disponibles?: Array<{
+    optica_id: number;
+    optica_nombre: string;
+    optica_logo?: string | null;
+    usuario_id: number;
+    nombre: string;
+    rol: string;
+  }>;
 }
 
 export interface RespuestaApi<T> {
