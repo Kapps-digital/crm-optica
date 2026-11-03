@@ -933,13 +933,14 @@ async function procesarPeticion(
           tp.color AS tipologia_color,
           CAST((SELECT COUNT(*) FROM formulas_opticas WHERE contacto_id = c.id AND optica_id = ?) AS INTEGER) AS total_formulas,
           CAST((SELECT COUNT(*) FROM citas WHERE contacto_id = c.id AND optica_id = ?) AS INTEGER) AS total_citas,
+          CAST((SELECT COUNT(*) FROM historias_clinicas WHERE contacto_id = c.id AND optica_id = ?) AS INTEGER) AS total_historias,
           (SELECT fecha_examen FROM formulas_opticas WHERE contacto_id = c.id AND optica_id = ? ORDER BY id DESC LIMIT 1) AS ultima_formula_fecha,
           (SELECT tipo_lente FROM formulas_opticas WHERE contacto_id = c.id AND optica_id = ? ORDER BY id DESC LIMIT 1) AS ultimo_tipo_lente
         FROM contactos c
         LEFT JOIN tipologias_pacientes tp ON tp.id = c.tipologia_id
         WHERE c.optica_id = ?
         ORDER BY LOWER(TRIM(COALESCE(c.nombre_completo, ''))) ASC, c.actualizado_en DESC
-      `).all(optica_id, optica_id, optica_id, optica_id, optica_id);
+      `).all(optica_id, optica_id, optica_id, optica_id, optica_id, optica_id);
       return NextResponse.json({ exito: true, contactos });
     }
 
@@ -1021,7 +1022,8 @@ async function procesarPeticion(
         FROM formulas_opticas WHERE contacto_id = ? AND optica_id = ? ORDER BY id DESC
       `).all(contactoId, optica_id);
       const citas = await base_datos.prepare('SELECT * FROM citas WHERE contacto_id = ? AND optica_id = ? ORDER BY fecha_cita DESC, hora_cita DESC').all(contactoId, optica_id);
-      return NextResponse.json({ exito: true, contacto, formulas, citas });
+      const historias_clinicas = await base_datos.prepare('SELECT * FROM historias_clinicas WHERE contacto_id = ? AND optica_id = ? ORDER BY fecha_atencion DESC, id DESC').all(contactoId, optica_id);
+      return NextResponse.json({ exito: true, contacto, formulas, citas, historias_clinicas });
     }
 
     if (metodo === 'PUT' && segmentosRuta[0] === 'contactos' && segmentosRuta.length === 2) {
@@ -1095,6 +1097,220 @@ async function procesarPeticion(
       // Si se registra fórmula óptica, se promueve a paciente en esta óptica
       await base_datos.prepare("UPDATE contactos SET es_paciente = true, actualizado_en = datetime('now') WHERE id = ? AND optica_id = ?").run(contacto_id, optica_id);
       return NextResponse.json({ exito: true, formula_id: Number(insercion.lastInsertRowid) });
+    }
+
+    // 5.1. HISTORIAS CLÍNICAS OPTOMÉTRICAS
+    if (metodo === 'GET' && rutaStr === 'historias_clinicas') {
+      const contactoIdParam = searchParams.get('contacto_id');
+      if (contactoIdParam) {
+        const historias = await base_datos.prepare(`
+          SELECT * FROM historias_clinicas WHERE contacto_id = ? AND optica_id = ? ORDER BY fecha_atencion DESC, id DESC
+        `).all(Number(contactoIdParam), optica_id);
+        return NextResponse.json({ exito: true, historias_clinicas: historias });
+      }
+      const historias = await base_datos.prepare(`
+        SELECT * FROM historias_clinicas WHERE optica_id = ? ORDER BY fecha_atencion DESC, id DESC LIMIT 100
+      `).all(optica_id);
+      return NextResponse.json({ exito: true, historias_clinicas: historias });
+    }
+
+    if (metodo === 'POST' && rutaStr === 'historias_clinicas') {
+      const {
+        contacto_id,
+        fecha_atencion,
+        hora_atencion,
+        motivo_consulta,
+        sintomas,
+        sintomas_otros,
+        antecedentes_personales,
+        antecedentes_personales_otros,
+        antecedentes_oculares,
+        antecedentes_oculares_otros,
+        antecedentes_familiares,
+        antecedentes_familiares_otros,
+        av_sc_od,
+        av_sc_oi,
+        refraccion_od,
+        refraccion_oi,
+        queratometria_od,
+        queratometria_oi,
+        presion_intraocular_od,
+        presion_intraocular_oi,
+        biomicroscopia,
+        fondo_ojo,
+        diagnostico,
+        plan_manejo,
+        plan_manejo_otros,
+        plan_manejo_control_meses,
+        observaciones,
+        optometra,
+        tarjeta_profesional,
+      } = body;
+
+      const idContactoNum = Number(contacto_id);
+      if (!idContactoNum) {
+        return NextResponse.json({ exito: false, error: 'contacto_id es obligatorio' }, { status: 400 });
+      }
+
+      const contactoValido = await base_datos.prepare('SELECT id FROM contactos WHERE id = ? AND optica_id = ?').get(idContactoNum, optica_id);
+      if (!contactoValido) {
+        return NextResponse.json({ exito: false, error: 'Contacto no encontrado en esta óptica' }, { status: 404 });
+      }
+
+      const horaActual = hora_atencion || new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/Bogota' });
+      const fechaActual = fecha_atencion ? String(fecha_atencion).split('T')[0] : new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+
+      const normalizarArrayJson = (val: any) => {
+        if (Array.isArray(val)) return JSON.stringify(val);
+        if (typeof val === 'string') {
+          try {
+            const parseado = JSON.parse(val);
+            if (Array.isArray(parseado)) return JSON.stringify(parseado);
+          } catch {}
+          return JSON.stringify(val.split(',').map((s: string) => s.trim()).filter(Boolean));
+        }
+        return JSON.stringify([]);
+      };
+
+      const insercion = await base_datos.prepare(`
+        INSERT INTO historias_clinicas (
+          optica_id, contacto_id, fecha_atencion, hora_atencion, motivo_consulta,
+          sintomas, sintomas_otros,
+          antecedentes_personales, antecedentes_personales_otros,
+          antecedentes_oculares, antecedentes_oculares_otros,
+          antecedentes_familiares, antecedentes_familiares_otros,
+          av_sc_od, av_sc_oi, refraccion_od, refraccion_oi,
+          queratometria_od, queratometria_oi,
+          presion_intraocular_od, presion_intraocular_oi,
+          biomicroscopia, fondo_ojo, diagnostico,
+          plan_manejo, plan_manejo_otros, plan_manejo_control_meses,
+          observaciones, optometra, tarjeta_profesional
+        ) VALUES (
+          ?, ?, ?, ?, ?,
+          ?::jsonb, ?,
+          ?::jsonb, ?,
+          ?::jsonb, ?,
+          ?::jsonb, ?,
+          ?, ?, ?, ?,
+          ?, ?,
+          ?, ?,
+          ?, ?, ?,
+          ?::jsonb, ?, ?,
+          ?, ?, ?
+        )
+      `).run(
+        optica_id, idContactoNum, fechaActual, horaActual, String(motivo_consulta || '').trim(),
+        normalizarArrayJson(sintomas), sintomas_otros || null,
+        normalizarArrayJson(antecedentes_personales), antecedentes_personales_otros || null,
+        normalizarArrayJson(antecedentes_oculares), antecedentes_oculares_otros || null,
+        normalizarArrayJson(antecedentes_familiares), antecedentes_familiares_otros || null,
+        av_sc_od || null, av_sc_oi || null, refraccion_od || null, refraccion_oi || null,
+        queratometria_od || null, queratometria_oi || null,
+        presion_intraocular_od || null, presion_intraocular_oi || null,
+        biomicroscopia || null, fondo_ojo || null, String(diagnostico || '').trim(),
+        normalizarArrayJson(plan_manejo), plan_manejo_otros || null, plan_manejo_control_meses ? Number(plan_manejo_control_meses) : null,
+        observaciones || null, String(optometra || 'Especialista').trim(), tarjeta_profesional || null
+      );
+
+      // Si se registra historia clínica, se promueve a paciente en esta óptica
+      await base_datos.prepare("UPDATE contactos SET es_paciente = true, actualizado_en = datetime('now') WHERE id = ? AND optica_id = ?").run(idContactoNum, optica_id);
+      return NextResponse.json({ exito: true, historia_id: Number(insercion.lastInsertRowid) });
+    }
+
+    if (metodo === 'PUT' && segmentosRuta[0] === 'historias_clinicas' && segmentosRuta.length === 2) {
+      const historiaId = Number(segmentosRuta[1]);
+      const actual = await base_datos.prepare('SELECT id FROM historias_clinicas WHERE id = ? AND optica_id = ?').get(historiaId, optica_id);
+      if (!actual) {
+        return NextResponse.json({ exito: false, error: 'Historia clínica no encontrada' }, { status: 404 });
+      }
+
+      const {
+        motivo_consulta,
+        sintomas,
+        sintomas_otros,
+        antecedentes_personales,
+        antecedentes_personales_otros,
+        antecedentes_oculares,
+        antecedentes_oculares_otros,
+        antecedentes_familiares,
+        antecedentes_familiares_otros,
+        av_sc_od,
+        av_sc_oi,
+        refraccion_od,
+        refraccion_oi,
+        queratometria_od,
+        queratometria_oi,
+        presion_intraocular_od,
+        presion_intraocular_oi,
+        biomicroscopia,
+        fondo_ojo,
+        diagnostico,
+        plan_manejo,
+        plan_manejo_otros,
+        plan_manejo_control_meses,
+        observaciones,
+        optometra,
+        tarjeta_profesional,
+      } = body;
+
+      const normalizarArrayJson = (val: any) => {
+        if (Array.isArray(val)) return JSON.stringify(val);
+        if (typeof val === 'string') {
+          try {
+            const parseado = JSON.parse(val);
+            if (Array.isArray(parseado)) return JSON.stringify(parseado);
+          } catch {}
+          return JSON.stringify(val.split(',').map((s: string) => s.trim()).filter(Boolean));
+        }
+        return JSON.stringify([]);
+      };
+
+      await base_datos.prepare(`
+        UPDATE historias_clinicas SET
+          motivo_consulta = ?,
+          sintomas = ?::jsonb,
+          sintomas_otros = ?,
+          antecedentes_personales = ?::jsonb,
+          antecedentes_personales_otros = ?,
+          antecedentes_oculares = ?::jsonb,
+          antecedentes_oculares_otros = ?,
+          antecedentes_familiares = ?::jsonb,
+          antecedentes_familiares_otros = ?,
+          av_sc_od = ?,
+          av_sc_oi = ?,
+          refraccion_od = ?,
+          refraccion_oi = ?,
+          queratometria_od = ?,
+          queratometria_oi = ?,
+          presion_intraocular_od = ?,
+          presion_intraocular_oi = ?,
+          biomicroscopia = ?,
+          fondo_ojo = ?,
+          diagnostico = ?,
+          plan_manejo = ?::jsonb,
+          plan_manejo_otros = ?,
+          plan_manejo_control_meses = ?,
+          observaciones = ?,
+          optometra = ?,
+          tarjeta_profesional = ?,
+          actualizado_en = datetime('now')
+        WHERE id = ? AND optica_id = ?
+      `).run(
+        String(motivo_consulta || '').trim(),
+        normalizarArrayJson(sintomas), sintomas_otros || null,
+        normalizarArrayJson(antecedentes_personales), antecedentes_personales_otros || null,
+        normalizarArrayJson(antecedentes_oculares), antecedentes_oculares_otros || null,
+        normalizarArrayJson(antecedentes_familiares), antecedentes_familiares_otros || null,
+        av_sc_od || null, av_sc_oi || null, refraccion_od || null, refraccion_oi || null,
+        queratometria_od || null, queratometria_oi || null,
+        presion_intraocular_od || null, presion_intraocular_oi || null,
+        biomicroscopia || null, fondo_ojo || null, String(diagnostico || '').trim(),
+        normalizarArrayJson(plan_manejo), plan_manejo_otros || null, plan_manejo_control_meses ? Number(plan_manejo_control_meses) : null,
+        observaciones || null, String(optometra || 'Especialista').trim(), tarjeta_profesional || null,
+        historiaId, optica_id
+      );
+
+      return NextResponse.json({ exito: true, historia_id: historiaId });
     }
 
     // 6. CITAS

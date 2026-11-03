@@ -496,12 +496,17 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
     setCargando(true);
     try {
       const datosHistoria = construirObjetoHistoria();
+      let historiaIdFinal = idHistoriaGuardada;
       if (idHistoriaGuardada) {
         await actualizarHistoriaClinica(idHistoriaGuardada, datosHistoria);
       } else {
-        await registrarHistoriaClinica(datosHistoria);
+        const resH = await registrarHistoriaClinica(datosHistoria);
+        if (resH.exito && resH.historia_id) {
+          historiaIdFinal = resH.historia_id;
+          setIdHistoriaGuardada(resH.historia_id);
+        }
       }
-      await alCompletarTodo({ historia: datosHistoria });
+      await alCompletarTodo({ historia: { ...datosHistoria, id: historiaIdFinal || undefined } });
       alCerrar();
     } catch (err: any) {
       setErrorValidacion(err?.message || 'Error al guardar la historia clínica');
@@ -532,6 +537,17 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
     setCargando(true);
     try {
       const datosHistoria = construirObjetoHistoria();
+      let historiaIdFinal = idHistoriaGuardada;
+      if (idHistoriaGuardada) {
+        await actualizarHistoriaClinica(idHistoriaGuardada, datosHistoria);
+      } else {
+        const resH = await registrarHistoriaClinica(datosHistoria);
+        if (resH.exito && resH.historia_id) {
+          historiaIdFinal = resH.historia_id;
+          setIdHistoriaGuardada(resH.historia_id);
+        }
+      }
+
       const datosFormula: Partial<FormulaOptica> = {
         contacto_id: contacto.id,
         esfera_od: formularioFormula.esfera_od,
@@ -552,7 +568,7 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
         fecha_examen: new Date().toISOString(),
       };
 
-      await alCompletarTodo({ historia: datosHistoria, formula: datosFormula });
+      await alCompletarTodo({ historia: { ...datosHistoria, id: historiaIdFinal || undefined }, formula: datosFormula });
       setModalConfirmacionFormula(false);
       alCerrar();
     } catch (err: any) {

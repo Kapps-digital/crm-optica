@@ -45,6 +45,7 @@ import {
   enviarMensajeChat,
   marcarConversacionLeida,
   registrarFormulaOptica,
+  registrarHistoriaClinica,
   registrarCita,
   obtenerEstadoCanalesApi,
   obtenerConfiguracionIAApi,
@@ -1246,10 +1247,18 @@ export default function PaginaPrincipal() {
     historia: Partial<HistoriaClinicaOptometrica>;
     formula?: Partial<FormulaOptica>;
   }) => {
+    // Si la historia no tiene ID (no fue guardada previamente en paso 1), registrarla
+    if (datos.historia && !datos.historia.id && (datos.historia.contacto_id || datos.formula?.contacto_id)) {
+      const datosH = {
+        ...datos.historia,
+        contacto_id: datos.historia.contacto_id || datos.formula?.contacto_id,
+      };
+      await registrarHistoriaClinica(datosH);
+    }
     if (datos.formula) {
       await registrarFormulaOptica(datos.formula);
     }
-    const idContacto = datos.historia.contacto_id || datos.formula?.contacto_id || pacienteActivo?.id;
+    const idContacto = datos.historia?.contacto_id || datos.formula?.contacto_id || pacienteActivo?.id;
     if (idContacto) {
       const detalle = await obtenerDetalleContacto(idContacto);
       if (detalle) {
@@ -1258,8 +1267,8 @@ export default function PaginaPrincipal() {
         setFormulaVigente(detalle.formulas.length > 0 ? detalle.formulas[0] : null);
       }
     }
-    recargarPacientes();
-    recargarConversaciones();
+    await recargarPacientes();
+    await recargarConversaciones();
   };
 
   const manejarGuardarCita = async (datos: DatosNuevaCita): Promise<{ exito: boolean; error?: string }> => {
