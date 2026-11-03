@@ -213,11 +213,9 @@ export const SelectorDesplegable: React.FC<PropiedadesSelectorDesplegable> = ({
     const espacioArriba = rect.top - 10;
 
     let direccionEfectiva = direccion;
-    // Preferir hacia abajo; solo voltear hacia arriba si el espacio hacia abajo es insuficiente (< 180px)
-    // y hacia arriba hay más espacio disponible
-    if (direccion === 'abajo' && espacioAbajo < 180 && espacioArriba > espacioAbajo) {
+    if (direccion === 'abajo' && espacioAbajo < alturaEstimadaMenu && espacioArriba > espacioAbajo) {
       direccionEfectiva = 'arriba';
-    } else if (direccion === 'arriba' && espacioArriba < 180 && espacioAbajo > espacioArriba) {
+    } else if (direccion === 'arriba' && espacioArriba < alturaEstimadaMenu && espacioAbajo > espacioArriba) {
       direccionEfectiva = 'abajo';
     }
 
@@ -605,7 +603,7 @@ export const SelectorDesplegable: React.FC<PropiedadesSelectorDesplegable> = ({
                     }}
                   >
                     <Plus size={13} />
-                    <span>{textoCrearNuevo || '+ Agregar nuevo tipo...'}</span>
+                    <span>{textoCrearNuevo ? textoCrearNuevo.replace(/^\+\s*/, '') : 'Agregar nuevo tipo...'}</span>
                   </button>
                 )}
               </div>

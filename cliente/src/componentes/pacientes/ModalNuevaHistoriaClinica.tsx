@@ -2176,9 +2176,8 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
                   conBuscador={true}
                   placeholderBuscador="Buscar o escribir nuevo tipo de lente..."
                   permitirCrearNuevo={true}
-                  textoCrearNuevo="+ Agregar nuevo tipo de lente"
+                  textoCrearNuevo="Agregar nuevo tipo de lente"
                   alCrearNuevo={manejarCrearNuevoTipoLente}
-                  direccion="abajo"
                   opciones={opcionesTiposLentes}
                 />
               </div>
