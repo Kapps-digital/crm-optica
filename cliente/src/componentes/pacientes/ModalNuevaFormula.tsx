@@ -633,9 +633,11 @@ export const ModalNuevaFormula: React.FC<PropiedadesModalNuevaFormula> = ({
                   anchoMinimo="100%"
                   conBuscador={true}
                   placeholderBuscador="Buscar o escribir nuevo tipo de lente..."
+                  permitirCrearNuevo={true}
                   alCrearNuevo={manejarCrearTipoLente}
                   alEditarOpcion={(opc) => abrirModalEditarTipoLente(opc.valor)}
                   textoCrearNuevo="+ Agregar nuevo tipo de lente..."
+                  direccion="abajo"
                   opciones={opcionesTiposLentes}
                 />
               </div>

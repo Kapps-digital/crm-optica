@@ -20,6 +20,7 @@ import {
   AlertCircle,
   AlertTriangle,
   Tag,
+  ClipboardList,
 } from 'lucide-react';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import { ModalRegistrarPaciente } from './ModalRegistrarPaciente';
@@ -27,7 +28,7 @@ import { ModalHistorialClinico } from './ModalHistorialClinico';
 import { BarraPaginacionTabla } from '../comunes/BarraPaginacionTabla';
 import { FiltroBusqueda } from '../comunes/FiltroBusqueda';
 import { SelectorDesplegable, type OpcionDesplegable } from '../comunes/SelectorDesplegable';
-import type { Contacto, Conversacion, TipologiaPaciente } from '@/tipos/crm';
+import type { Contacto, Conversacion, TipologiaPaciente, HistoriaClinicaOptometrica } from '@/tipos/crm';
 import { obtenerTipologiasPacientesApi } from '@/servicios/api_crm';
 import { formatearTelefono, formatearSeparadorMiles, esFichaIncompleta } from '@/utilidades/formato';
 
@@ -35,6 +36,7 @@ interface PropiedadesDirectorioPacientes {
   pacientes: Contacto[];
   cargando: boolean;
   alAbrirNuevaFormula: (contacto: Contacto) => void;
+  alAbrirNuevaHistoria?: (contacto: Contacto, historia?: HistoriaClinicaOptometrica) => void;
   alRecargarPacientes?: () => void;
   alSeleccionarContactoChat?: (contactoId: number) => void;
 }
@@ -43,6 +45,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
   pacientes,
   cargando,
   alAbrirNuevaFormula,
+  alAbrirNuevaHistoria,
   alRecargarPacientes,
   alSeleccionarContactoChat,
 }) => {
@@ -940,8 +943,8 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                             </EtiquetaTooltip>
                           ) : (
                             <>
-                              {/* Botón Nueva Fórmula con Icono Gafas */}
-                              <EtiquetaTooltip texto={`Registrar fórmula óptica para ${item.nombre || 'el paciente'}`} posicion="arriba">
+                              {/* Botón Nueva Consulta Clínica y Fórmula */}
+                              <EtiquetaTooltip texto="Consulta y formula optica" posicion="arriba">
                                 <button
                                   type="button"
                                   className="btn-primario-optica"
@@ -957,11 +960,15 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                                   }}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    alAbrirNuevaFormula(item);
+                                    if (alAbrirNuevaHistoria) {
+                                      alAbrirNuevaHistoria(item);
+                                    } else {
+                                      alAbrirNuevaFormula(item);
+                                    }
                                   }}
-                                  aria-label={`Registrar fórmula óptica para ${item.nombre || 'el paciente'}`}
+                                  aria-label={`Consulta y formula optica para ${item.nombre || 'el paciente'}`}
                                 >
-                                  <Glasses size={14} />
+                                  <ClipboardList size={14} />
                                 </button>
                               </EtiquetaTooltip>
 
@@ -1076,6 +1083,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
           setPacienteSeleccionadoHistorial(null);
         }}
         alAbrirNuevaFormula={alAbrirNuevaFormula}
+        alAbrirNuevaHistoria={alAbrirNuevaHistoria}
       />
     </section>
   );

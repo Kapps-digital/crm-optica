@@ -15,6 +15,8 @@ import { FichaOptometrica } from '@/componentes/chat/FichaOptometrica';
 import { DirectorioPacientes } from '@/componentes/pacientes/DirectorioPacientes';
 import { ModalRegistrarPaciente } from '@/componentes/pacientes/ModalRegistrarPaciente';
 import { ModalNuevaFormula } from '@/componentes/pacientes/ModalNuevaFormula';
+import { ModalRegistroClinicoCompleto } from '@/componentes/pacientes/ModalNuevaHistoriaClinica';
+import type { HistoriaClinicaOptometrica } from '@/tipos/crm';
 import { ModalAgendarCita, type DatosNuevaCita } from '@/componentes/citas/ModalAgendarCita';
 import { CalendarioCitas } from '@/componentes/citas/CalendarioCitas';
 import { ModuloAutoSegmentacion } from '@/componentes/campanas/ModuloAutoSegmentacion';
@@ -123,6 +125,10 @@ export default function PaginaPrincipal() {
   const [cargandoPacientes, setCargandoPacientes] = useState(false);
   const [modalFormulaAbierto, setModalFormulaAbierto] = useState(false);
   const [contactoParaFormula, setContactoParaFormula] = useState<Contacto | null>(null);
+  const [modalHistoriaAbierto, setModalHistoriaAbierto] = useState(false);
+  const [contactoParaHistoria, setContactoParaHistoria] = useState<Contacto | null>(null);
+  const [historiaParaEditar, setHistoriaParaEditar] = useState<HistoriaClinicaOptometrica | null>(null);
+  const [pasoInicialHistoria, setPasoInicialHistoria] = useState<1 | 2>(1);
 
   const [modalCitaAbierto, setModalCitaAbierto] = useState(false);
   const [contactoParaCita, setContactoParaCita] = useState<Contacto | null>(null);
@@ -284,7 +290,7 @@ export default function PaginaPrincipal() {
       if (res.exito) {
         if (res.usuario) {
           setUsuarioActual(res.usuario);
-          if (res.usuario.rol === 'optometra') {
+          if (res.usuario.rol === 'optometra' && vistaActiva !== 'citas') {
             setVistaActiva('pacientes');
           }
         }
@@ -458,8 +464,12 @@ export default function PaginaPrincipal() {
   useEffect(() => {
     if (usuarioActual) {
       if (usuarioActual.rol === 'optometra') {
-        if (vistaActiva !== 'pacientes') {
+        if (vistaActiva !== 'pacientes' && vistaActiva !== 'citas') {
           setVistaActiva('pacientes');
+        }
+      } else if (usuarioActual.rol === 'ventas') {
+        if (vistaActiva === 'configuracion' || vistaActiva === 'consumo' || vistaActiva === 'usuarios') {
+          setVistaActiva('mensajeria');
         }
       } else if (usuarioActual.rol !== 'admin') {
         if (vistaActiva === 'consumo' || vistaActiva === 'usuarios') {
@@ -500,7 +510,10 @@ export default function PaginaPrincipal() {
 
   const manejarCambioVista = (v: string) => {
     if (usuarioActual?.rol === 'optometra') {
-      if (v !== 'pacientes') return;
+      if (v !== 'pacientes' && v !== 'citas') return;
+    }
+    if (usuarioActual?.rol === 'ventas') {
+      if (v === 'configuracion' || v === 'consumo' || v === 'usuarios') return;
     }
     if ((v === 'consumo' || v === 'usuarios') && usuarioActual?.rol !== 'admin') {
       return;
@@ -1229,6 +1242,26 @@ export default function PaginaPrincipal() {
     }
   };
 
+  const manejarGuardarHistoriaYFormulaCompleta = async (datos: {
+    historia: Partial<HistoriaClinicaOptometrica>;
+    formula?: Partial<FormulaOptica>;
+  }) => {
+    if (datos.formula) {
+      await registrarFormulaOptica(datos.formula);
+    }
+    const idContacto = datos.historia.contacto_id || datos.formula?.contacto_id || pacienteActivo?.id;
+    if (idContacto) {
+      const detalle = await obtenerDetalleContacto(idContacto);
+      if (detalle) {
+        setPacienteActivo(detalle.contacto);
+        setFormulasPaciente(detalle.formulas || []);
+        setFormulaVigente(detalle.formulas.length > 0 ? detalle.formulas[0] : null);
+      }
+    }
+    recargarPacientes();
+    recargarConversaciones();
+  };
+
   const manejarGuardarCita = async (datos: DatosNuevaCita): Promise<{ exito: boolean; error?: string }> => {
     const res = await registrarCita({
       contacto_id: datos.contacto_id,
@@ -1409,7 +1442,8 @@ export default function PaginaPrincipal() {
               opticaId={opticaActual?.id || 1}
               usuario={usuarioActual}
               alNavegarVista={(vista, datos) => {
-                if (usuarioActual?.rol === 'optometra') return;
+                if (usuarioActual?.rol === 'optometra' && vista !== 'pacientes' && vista !== 'citas') return;
+                if (usuarioActual?.rol === 'ventas' && (vista === 'configuracion' || vista === 'consumo' || vista === 'usuarios')) return;
                 manejarCambioVista(vista);
                 if (vista === 'citas') {
                   const fechaDestino = datos?.fecha || datos?.fecha_cita || null;
@@ -1572,8 +1606,16 @@ export default function PaginaPrincipal() {
             pacientes={pacientes}
             cargando={cargandoPacientes}
             alAbrirNuevaFormula={(p) => {
-              setContactoParaFormula(p);
-              setModalFormulaAbierto(true);
+              setContactoParaHistoria(p);
+              setHistoriaParaEditar(null);
+              setPasoInicialHistoria(1);
+              setModalHistoriaAbierto(true);
+            }}
+            alAbrirNuevaHistoria={(p, hist) => {
+              setContactoParaHistoria(p);
+              setHistoriaParaEditar(hist || null);
+              setPasoInicialHistoria(1);
+              setModalHistoriaAbierto(true);
             }}
             alRecargarPacientes={recargarPacientes}
             alSeleccionarContactoChat={usuarioActual?.rol === 'optometra' ? undefined : navegarAlChatContacto}
@@ -1657,12 +1699,26 @@ export default function PaginaPrincipal() {
         )}
       </main>
 
-      {/* Modal de Prescripción Óptica */}
+      {/* Modal de Prescripción Óptica Simple (Si se requiere independiente) */}
       <ModalNuevaFormula
         abierto={modalFormulaAbierto}
         contacto={contactoParaFormula}
         alCerrar={() => setModalFormulaAbierto(false)}
         alGuardar={manejarGuardarFormula}
+      />
+
+      {/* Modal de Registro Clínico Completo (Paso 1 Historia Clínica -> Paso 2 Fórmula Óptica) */}
+      <ModalRegistroClinicoCompleto
+        abierto={modalHistoriaAbierto}
+        contacto={contactoParaHistoria}
+        alCerrar={() => {
+          setModalHistoriaAbierto(false);
+          setContactoParaHistoria(null);
+          setHistoriaParaEditar(null);
+        }}
+        alCompletarTodo={manejarGuardarHistoriaYFormulaCompleta}
+        historiaInicialParaEditar={historiaParaEditar}
+        iniciarEnPaso={pasoInicialHistoria}
       />
 
       {/* Modal de Agendamiento de Citas */}

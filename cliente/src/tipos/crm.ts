@@ -138,6 +138,42 @@ export interface FormulaOptica {
   creado_en: string;
 }
 
+export interface HistoriaClinicaOptometrica {
+  id: number;
+  optica_id?: number;
+  contacto_id: number;
+  fecha_atencion: string;
+  hora_atencion: string;
+  motivo_consulta: string;
+  sintomas: string[];
+  sintomas_otros?: string | null;
+  antecedentes_personales: string[];
+  antecedentes_personales_otros?: string | null;
+  antecedentes_oculares: string[];
+  antecedentes_oculares_otros?: string | null;
+  antecedentes_familiares: string[];
+  antecedentes_familiares_otros?: string | null;
+  av_sc_od?: string | null;
+  av_sc_oi?: string | null;
+  refraccion_od?: string | null;
+  refraccion_oi?: string | null;
+  queratometria_od?: string | null;
+  queratometria_oi?: string | null;
+  presion_intraocular_od?: string | null;
+  presion_intraocular_oi?: string | null;
+  biomicroscopia?: string | null;
+  fondo_ojo?: string | null;
+  diagnostico: string;
+  plan_manejo: string[];
+  plan_manejo_otros?: string | null;
+  plan_manejo_control_meses?: number | null;
+  observaciones?: string | null;
+  optometra: string;
+  tarjeta_profesional?: string | null;
+  creado_en: string;
+  actualizado_en?: string;
+}
+
 export interface GrupoHorarioConfig {
   id: 'regular' | 'fin_semana' | string;
   nombre: string;
@@ -183,7 +219,7 @@ export interface Optica {
   estado_plan?: 'al_dia' | 'por_vencer' | 'vencido';
 }
 
-export type RolUsuario = 'admin' | 'admin_optica' | 'optometra';
+export type RolUsuario = 'admin' | 'admin_optica' | 'optometra' | 'ventas';
 
 export interface LineaCanal {
   id: number;
@@ -220,6 +256,7 @@ export interface EstadisticasUsuarios {
   total_admins: number;
   total_admins_optica: number;
   total_optometras?: number;
+  total_ventas?: number;
 }
 
 export interface DatosRespuestaUsuarios {

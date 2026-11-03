@@ -3,6 +3,7 @@ import type {
   Conversacion,
   Mensaje,
   FormulaOptica,
+  HistoriaClinicaOptometrica,
   RespuestaLogin,
   Usuario,
   RolUsuario,
@@ -373,7 +374,7 @@ export async function marcarConversacionLeida(conversacionId: number): Promise<{
 
 export async function obtenerDetalleContacto(
   contactoId: number
-): Promise<{ contacto: Contacto; formulas: FormulaOptica[]; citas: Cita[] } | null> {
+): Promise<{ contacto: Contacto; formulas: FormulaOptica[]; citas: Cita[]; historias_clinicas: HistoriaClinicaOptometrica[] } | null> {
   try {
     const res = await fetch(`/api/contactos/${contactoId}`, {
       headers: crearEncabezados(),
@@ -385,10 +386,39 @@ export async function obtenerDetalleContacto(
       contacto: data.contacto,
       formulas: data.formulas || [],
       citas: data.citas || [],
+      historias_clinicas: data.historias_clinicas || [],
     };
   } catch (error) {
     console.error('Error al obtener detalle del contacto:', error);
     return null;
+  }
+}
+
+export async function registrarHistoriaClinica(datos: Partial<HistoriaClinicaOptometrica>): Promise<{ exito: boolean; historia_id?: number; error?: string }> {
+  try {
+    const res = await fetch('/api/historias_clinicas', {
+      method: 'POST',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(datos),
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('Error al registrar historia clínica:', error);
+    return { exito: false, error: 'Error de red al guardar historia clínica' };
+  }
+}
+
+export async function actualizarHistoriaClinica(id: number, datos: Partial<HistoriaClinicaOptometrica>): Promise<{ exito: boolean; historia_id?: number; error?: string }> {
+  try {
+    const res = await fetch(`/api/historias_clinicas/${id}`, {
+      method: 'PUT',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(datos),
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('Error al actualizar historia clínica:', error);
+    return { exito: false, error: 'Error de red al actualizar historia clínica' };
   }
 }
 

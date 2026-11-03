@@ -213,9 +213,11 @@ export const SelectorDesplegable: React.FC<PropiedadesSelectorDesplegable> = ({
     const espacioArriba = rect.top - 10;
 
     let direccionEfectiva = direccion;
-    if (direccion === 'abajo' && espacioAbajo < alturaEstimadaMenu && espacioArriba > espacioAbajo) {
+    // Preferir hacia abajo; solo voltear hacia arriba si el espacio hacia abajo es insuficiente (< 180px)
+    // y hacia arriba hay más espacio disponible
+    if (direccion === 'abajo' && espacioAbajo < 180 && espacioArriba > espacioAbajo) {
       direccionEfectiva = 'arriba';
-    } else if (direccion === 'arriba' && espacioArriba < alturaEstimadaMenu && espacioAbajo > espacioArriba) {
+    } else if (direccion === 'arriba' && espacioArriba < 180 && espacioAbajo > espacioArriba) {
       direccionEfectiva = 'abajo';
     }
 

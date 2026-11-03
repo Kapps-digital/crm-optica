@@ -232,6 +232,44 @@ export async function inicializar_base_datos() {
         SELECT 1 FROM "CRM_Opticas".tipos_lentes 
         WHERE optica_id IS NULL AND LOWER(TRIM("CRM_Opticas".tipos_lentes.nombre)) = LOWER(TRIM(t.nombre))
       );
+
+      -- Soporte de Historias Clínicas Optométricas
+      CREATE TABLE IF NOT EXISTS "CRM_Opticas".historias_clinicas (
+        id BIGSERIAL PRIMARY KEY,
+        optica_id BIGINT NOT NULL REFERENCES "CRM_Opticas".opticas(id) ON DELETE CASCADE,
+        contacto_id BIGINT NOT NULL REFERENCES "CRM_Opticas".contactos(id) ON DELETE CASCADE,
+        fecha_atencion DATE NOT NULL DEFAULT CURRENT_DATE,
+        hora_atencion VARCHAR(30) NOT NULL,
+        motivo_consulta TEXT NOT NULL,
+        sintomas JSONB DEFAULT '[]'::jsonb,
+        sintomas_otros TEXT,
+        antecedentes_personales JSONB DEFAULT '[]'::jsonb,
+        antecedentes_personales_otros TEXT,
+        antecedentes_oculares JSONB DEFAULT '[]'::jsonb,
+        antecedentes_oculares_otros TEXT,
+        antecedentes_familiares JSONB DEFAULT '[]'::jsonb,
+        antecedentes_familiares_otros TEXT,
+        av_sc_od VARCHAR(50),
+        av_sc_oi VARCHAR(50),
+        refraccion_od VARCHAR(100),
+        refraccion_oi VARCHAR(100),
+        queratometria_od VARCHAR(100),
+        queratometria_oi VARCHAR(100),
+        presion_intraocular_od VARCHAR(50),
+        presion_intraocular_oi VARCHAR(50),
+        biomicroscopia TEXT,
+        fondo_ojo TEXT,
+        diagnostico TEXT NOT NULL,
+        plan_manejo JSONB DEFAULT '[]'::jsonb,
+        plan_manejo_otros TEXT,
+        plan_manejo_control_meses INTEGER,
+        observaciones TEXT,
+        optometra VARCHAR(200) NOT NULL,
+        tarjeta_profesional VARCHAR(100),
+        creado_en TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        actualizado_en TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_historias_clinicas_optica_contacto ON "CRM_Opticas".historias_clinicas (optica_id, contacto_id);
     `);
 
     const res = await pool.query(`

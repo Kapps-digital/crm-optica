@@ -63,6 +63,7 @@ export const PerfilUsuarioCabecera: React.FC<PropiedadesPerfilUsuarioCabecera> =
     if (usuario.rol === 'admin') return 'Superadmin';
     if (usuario.rol === 'admin_optica') return 'Administrador';
     if (usuario.rol === 'optometra') return 'Optómetra';
+    if (usuario.rol === 'ventas') return 'Ventas';
     return 'Especialista';
   }, [usuario?.rol]);
 
@@ -147,7 +148,7 @@ export const PerfilUsuarioCabecera: React.FC<PropiedadesPerfilUsuarioCabecera> =
           <div className="cabecera-popover-divisor" />
 
           <div className="cabecera-popover-acciones">
-            {usuario?.rol !== 'optometra' && (
+            {usuario?.rol !== 'optometra' && usuario?.rol !== 'ventas' && (
               <button
                 type="button"
                 className={`cabecera-popover-btn-item ${vistaActiva === 'configuracion' ? 'activo' : ''}`}

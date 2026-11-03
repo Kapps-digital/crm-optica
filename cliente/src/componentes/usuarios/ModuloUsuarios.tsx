@@ -34,6 +34,7 @@ import {
   Bot,
   Sparkles,
   MessageSquare,
+  ShoppingBag,
 } from 'lucide-react';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
 import { SelectorColorPopover } from '../comunes/SelectorColorPopover';
@@ -279,6 +280,7 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
       { valor: 'admin', etiqueta: 'Admin Global' },
       { valor: 'admin_optica', etiqueta: 'Admin de Óptica' },
       { valor: 'optometra', etiqueta: 'Optómetra' },
+      { valor: 'ventas', etiqueta: 'Ventas' },
     ],
     []
   );
@@ -1578,6 +1580,24 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
                                   <Eye size={12} />
                                   <span>Optómetra</span>
                                 </span>
+                              ) : u.rol === 'ventas' ? (
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.35rem',
+                                    padding: '0.25rem 0.65rem',
+                                    borderRadius: '9999px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    background: 'var(--fondo-elevado)',
+                                    border: '1px solid var(--borde-tarjeta)',
+                                    color: '#f59e0b',
+                                  }}
+                                >
+                                  <ShoppingBag size={12} />
+                                  <span>Ventas</span>
+                                </span>
                               ) : (
                                 <span
                                   style={{
@@ -2507,6 +2527,7 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
                     opciones={[
                       { valor: 'admin_optica', etiqueta: 'Admin de Óptica' },
                       { valor: 'optometra', etiqueta: 'Optómetra' },
+                      { valor: 'ventas', etiqueta: 'Ventas' },
                       { valor: 'admin', etiqueta: 'Administrador Global' },
                     ]}
                     tamano="compacto"

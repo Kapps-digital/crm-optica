@@ -22,7 +22,7 @@ import {
   ChevronUp,
   Glasses,
 } from 'lucide-react';
-import type { Contacto, FormulaOptica, Cita } from '@/tipos/crm';
+import type { Contacto, FormulaOptica, Cita, HistoriaClinicaOptometrica } from '@/tipos/crm';
 import { obtenerDetalleContacto } from '@/servicios/api_crm';
 import { formatearTelefono, formatearSeparadorMiles, obtenerNombrePaciente, formatearEjeVisual, formatearDistanciaPupilar } from '@/utilidades/formato';
 import { BarraPaginacionTabla } from '../comunes/BarraPaginacionTabla';
@@ -34,6 +34,7 @@ interface PropiedadesModalHistorialClinico {
   contacto: Contacto | null;
   alCerrar: () => void;
   alAbrirNuevaFormula?: (contacto: Contacto) => void;
+  alAbrirNuevaHistoria?: (contacto: Contacto, historia?: HistoriaClinicaOptometrica) => void;
 }
 
 export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> = ({
@@ -41,15 +42,19 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
   contacto,
   alCerrar,
   alAbrirNuevaFormula,
+  alAbrirNuevaHistoria,
 }) => {
   const [montado, setMontado] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [formulas, setFormulas] = useState<FormulaOptica[]>([]);
   const [citas, setCitas] = useState<Cita[]>([]);
-  const [pestañaActiva, setPestañaActiva] = useState<'formulas' | 'citas'>('formulas');
+  const [historiasClinicas, setHistoriasClinicas] = useState<HistoriaClinicaOptometrica[]>([]);
+  const [pestañaActiva, setPestañaActiva] = useState<'historias' | 'formulas' | 'citas'>('historias');
 
   // Estado de filas expandidas para el acordeón de fórmulas clínicas
   const [filasExpandidas, setFilasExpandidas] = useState<number[]>([]);
+  // Estado de filas expandidas para el acordeón de historias clínicas
+  const [historiasExpandidas, setHistoriasExpandidas] = useState<number[]>([]);
 
   const alternarFilaExpandida = (id: number) => {
     setFilasExpandidas((anteriores) =>
@@ -58,6 +63,18 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
         : [...anteriores, id]
     );
   };
+
+  const alternarHistoriaExpandida = (id: number) => {
+    setHistoriasExpandidas((anteriores) =>
+      anteriores.includes(id)
+        ? anteriores.filter((itemId) => itemId !== id)
+        : [...anteriores, id]
+    );
+  };
+
+  // Estados de paginación para historias
+  const [paginaHistorias, setPaginaHistorias] = useState(1);
+  const [limiteHistorias, setLimiteHistorias] = useState(5);
 
   // Estados de paginación para fórmulas (por defecto 5 registros)
   const [paginaFormulas, setPaginaFormulas] = useState(1);
@@ -71,10 +88,11 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
     setMontado(true);
   }, []);
 
-  // Cargar fórmulas y citas al abrir el modal para el contacto
+  // Cargar fórmulas, citas e historias al abrir el modal para el contacto
   useEffect(() => {
     if (abierto && contacto?.id) {
       setCargando(true);
+      setPaginaHistorias(1);
       setPaginaFormulas(1);
       setPaginaCitas(1);
       obtenerDetalleContacto(contacto.id)
@@ -82,6 +100,13 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
           if (datos) {
             setFormulas(datos.formulas || []);
             setCitas(datos.citas || []);
+            const listaHistorias = (datos as any).historias_clinicas || [];
+            setHistoriasClinicas(listaHistorias);
+            if (listaHistorias.length > 0) {
+              setHistoriasExpandidas([listaHistorias[0].id]);
+            } else {
+              setHistoriasExpandidas([]);
+            }
             if (datos.formulas && datos.formulas.length > 0) {
               setFilasExpandidas([datos.formulas[0].id]);
             } else {
@@ -95,7 +120,9 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
     } else {
       setFormulas([]);
       setCitas([]);
+      setHistoriasClinicas([]);
       setFilasExpandidas([]);
+      setHistoriasExpandidas([]);
     }
   }, [abierto, contacto?.id]);
 
@@ -108,6 +135,13 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
     document.addEventListener('keydown', manejarEscape);
     return () => document.removeEventListener('keydown', manejarEscape);
   }, [abierto, alCerrar]);
+
+  // Paginación de historias clínicas
+  const totalHistorias = historiasClinicas.length;
+  const historiasPaginadas = useMemo(() => {
+    const inicio = (paginaHistorias - 1) * limiteHistorias;
+    return historiasClinicas.slice(inicio, inicio + limiteHistorias);
+  }, [historiasClinicas, paginaHistorias, limiteHistorias]);
 
   // Paginación de fórmulas
   const totalFormulas = formulas.length;
@@ -124,8 +158,14 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
   }, [citas, paginaCitas, limiteCitas]);
 
   // Configuración de pestañas con componente estandarizado BarraPestanas
-  const pestanasHistorial = useMemo<ElementoPestana<'formulas' | 'citas'>[]>(
+  const pestanasHistorial = useMemo<ElementoPestana<'historias' | 'formulas' | 'citas'>[]>(
     () => [
+      {
+        id: 'historias',
+        etiqueta: 'Historia Clínica',
+        icono: FileText,
+        conteo: totalHistorias,
+      },
       {
         id: 'formulas',
         etiqueta: 'Fórmulas Ópticas',
@@ -139,7 +179,7 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
         conteo: totalCitas,
       },
     ],
-    [totalFormulas, totalCitas]
+    [totalHistorias, totalFormulas, totalCitas]
   );
 
   if (!montado || !abierto || !contacto) return null;
@@ -414,19 +454,23 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
             </div>
           </div>
 
-          {/* Acciones de Cabecera (Totalmente fijas en su posición original, nunca bajan) */}
+          {/* Acciones de Cabecera: Botón Único Unificado */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexShrink: 0 }}>
-            {alAbrirNuevaFormula && (
+            {(alAbrirNuevaHistoria || alAbrirNuevaFormula) && (
               <button
                 type="button"
                 onClick={() => {
                   alCerrar();
-                  alAbrirNuevaFormula(contacto);
+                  if (alAbrirNuevaHistoria) {
+                    alAbrirNuevaHistoria(contacto);
+                  } else if (alAbrirNuevaFormula) {
+                    alAbrirNuevaFormula(contacto);
+                  }
                 }}
                 className="btn-primario-optica"
                 style={{
                   height: '32px',
-                  padding: '0 0.85rem',
+                  padding: '0 0.95rem',
                   fontSize: '0.78rem',
                   fontWeight: 600,
                   display: 'inline-flex',
@@ -434,18 +478,18 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                   gap: '0.45rem',
                   borderRadius: 'var(--radio-md, 8px)',
                   cursor: 'pointer',
-                  background: 'linear-gradient(135deg, var(--color-primario) 0%, var(--color-primario-claro, #0284c7) 100%)',
+                  background: 'var(--color-primario)',
                   color: '#ffffff',
                   border: 'none',
-                  boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)',
+                  boxShadow: '0 2px 6px rgba(var(--color-primario-rgb, 2, 132, 199), 0.25)',
                   whiteSpace: 'nowrap',
                   flexShrink: 0,
                   transition: 'all 0.15s ease',
                 }}
-                aria-label="Nueva Fórmula"
+                aria-label="Consulta y fórmula óptica"
               >
-                <Glasses size={15} style={{ flexShrink: 0 }} />
-                <span>Nueva Fórmula</span>
+                <FileText size={15} style={{ flexShrink: 0 }} />
+                <span>Consulta y fórmula óptica</span>
               </button>
             )}
 
@@ -482,7 +526,7 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
             background: 'var(--fondo-tarjeta)',
           }}
         >
-          <BarraPestanas<'formulas' | 'citas'>
+          <BarraPestanas<'historias' | 'formulas' | 'citas'>
             pestanas={pestanasHistorial}
             pestanaActiva={pestañaActiva}
             alCambiarPestana={setPestañaActiva}
@@ -507,6 +551,413 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
             <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--texto-atenuado)', fontSize: '0.85rem' }}>
               Cargando historial clínico...
             </div>
+          ) : pestañaActiva === 'historias' ? (
+            /* Sección Historias Clínicas Optométricas */
+            totalHistorias === 0 ? (
+              <div
+                style={{
+                  padding: '3rem 1.5rem',
+                  textAlign: 'center',
+                  background: 'var(--fondo-elevado)',
+                  borderRadius: 'var(--radio-md, 8px)',
+                  border: '1px dashed var(--borde-tarjeta)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                }}
+              >
+                <div
+                  style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '50%',
+                    background: 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.12)',
+                    color: 'var(--color-primario)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <FileText size={22} />
+                </div>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '0.92rem', color: 'var(--texto-principal)', fontWeight: 600 }}>
+                    Sin historias clínicas optométricas
+                  </h4>
+                  <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.76rem', color: 'var(--texto-atenuado)' }}>
+                    Este paciente aún no tiene anamnesis ni historias clínicas registradas.
+                  </p>
+                </div>
+                {alAbrirNuevaHistoria && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      alCerrar();
+                      alAbrirNuevaHistoria(contacto);
+                    }}
+                    className="btn-primario-optica"
+                    style={{
+                      height: '32px',
+                      padding: '0 0.95rem',
+                      fontSize: '0.76rem',
+                      fontWeight: 600,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      borderRadius: 'var(--radio-md, 8px)',
+                      background: 'var(--color-primario)',
+                      color: '#ffffff',
+                      border: 'none',
+                      marginTop: '0.35rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Plus size={14} />
+                    <span>Crear Historia Clínica</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {historiasPaginadas.map((historia) => {
+                  const expandida = historiasExpandidas.includes(historia.id);
+                  const fechaFormateada = new Date(historia.fecha_atencion).toLocaleDateString('es-CO', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  });
+
+                  // Parsear si vienen como strings o arrays
+                  const sints: string[] = Array.isArray(historia.sintomas)
+                    ? historia.sintomas
+                    : typeof historia.sintomas === 'string'
+                    ? JSON.parse(historia.sintomas || '[]')
+                    : [];
+
+                  const antPers: string[] = Array.isArray(historia.antecedentes_personales)
+                    ? historia.antecedentes_personales
+                    : typeof historia.antecedentes_personales === 'string'
+                    ? JSON.parse(historia.antecedentes_personales || '[]')
+                    : [];
+
+                  const antOcul: string[] = Array.isArray(historia.antecedentes_oculares)
+                    ? historia.antecedentes_oculares
+                    : typeof historia.antecedentes_oculares === 'string'
+                    ? JSON.parse(historia.antecedentes_oculares || '[]')
+                    : [];
+
+                  const antFam: string[] = Array.isArray(historia.antecedentes_familiares)
+                    ? historia.antecedentes_familiares
+                    : typeof historia.antecedentes_familiares === 'string'
+                    ? JSON.parse(historia.antecedentes_familiares || '[]')
+                    : [];
+
+                  const planes: string[] = Array.isArray(historia.plan_manejo)
+                    ? historia.plan_manejo
+                    : typeof historia.plan_manejo === 'string'
+                    ? JSON.parse(historia.plan_manejo || '[]')
+                    : [];
+
+                  return (
+                    <div
+                      key={historia.id}
+                      style={{
+                        background: 'var(--fondo-tarjeta)',
+                        border: '1px solid var(--borde-tarjeta)',
+                        borderRadius: 'var(--radio-md, 8px)',
+                        overflow: 'hidden',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {/* Cabecera del Acordeón de Historia Clínica */}
+                      <div
+                        onClick={() => alternarHistoriaExpandida(historia.id)}
+                        style={{
+                          padding: '0.85rem 1.1rem',
+                          background: expandida ? 'var(--fondo-elevado)' : 'var(--fondo-tarjeta)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          userSelect: 'none',
+                          borderBottom: expandida ? '1px solid var(--borde-tarjeta)' : 'none',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                          <div
+                            style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '8px',
+                              background: 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.12)',
+                              color: 'var(--color-primario)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                            }}
+                          >
+                            <FileText size={16} />
+                          </div>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--texto-principal)' }}>
+                                Atención: {fechaFormateada}
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: '0.7rem',
+                                  padding: '0.1rem 0.45rem',
+                                  borderRadius: '12px',
+                                  background: 'var(--fondo-hover)',
+                                  color: 'var(--texto-atenuado)',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {historia.hora_atencion}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '0.74rem', color: 'var(--texto-secundario)', marginTop: '0.15rem' }}>
+                              <strong style={{ color: 'var(--texto-principal)' }}>Diagnóstico:</strong>{' '}
+                              {historia.diagnostico || 'Sin diagnóstico registrado'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                          <span style={{ fontSize: '0.73rem', color: 'var(--texto-atenuado)' }}>
+                            {historia.optometra}
+                          </span>
+                          {alAbrirNuevaHistoria && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                alCerrar();
+                                alAbrirNuevaHistoria(contacto, historia);
+                              }}
+                              className="modal-btn-cancelar"
+                              style={{
+                                padding: '0.2rem 0.55rem',
+                                height: '26px',
+                                fontSize: '0.71rem',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.25rem',
+                              }}
+                            >
+                              <span>Editar</span>
+                            </button>
+                          )}
+                          <div style={{ color: 'var(--texto-atenuado)' }}>
+                            {expandida ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Cuerpo Expandido de la Historia */}
+                      {expandida && (
+                        <div
+                          style={{
+                            padding: '1rem 1.1rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.85rem',
+                            fontSize: '0.78rem',
+                          }}
+                        >
+                          {/* Motivo & Síntomas */}
+                          <div
+                            style={{
+                              background: 'var(--fondo-elevado)',
+                              padding: '0.75rem',
+                              borderRadius: '6px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '0.4rem',
+                            }}
+                          >
+                            <div>
+                              <strong style={{ color: 'var(--texto-principal)' }}>Motivo de Consulta: </strong>
+                              <span style={{ color: 'var(--texto-secundario)' }}>{historia.motivo_consulta}</span>
+                            </div>
+                            {(sints.length > 0 || historia.sintomas_otros) && (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.35rem', marginTop: '0.2rem' }}>
+                                <strong style={{ color: 'var(--texto-principal)', fontSize: '0.73rem' }}>Síntomas: </strong>
+                                {sints.map((s) => (
+                                  <span
+                                    key={s}
+                                    style={{
+                                      fontSize: '0.69rem',
+                                      padding: '0.1rem 0.45rem',
+                                      borderRadius: '12px',
+                                      background: 'rgba(2, 132, 199, 0.1)',
+                                      color: 'var(--color-primario)',
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    ✓ {s}
+                                  </span>
+                                ))}
+                                {historia.sintomas_otros && (
+                                  <span style={{ fontSize: '0.72rem', color: 'var(--texto-secundario)' }}>
+                                    ({historia.sintomas_otros})
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Antecedentes */}
+                          {(antPers.length > 0 || antOcul.length > 0 || antFam.length > 0 || historia.antecedentes_personales_otros || historia.antecedentes_oculares_otros || historia.antecedentes_familiares_otros) && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.65rem' }}>
+                              {(antPers.length > 0 || historia.antecedentes_personales_otros) && (
+                                <div style={{ border: '1px solid var(--borde-tarjeta)', borderRadius: '6px', padding: '0.55rem' }}>
+                                  <span style={{ fontWeight: 700, fontSize: '0.71rem', color: '#8b5cf6', display: 'block', marginBottom: '0.25rem' }}>
+                                    Personales
+                                  </span>
+                                  <div style={{ color: 'var(--texto-secundario)', fontSize: '0.72rem' }}>
+                                    {antPers.join(', ')} {historia.antecedentes_personales_otros ? `(${historia.antecedentes_personales_otros})` : ''}
+                                  </div>
+                                </div>
+                              )}
+                              {(antOcul.length > 0 || historia.antecedentes_oculares_otros) && (
+                                <div style={{ border: '1px solid var(--borde-tarjeta)', borderRadius: '6px', padding: '0.55rem' }}>
+                                  <span style={{ fontWeight: 700, fontSize: '0.71rem', color: '#06b6d4', display: 'block', marginBottom: '0.25rem' }}>
+                                    Oculares
+                                  </span>
+                                  <div style={{ color: 'var(--texto-secundario)', fontSize: '0.72rem' }}>
+                                    {antOcul.join(', ')} {historia.antecedentes_oculares_otros ? `(${historia.antecedentes_oculares_otros})` : ''}
+                                  </div>
+                                </div>
+                              )}
+                              {(antFam.length > 0 || historia.antecedentes_familiares_otros) && (
+                                <div style={{ border: '1px solid var(--borde-tarjeta)', borderRadius: '6px', padding: '0.55rem' }}>
+                                  <span style={{ fontWeight: 700, fontSize: '0.71rem', color: '#10b981', display: 'block', marginBottom: '0.25rem' }}>
+                                    Familiares
+                                  </span>
+                                  <div style={{ color: 'var(--texto-secundario)', fontSize: '0.72rem' }}>
+                                    {antFam.join(', ')} {historia.antecedentes_familiares_otros ? `(${historia.antecedentes_familiares_otros})` : ''}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Medición y Hallazgos */}
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.65rem' }}>
+                            {(historia.av_sc_od || historia.av_sc_oi) && (
+                              <div style={{ background: 'var(--fondo-elevado)', padding: '0.55rem', borderRadius: '6px' }}>
+                                <strong style={{ color: 'var(--texto-principal)', display: 'block', fontSize: '0.72rem' }}>
+                                  Agudeza Visual S/C:
+                                </strong>
+                                <span style={{ color: 'var(--texto-secundario)' }}>
+                                  OD: {historia.av_sc_od || 'N/R'} • OI: {historia.av_sc_oi || 'N/R'}
+                                </span>
+                              </div>
+                            )}
+
+                            {(historia.refraccion_od || historia.refraccion_oi) && (
+                              <div style={{ background: 'var(--fondo-elevado)', padding: '0.55rem', borderRadius: '6px' }}>
+                                <strong style={{ color: 'var(--texto-principal)', display: 'block', fontSize: '0.72rem' }}>
+                                  Refracción:
+                                </strong>
+                                <span style={{ color: 'var(--texto-secundario)' }}>
+                                  OD: {historia.refraccion_od || 'N/R'} • OI: {historia.refraccion_oi || 'N/R'}
+                                </span>
+                              </div>
+                            )}
+
+                            {(historia.queratometria_od || historia.queratometria_oi) && (
+                              <div style={{ background: 'var(--fondo-elevado)', padding: '0.55rem', borderRadius: '6px' }}>
+                                <strong style={{ color: 'var(--texto-principal)', display: 'block', fontSize: '0.72rem' }}>
+                                  Queratometría:
+                                </strong>
+                                <span style={{ color: 'var(--texto-secundario)' }}>
+                                  OD: {historia.queratometria_od || 'N/R'} • OI: {historia.queratometria_oi || 'N/R'}
+                                </span>
+                              </div>
+                            )}
+
+                            {(historia.presion_intraocular_od || historia.presion_intraocular_oi) && (
+                              <div style={{ background: 'var(--fondo-elevado)', padding: '0.55rem', borderRadius: '6px' }}>
+                                <strong style={{ color: 'var(--texto-principal)', display: 'block', fontSize: '0.72rem' }}>
+                                  Presión Intraocular:
+                                </strong>
+                                <span style={{ color: 'var(--texto-secundario)' }}>
+                                  OD: {historia.presion_intraocular_od || 'N/R'} mmHg • OI: {historia.presion_intraocular_oi || 'N/R'} mmHg
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {(historia.biomicroscopia || historia.fondo_ojo) && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.65rem' }}>
+                              {historia.biomicroscopia && (
+                                <div style={{ border: '1px solid var(--borde-tarjeta)', padding: '0.55rem', borderRadius: '6px' }}>
+                                  <strong style={{ color: 'var(--texto-principal)', display: 'block', fontSize: '0.72rem' }}>
+                                    Biomicroscopía:
+                                  </strong>
+                                  <span style={{ color: 'var(--texto-secundario)' }}>{historia.biomicroscopia}</span>
+                                </div>
+                              )}
+                              {historia.fondo_ojo && (
+                                <div style={{ border: '1px solid var(--borde-tarjeta)', padding: '0.55rem', borderRadius: '6px' }}>
+                                  <strong style={{ color: 'var(--texto-principal)', display: 'block', fontSize: '0.72rem' }}>
+                                    Fondo de Ojo:
+                                  </strong>
+                                  <span style={{ color: 'var(--texto-secundario)' }}>{historia.fondo_ojo}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Plan y Observaciones */}
+                          {(planes.length > 0 || historia.plan_manejo_otros || historia.plan_manejo_control_meses) && (
+                            <div style={{ background: 'rgba(2, 132, 199, 0.05)', border: '1px solid rgba(2, 132, 199, 0.15)', padding: '0.65rem', borderRadius: '6px' }}>
+                              <strong style={{ color: 'var(--color-primario)', display: 'block', fontSize: '0.73rem' }}>
+                                Plan de Manejo Terapéutico:
+                              </strong>
+                              <div style={{ marginTop: '0.2rem', color: 'var(--texto-secundario)' }}>
+                                {planes.join(', ')} {historia.plan_manejo_otros ? `• ${historia.plan_manejo_otros}` : ''}
+                                {historia.plan_manejo_control_meses && (
+                                  <span style={{ fontWeight: 600, color: 'var(--texto-principal)', marginLeft: '0.4rem' }}>
+                                    (Control en {historia.plan_manejo_control_meses} meses)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {historia.observaciones && (
+                            <div style={{ fontStyle: 'italic', color: 'var(--texto-atenuado)' }}>
+                              <strong>Observaciones:</strong> {historia.observaciones}
+                            </div>
+                          )}
+
+                          {/* Pie de Firma */}
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.65rem', borderTop: '1px solid var(--borde-tarjeta)', paddingTop: '0.5rem', color: 'var(--texto-secundario)', fontSize: '0.72rem' }}>
+                            <span><strong>Optómetra:</strong> {historia.optometra}</span>
+                            {historia.tarjeta_profesional && <span>• <strong>T.P.:</strong> {historia.tarjeta_profesional}</span>}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Paginación de Historias */}
+                <BarraPaginacionTabla
+                  totalRegistros={totalHistorias}
+                  paginaActual={paginaHistorias}
+                  limitePorPagina={limiteHistorias}
+                  alCambiarPagina={setPaginaHistorias}
+                  alCambiarLimite={setLimiteHistorias}
+                  cantidadVisibles={historiasPaginadas.length}
+                />
+              </div>
+            )
           ) : pestañaActiva === 'formulas' ? (
             /* Sección Fórmulas Ópticas */
             totalFormulas === 0 ? (

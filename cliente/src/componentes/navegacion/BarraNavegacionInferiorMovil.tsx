@@ -35,6 +35,51 @@ export const BarraNavegacionInferiorMovil: React.FC<PropiedadesBarraNavegacionIn
           conteo: null,
           esUrgente: false,
         },
+        {
+          id: 'citas',
+          etiqueta: 'Citas',
+          icono: CalendarDays,
+          conteo: null,
+          esUrgente: false,
+        },
+      ]
+    : (usuario?.rol === 'ventas')
+    ? [
+        {
+          id: 'mensajeria',
+          etiqueta: 'Bandeja',
+          icono: MessageSquare,
+          conteo: conteoChats,
+          esUrgente: Boolean(requiereAsesorChats),
+        },
+        {
+          id: 'pacientes',
+          etiqueta: 'Pacientes',
+          icono: Users,
+          conteo: null,
+          esUrgente: false,
+        },
+        {
+          id: 'citas',
+          etiqueta: 'Citas',
+          icono: CalendarDays,
+          conteo: null,
+          esUrgente: false,
+        },
+        {
+          id: 'campanas',
+          etiqueta: 'Campañas',
+          icono: Target,
+          conteo: null,
+          esUrgente: false,
+        },
+        {
+          id: 'plantillas',
+          etiqueta: 'Plantillas',
+          icono: FileText,
+          conteo: null,
+          esUrgente: false,
+        },
       ]
     : [
         {
