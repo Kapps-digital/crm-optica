@@ -2220,6 +2220,213 @@ input[type="number"] {
   line-height: 1.2;
 }
 
+/* Badges de tipos de lentes y opciones */
+.badge-predeterminado {
+  background: rgba(100, 116, 139, 0.12);
+  color: var(--texto-atenuado);
+  border: 1px solid rgba(100, 116, 139, 0.2);
+}
+
+.badge-personalizado {
+  background: rgba(var(--color-primario-rgb, 2, 132, 199), 0.12);
+  color: var(--color-primario);
+  border: 1px solid rgba(var(--color-primario-rgb, 2, 132, 199), 0.25);
+}
+
+.selector-badge-crear {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  font-size: 0.68rem;
+}
+
+/* Opción interactiva para crear opción al vuelo */
+.selector-desplegable-opcion-crear {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding: 0.45rem 0.75rem;
+  background: rgba(var(--color-primario-rgb, 2, 132, 199), 0.06);
+  border: 1px dashed rgba(var(--color-primario-rgb, 2, 132, 199), 0.35);
+  border-radius: 8px;
+  color: var(--color-primario);
+  font-family: var(--fuente-cuerpo);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  text-align: left;
+  margin-bottom: 4px;
+  transition: all var(--transicion-rapida);
+}
+
+.selector-desplegable-opcion-crear:hover {
+  background: rgba(var(--color-primario-rgb, 2, 132, 199), 0.14);
+  border-color: var(--color-primario);
+  transform: translateY(-1px);
+}
+
+.selector-icono-crear {
+  color: var(--color-primario);
+  flex-shrink: 0;
+}
+
+/* Estado sin resultados con acción de creación rápida */
+.selector-desplegable-sin-resultados-crear {
+  padding: 0.9rem 0.75rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.selector-sin-resultados-texto {
+  font-size: 0.78rem;
+  color: var(--texto-atenuado);
+  font-style: italic;
+}
+
+.selector-desplegable-btn-crear-accion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.38rem 0.85rem;
+  background: var(--color-primario);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radio-completo);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transicion-rapida);
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+}
+
+.selector-desplegable-btn-crear-accion:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+/* Pie fijo de creación en el desplegable */
+.selector-desplegable-pie-crear {
+  padding: 0.35rem 0.25rem 0.15rem 0.25rem;
+  border-top: 1px solid var(--borde-tarjeta);
+  margin-top: 4px;
+}
+
+.selector-desplegable-btn-abrir-crear {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.42rem 0.65rem;
+  background: var(--fondo-elevado);
+  border: 1px dashed var(--borde-tarjeta);
+  border-radius: 8px;
+  color: var(--color-primario);
+  font-family: var(--fuente-cuerpo);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transicion-rapida);
+}
+
+.selector-desplegable-btn-abrir-crear:hover {
+  background: var(--fondo-hover);
+  border-color: var(--color-primario);
+}
+
+.selector-desplegable-caja-crear-rapido {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0;
+}
+
+.selector-desplegable-input-crear {
+  flex: 1;
+  min-width: 0;
+  padding: 0.38rem 0.65rem;
+  background: var(--fondo-elevado);
+  border: 1px solid var(--borde-tarjeta);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  color: var(--texto-principal);
+  outline: none;
+}
+
+.selector-desplegable-input-crear:focus {
+  border-color: var(--color-primario);
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+}
+
+.selector-btn-confirmar-crear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--color-primario, #0284c7);
+  color: white;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transicion-rapida);
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+}
+
+.selector-btn-confirmar-crear:hover:not(:disabled) {
+  filter: brightness(1.12);
+  transform: scale(1.04);
+}
+
+.selector-btn-editar-opcion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  background: transparent;
+  border: none;
+  color: var(--texto-atenuado);
+  cursor: pointer;
+  padding: 0;
+  transition: all var(--transicion-rapida);
+}
+
+.selector-btn-editar-opcion:hover {
+  background: var(--fondo-hover);
+  color: var(--color-primario);
+  transform: scale(1.08);
+}
+
+.selector-btn-cancelar-crear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--texto-atenuado);
+  border: 1px solid var(--borde-tarjeta);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transicion-rapida);
+}
+
+.selector-btn-cancelar-crear:hover:not(:disabled) {
+  background: var(--fondo-hover);
+  color: var(--texto-principal);
+}
+
 @keyframes deslizarEntradaDropdown {
   from {
     opacity: 0;

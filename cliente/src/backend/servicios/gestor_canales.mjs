@@ -415,6 +415,7 @@ export async function actualizar_datos_optica(optica_id = 1, datos = {}) {
       dias_atencion,
       hora_inicio_atencion,
       hora_fin_atencion,
+      horarios_atencion_json,
     } = datos;
 
     const campos = [];
@@ -476,6 +477,14 @@ export async function actualizar_datos_optica(optica_id = 1, datos = {}) {
     if (hora_fin_atencion !== undefined && hora_fin_atencion !== null) {
       campos.push(`hora_fin_atencion = $${indice++}`);
       valores.push(String(hora_fin_atencion).trim());
+    }
+    if (horarios_atencion_json !== undefined) {
+      campos.push(`horarios_atencion_json = $${indice++}::jsonb`);
+      valores.push(
+        horarios_atencion_json
+          ? (typeof horarios_atencion_json === 'string' ? horarios_atencion_json : JSON.stringify(horarios_atencion_json))
+          : null
+      );
     }
 
     if (campos.length === 0) {

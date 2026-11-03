@@ -23,6 +23,7 @@ import type {
   NotificacionCRM,
   RespuestaNotificaciones,
   TipologiaPaciente,
+  TipoLente,
 } from '@/tipos/crm';
 import { TIEMPO_MAXIMO_INACTIVIDAD_MS, CLAVE_ULTIMA_ACTIVIDAD } from '@/constantes/sesion';
 
@@ -1670,13 +1671,16 @@ export async function actualizarSuscripcionOpticaApi(
 /**
  * Obtiene las tipologías de pacientes configuradas para la óptica activa
  */
-export async function obtenerTipologiasPacientesApi(): Promise<{
+export async function obtenerTipologiasPacientesApi(opticaId?: number): Promise<{
   exito: boolean;
   tipologias: TipologiaPaciente[];
   error?: string;
 }> {
   try {
-    const res = await fetch('/api/configuracion/tipologias-pacientes', {
+    const url = opticaId
+      ? `/api/configuracion/tipologias-pacientes?optica_id=${opticaId}`
+      : '/api/configuracion/tipologias-pacientes';
+    const res = await fetch(url, {
       method: 'GET',
       headers: crearEncabezados(),
     });
@@ -1741,5 +1745,111 @@ export async function eliminarTipologiaPacienteApi(
   } catch (error) {
     registrarErrorApi('eliminarTipologiaPacienteApi', error);
     return { exito: false, error: 'Error de conexión al eliminar tipología' };
+  }
+}
+
+/**
+ * Obtiene los tipos de lentes disponibles (predeterminados del sistema + personalizados de la óptica)
+ */
+export async function obtenerTiposLentesApi(): Promise<{
+  exito: boolean;
+  tipos_lentes: TipoLente[];
+  error?: string;
+}> {
+  try {
+    const res = await fetch('/api/configuracion/tipos-lentes', {
+      method: 'GET',
+      headers: crearEncabezados(),
+    });
+    const datos = await res.json();
+    if (!res.ok) {
+      return { exito: false, tipos_lentes: [], error: datos.error || 'Error al obtener tipos de lentes' };
+    }
+    return { exito: true, tipos_lentes: datos.tipos_lentes || [] };
+  } catch (error) {
+    registrarErrorApi('obtenerTiposLentesApi', error);
+    return { exito: false, tipos_lentes: [], error: 'Error de red al cargar tipos de lentes' };
+  }
+}
+
+/**
+ * Crea un nuevo tipo de lente personalizado para la óptica activa
+ */
+export async function crearTipoLenteApi(
+  nombre: string
+): Promise<{
+  exito: boolean;
+  tipo_lente?: TipoLente;
+  ya_existia?: boolean;
+  error?: string;
+}> {
+  try {
+    const res = await fetch('/api/configuracion/tipos-lentes', {
+      method: 'POST',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ nombre }),
+    });
+    const datos = await res.json();
+    if (!res.ok || !datos.exito) {
+      return { exito: false, error: datos.error || 'No se pudo crear el tipo de lente' };
+    }
+    return { exito: true, tipo_lente: datos.tipo_lente, ya_existia: datos.ya_existia };
+  } catch (error) {
+    registrarErrorApi('crearTipoLenteApi', error);
+    return { exito: false, error: 'Error de conexión al crear tipo de lente' };
+  }
+}
+
+/**
+ * Actualiza el nombre de un tipo de lente.
+ * Si es predeterminado, el backend crea un reemplazo personalizado para la óptica y oculta el predeterminado.
+ */
+export async function actualizarTipoLenteApi(
+  id: number,
+  nombre: string
+): Promise<{
+  exito: boolean;
+  tipo_lente?: TipoLente;
+  error?: string;
+}> {
+  try {
+    const res = await fetch('/api/configuracion/tipos-lentes', {
+      method: 'PUT',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ id, nombre }),
+    });
+    const datos = await res.json();
+    if (!res.ok || !datos.exito) {
+      return { exito: false, error: datos.error || 'No se pudo actualizar el tipo de lente' };
+    }
+    return { exito: true, tipo_lente: datos.tipo_lente };
+  } catch (error) {
+    registrarErrorApi('actualizarTipoLenteApi', error);
+    return { exito: false, error: 'Error de conexión al actualizar tipo de lente' };
+  }
+}
+
+/**
+ * Elimina un tipo de lente personalizado en la óptica activa (los predeterminados están protegidos)
+ */
+export async function eliminarTipoLenteApi(
+  id: number
+): Promise<{
+  exito: boolean;
+  error?: string;
+}> {
+  try {
+    const res = await fetch(`/api/configuracion/tipos-lentes?id=${id}`, {
+      method: 'DELETE',
+      headers: crearEncabezados(),
+    });
+    const datos = await res.json();
+    if (!res.ok || !datos.exito) {
+      return { exito: false, error: datos.error || 'No se pudo eliminar el tipo de lente' };
+    }
+    return { exito: true };
+  } catch (error) {
+    registrarErrorApi('eliminarTipoLenteApi', error);
+    return { exito: false, error: 'Error de conexión al eliminar tipo de lente' };
   }
 }

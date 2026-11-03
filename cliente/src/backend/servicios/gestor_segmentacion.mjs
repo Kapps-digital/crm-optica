@@ -116,6 +116,16 @@ function construirCondicionCriterios(criterios, indiceInicio = 2) {
     contador++;
   }
 
+  // 8. Criterio por Tipología del paciente (aislado estrictamente a la óptica activa $1)
+  if (criterios.tipologia_id) {
+    condiciones.push(`(c.tipologia_id = $${contador} AND EXISTS (
+      SELECT 1 FROM "CRM_Opticas".tipologias_pacientes tp 
+      WHERE tp.id = c.tipologia_id AND tp.optica_id = $1
+    ))`);
+    parametros.push(Number(criterios.tipologia_id));
+    contador++;
+  }
+
   const clausulaExtra = condiciones.length > 0 ? `AND ${condiciones.join(' AND ')}` : '';
   return { clausulaExtra, parametros };
 }
@@ -231,6 +241,7 @@ export async function obtenerPacientesDeSegmento(idSegmento, opticaId) {
   const sqlPacientes = `
     SELECT 
       c.id, c.nombre_completo, c.cedula, c.telefono, c.correo, c.edad, c.sexo, c.es_paciente, c.creado_en,
+      c.tipologia_id, tp.nombre AS tipologia_nombre, tp.color AS tipologia_color,
       f.id AS formula_id, f.fecha_examen, f.proximo_control, f.tipo_lente,
       f.od_esfera, f.od_cilindro, f.od_adicion, f.oi_esfera, f.oi_cilindro, f.oi_adicion,
       ${EXPR_PROXIMO_CONTROL} AS fecha_control_calculada,
@@ -238,6 +249,7 @@ export async function obtenerPacientesDeSegmento(idSegmento, opticaId) {
         SELECT MAX(ci.fecha_cita) FROM "CRM_Opticas".citas ci WHERE ci.contacto_id = c.id
       ) AS ultima_cita
     ${SQL_BASE_DESDE}
+    LEFT JOIN "CRM_Opticas".tipologias_pacientes tp ON tp.id = c.tipologia_id AND tp.optica_id = c.optica_id
     ${clausulaExtra}
     ORDER BY c.nombre_completo ASC
     LIMIT 200

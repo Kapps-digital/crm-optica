@@ -414,6 +414,109 @@ export async function obtenerMotivosDisponiblesOpticaBD(opticaId) {
   }
 }
 
+const MAPA_DIAS_SEMANA_INFO = [
+  { corto: 'Dom', nombre: 'domingos' },
+  { corto: 'Lun', nombre: 'lunes' },
+  { corto: 'Mar', nombre: 'martes' },
+  { corto: 'Mie', nombre: 'miércoles' },
+  { corto: 'Jue', nombre: 'jueves' },
+  { corto: 'Vie', nombre: 'viernes' },
+  { corto: 'Sab', nombre: 'sábados' },
+];
+
+export function resolverHorarioPorFecha(fechaStr, configOptica = {}) {
+  const horaIniDefecto = configOptica.hora_inicio_atencion || '08:00 AM';
+  const horaFinDefecto = configOptica.hora_fin_atencion || '06:00 PM';
+
+  const partes = (fechaStr || '').split('-').map(Number);
+  if (partes.length < 3) {
+    return { cerrado: false, inicio: horaIniDefecto, fin: horaFinDefecto, diaNombre: '' };
+  }
+  const fechaObj = new Date(Date.UTC(partes[0], partes[1] - 1, partes[2], 12, 0, 0));
+  const diaNum = fechaObj.getUTCDay();
+  const diaInfo = MAPA_DIAS_SEMANA_INFO[diaNum] || { corto: 'Lun', nombre: 'lunes' };
+
+  let horariosJson = configOptica.horarios_atencion_json;
+  if (typeof horariosJson === 'string') {
+    try {
+      horariosJson = JSON.parse(horariosJson);
+    } catch {
+      horariosJson = null;
+    }
+  }
+
+  if (Array.isArray(horariosJson) && horariosJson.length > 0) {
+    const grupo = horariosJson.find(
+      (g) => Array.isArray(g.dias) && g.dias.some((d) => String(d).toLowerCase() === diaInfo.corto.toLowerCase())
+    );
+    if (grupo) {
+      return {
+        cerrado: false,
+        inicio: grupo.inicio || grupo.hora_inicio || horaIniDefecto,
+        fin: grupo.fin || grupo.hora_fin || horaFinDefecto,
+        diaNombre: diaInfo.nombre,
+        nombreGrupo: grupo.nombre || grupo.id,
+      };
+    } else {
+      return { cerrado: true, inicio: horaIniDefecto, fin: horaFinDefecto, diaNombre: diaInfo.nombre };
+    }
+  }
+
+  // Fallback a dias_atencion tradicional
+  const diasTexto = (configOptica.dias_atencion || 'Lunes a Domingo').toLowerCase();
+  const esDomingo = diaNum === 0;
+  const esSabado = diaNum === 6;
+  if (esDomingo && (diasTexto === 'lunes a viernes' || diasTexto === 'lunes a sábado' || diasTexto === 'lunes a sabado')) {
+    return { cerrado: true, inicio: horaIniDefecto, fin: horaFinDefecto, diaNombre: diaInfo.nombre };
+  }
+  if (esSabado && diasTexto === 'lunes a viernes') {
+    return { cerrado: true, inicio: horaIniDefecto, fin: horaFinDefecto, diaNombre: diaInfo.nombre };
+  }
+
+  return { cerrado: false, inicio: horaIniDefecto, fin: horaFinDefecto, diaNombre: diaInfo.nombre };
+}
+
+export function construirHorarioTextoCompleto(configOptica = {}) {
+  let horariosJson = configOptica.horarios_atencion_json;
+  if (typeof horariosJson === 'string') {
+    try {
+      horariosJson = JSON.parse(horariosJson);
+    } catch {
+      horariosJson = null;
+    }
+  }
+
+  if (Array.isArray(horariosJson) && horariosJson.length > 0) {
+    const partes = [];
+    for (const g of horariosJson) {
+      if (Array.isArray(g.dias) && g.dias.length > 0) {
+        const diasStr = g.dias.join(', ');
+        let etiquetaDias = diasStr;
+        if (g.dias.length === 6 && !g.dias.some((d) => String(d).toLowerCase() === 'dom')) {
+          etiquetaDias = 'Lunes a Sábado';
+        } else if (g.dias.length === 5 && !g.dias.some((d) => String(d).toLowerCase() === 'sab' || String(d).toLowerCase() === 'dom')) {
+          etiquetaDias = 'Lunes a Viernes';
+        } else if (g.dias.length === 1 && String(g.dias[0]).toLowerCase() === 'dom') {
+          etiquetaDias = 'Domingos';
+        } else if (g.dias.length === 2 && g.dias.some((d) => String(d).toLowerCase() === 'sab') && g.dias.some((d) => String(d).toLowerCase() === 'dom')) {
+          etiquetaDias = 'Fin de semana (Sábados y Domingos)';
+        }
+        const ini = g.inicio || g.hora_inicio || '08:00 AM';
+        const fin = g.fin || g.hora_fin || '06:00 PM';
+        partes.push(`${etiquetaDias} de ${ini} a ${fin}`);
+      }
+    }
+    if (partes.length > 0) {
+      return partes.join(', ');
+    }
+  }
+
+  const dias = configOptica.dias_atencion || 'Lunes a Domingo';
+  const ini = configOptica.hora_inicio_atencion || '08:00 AM';
+  const fin = configOptica.hora_fin_atencion || '06:00 PM';
+  return `${dias} de ${ini} a ${fin}`;
+}
+
 /**
  * Genera ranuras de horario disponibles para una fecha específica respetando jornada y horario hábil
  */
@@ -431,14 +534,28 @@ export async function obtenerHorariosDisponibles(opticaId, fechaStr, jornada = '
   }
 
   const resOptica = await pool.query(
-    `SELECT hora_inicio_atencion, hora_fin_atencion, duracion_cita_minutos 
+    `SELECT dias_atencion, hora_inicio_atencion, hora_fin_atencion, horarios_atencion_json, duracion_cita_minutos 
      FROM "CRM_Opticas".opticas WHERE id = $1`,
     [opticaId]
   );
 
   const duracionMin = resOptica.rows[0]?.duracion_cita_minutos || 30;
-  const horaInicioStr = resOptica.rows[0]?.hora_inicio_atencion || '08:00 AM';
-  const horaFinStr = resOptica.rows[0]?.hora_fin_atencion || '06:00 PM';
+  let horaInicioStr = resOptica.rows[0]?.hora_inicio_atencion || '08:00 AM';
+  let horaFinStr = resOptica.rows[0]?.hora_fin_atencion || '06:00 PM';
+
+  // Resolver horario diferenciado por fecha (ej: domingo medio día)
+  const horarioDia = resolverHorarioPorFecha(fechaStr, resOptica.rows[0] || {});
+  if (horarioDia.cerrado) {
+    return {
+      exito: true,
+      disponible: false,
+      fecha: fechaStr,
+      horarios: [],
+      mensaje: `La óptica no atiende los días ${horarioDia.diaNombre || 'seleccionados'}.`,
+    };
+  }
+  horaInicioStr = horarioDia.inicio;
+  horaFinStr = horarioDia.fin;
 
   // Convertir string hora (ej "08:00 AM" o "18:00") a minutos desde medianoche
   const convertirAMinutos = (hStr) => {
@@ -1785,8 +1902,15 @@ export async function procesarMensajeConIA({ conversacion_id, mensaje_id, contac
   const diasAtencion = configOptica.dias_atencion || 'Lunes a Domingo';
   const horaInicioAtencion = configOptica.hora_inicio_atencion || '08:00 AM';
   const horaFinAtencion = configOptica.hora_fin_atencion || configOptica.hora_final_atencion || '06:00 PM';
-  const horarioAtencion = `${diasAtencion}, de ${horaInicioAtencion} a ${horaFinAtencion}`;
+  const horarioAtencion = construirHorarioTextoCompleto(configOptica);
   const duracionConsulta = `${configOptica.duracion_cita_minutos || 30} minutos`;
+
+  // Calcular horario específico de HOY en Colombia para responder preguntas inmediatas de atención
+  const fechaHoyYMD = obtenerFechaHoyColombia();
+  const horarioHoyInfo = resolverHorarioPorFecha(fechaHoyYMD, configOptica);
+  const estadoHoyTexto = horarioHoyInfo.cerrado
+    ? 'Hoy cerrado al público'
+    : `Hoy atención activa de ${horarioHoyInfo.inicio} a ${horarioHoyInfo.fin} (hora de cierre de hoy: ${horarioHoyInfo.fin})`;
 
   let promptSistemaFinal = '';
   const plantillaMd = cargarPlantillaInstrucciones();
@@ -1803,6 +1927,7 @@ export async function procesarMensajeConIA({ conversacion_id, mensaje_id, contac
       .replace(/\{\{hora_inicio_atencion\}\}/g, horaInicioAtencion)
       .replace(/\{\{hora_fin_atencion\}\}/g, horaFinAtencion)
       .replace(/\{\{horario_atencion\}\}/g, horarioAtencion)
+      .replace(/\{\{horario_hoy\}\}/g, estadoHoyTexto)
       .replace(/\{\{duracion_consulta\}\}/g, duracionConsulta)
       .replace(/\{\{ia_tono\}\}/g, obtenerDirectivaTonoIA(configOptica.ia_tono))
       .replace(/\{\{nombre_paciente\}\}/g, nombreRealPersona || 'No identificado')

@@ -962,10 +962,10 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                         letterSpacing: '0.04em',
                       }}
                     >
-                      <th style={{ padding: '0.85rem 1rem' }}>Fecha</th>
-                      <th style={{ padding: '0.85rem 1rem' }}>Campaña</th>
-                      <th style={{ padding: '0.85rem 1rem' }}>Plantilla</th>
-                      <th style={{ padding: '0.85rem 1rem' }}>Audiencia / Origen</th>
+                      <th style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Fecha</th>
+                      <th style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Campaña</th>
+                      <th style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Plantilla</th>
+                      <th style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Audiencia</th>
                       <th style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>Destinatarios</th>
                       <th style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>Enviados</th>
                       <th style={{ padding: '0.85rem 1rem' }}>Estado</th>
@@ -987,35 +987,79 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                             {formatearFecha(item.creado_en)}
                           </div>
                         </td>
-                        <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: 'var(--texto-principal)' }}>
-                          {item.nombre_campana}
+                        <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
+                          {(() => {
+                            const LIMITE_CARACTERES_CAMPANA = 20;
+                            const esLargo = (item.nombre_campana || '').length > LIMITE_CARACTERES_CAMPANA;
+                            const textoAMostrar = esLargo
+                              ? `${item.nombre_campana.slice(0, 19).trimEnd()}...`
+                              : item.nombre_campana;
+
+                            return esLargo ? (
+                              <EtiquetaTooltip texto={item.nombre_campana} posicion="arriba">
+                                <span
+                                  style={{
+                                    display: 'inline-block',
+                                    whiteSpace: 'nowrap',
+                                    fontWeight: 700,
+                                    color: 'var(--texto-principal)',
+                                    cursor: 'help',
+                                  }}
+                                >
+                                  {textoAMostrar}
+                                </span>
+                              </EtiquetaTooltip>
+                            ) : (
+                              <span
+                                style={{
+                                  display: 'inline-block',
+                                  whiteSpace: 'nowrap',
+                                  fontWeight: 700,
+                                  color: 'var(--texto-principal)',
+                                }}
+                              >
+                                {item.nombre_campana}
+                              </span>
+                            );
+                          })()}
                         </td>
-                        <td style={{ padding: '0.85rem 1rem' }}>
-                          <span
-                            style={{
-                              padding: '0.2rem 0.5rem',
-                              borderRadius: '6px',
-                              background: 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.1)',
-                              color: 'var(--color-primario)',
-                              fontWeight: 600,
-                              fontSize: '0.75rem',
-                              border: '1px solid rgba(var(--color-primario-rgb, 2, 132, 199), 0.2)',
-                            }}
-                          >
-                            {item.plantilla_etiqueta || 'Plantilla WhatsApp'}
-                          </span>
+                        <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
+                          <EtiquetaTooltip texto={item.plantilla_etiqueta || 'Plantilla WhatsApp'} posicion="arriba">
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                maxWidth: '165px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                verticalAlign: 'middle',
+                                padding: '0.22rem 0.55rem',
+                                borderRadius: '6px',
+                                background: 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.1)',
+                                color: 'var(--color-primario)',
+                                fontWeight: 600,
+                                fontSize: '0.75rem',
+                                border: '1px solid rgba(var(--color-primario-rgb, 2, 132, 199), 0.2)',
+                                cursor: 'default',
+                              }}
+                            >
+                              {item.plantilla_etiqueta || 'Plantilla WhatsApp'}
+                            </span>
+                          </EtiquetaTooltip>
                         </td>
-                        <td style={{ padding: '0.85rem 1rem' }}>
+                        <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--texto-secundario)' }}>
                             {item.origen_tipo === 'segmento' ? (
                               <>
-                                <Users size={14} color="#3b82f6" />
-                                <span>{item.segmento_nombre || 'Segmento Inteligente'}</span>
+                                <Users size={14} color="#3b82f6" style={{ flexShrink: 0 }} />
+                                <span style={{ maxWidth: '170px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {item.segmento_nombre || 'Segmento Inteligente'}
+                                </span>
                               </>
                             ) : (
                               <>
-                                <FileSpreadsheet size={14} color="#f59e0b" />
-                                <span>Lista CSV / Teléfonos</span>
+                                <FileSpreadsheet size={14} color="#f59e0b" style={{ flexShrink: 0 }} />
+                                <span>Lista Externa</span>
                               </>
                             )}
                           </div>
@@ -1033,51 +1077,79 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                             </span>
                           )}
                         </td>
-                        <td style={{ padding: '0.85rem 1rem' }}>
-                          <span
-                            style={{
-                              padding: '0.2rem 0.55rem',
-                              borderRadius: '20px',
-                              fontSize: '0.72rem',
-                              fontWeight: 700,
-                              background:
+                        <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                            <EtiquetaTooltip
+                              texto={
                                 (item.estado || '').toLowerCase() === 'completado'
-                                  ? 'rgba(16, 185, 129, 0.12)'
+                                  ? 'Lote completado con éxito'
                                   : (item.estado || '').toLowerCase() === 'fallido'
-                                    ? 'rgba(239, 68, 68, 0.12)'
-                                    : 'rgba(245, 158, 11, 0.12)',
-                              color:
-                                (item.estado || '').toLowerCase() === 'completado'
-                                  ? '#10b981'
-                                  : (item.estado || '').toLowerCase() === 'fallido'
-                                    ? '#ef4444'
-                                    : '#f59e0b',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.3rem',
-                            }}
-                          >
-                            {(item.estado || '').toLowerCase() === 'completado' ? (
-                              <CheckCircle2 size={12} />
-                            ) : (
-                              <AlertCircle size={12} />
-                            )}
-                            {item.estado}
-                          </span>
-                          {item.error_mensaje && (
-                            <div
-                              title={item.error_mensaje}
-                              style={{
-                                fontSize: '0.7rem',
-                                color: '#ef4444',
-                                marginTop: '0.3rem',
-                                maxWidth: '300px',
-                                lineHeight: '1.25',
-                              }}
+                                    ? 'Lote con envíos fallidos'
+                                    : `Estado: ${item.estado || 'En proceso'}`
+                              }
+                              posicion="arriba"
                             >
-                              {item.error_mensaje}
-                            </div>
-                          )}
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: '24px',
+                                  height: '24px',
+                                  borderRadius: '50%',
+                                  background:
+                                    (item.estado || '').toLowerCase() === 'completado'
+                                      ? 'rgba(16, 185, 129, 0.12)'
+                                      : (item.estado || '').toLowerCase() === 'fallido'
+                                        ? 'rgba(239, 68, 68, 0.12)'
+                                        : 'rgba(245, 158, 11, 0.12)',
+                                  color:
+                                    (item.estado || '').toLowerCase() === 'completado'
+                                      ? '#10b981'
+                                      : (item.estado || '').toLowerCase() === 'fallido'
+                                        ? '#ef4444'
+                                        : '#f59e0b',
+                                  border:
+                                    (item.estado || '').toLowerCase() === 'completado'
+                                      ? '1px solid rgba(16, 185, 129, 0.25)'
+                                      : (item.estado || '').toLowerCase() === 'fallido'
+                                        ? '1px solid rgba(239, 68, 68, 0.25)'
+                                        : '1px solid rgba(245, 158, 11, 0.25)',
+                                  flexShrink: 0,
+                                  cursor: 'default',
+                                }}
+                              >
+                                {(item.estado || '').toLowerCase() === 'completado' ? (
+                                  <CheckCircle2 size={13} />
+                                ) : (
+                                  <AlertCircle size={13} />
+                                )}
+                              </span>
+                            </EtiquetaTooltip>
+
+                            {item.error_mensaje && (
+                              <EtiquetaTooltip texto={item.error_mensaje} posicion="arriba">
+                                <span
+                                  style={{
+                                    display: 'inline-block',
+                                    maxWidth: '180px',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    verticalAlign: 'middle',
+                                    fontSize: '0.70rem',
+                                    color: '#ef4444',
+                                    cursor: 'help',
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  {(item.error_mensaje || '').length > 24
+                                    ? `${(item.error_mensaje || '').slice(0, 22).trimEnd()}...`
+                                    : item.error_mensaje}
+                                </span>
+                              </EtiquetaTooltip>
+                            )}
+                          </div>
                         </td>
                         <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>
                           <EtiquetaTooltip texto="Eliminar lote del historial" posicion="arriba">

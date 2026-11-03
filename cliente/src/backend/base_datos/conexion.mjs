@@ -194,6 +194,44 @@ export async function inicializar_base_datos() {
         actualizado_en TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_suscripciones_push_optica ON "CRM_Opticas".suscripciones_push (optica_id);
+
+      -- Soporte de tipos de lentes predeterminados y personalizados por óptica
+      CREATE TABLE IF NOT EXISTS "CRM_Opticas".tipos_lentes (
+        id SERIAL PRIMARY KEY,
+        optica_id INTEGER REFERENCES "CRM_Opticas".opticas(id) ON DELETE CASCADE,
+        reemplaza_predeterminado_id INTEGER REFERENCES "CRM_Opticas".tipos_lentes(id) ON DELETE SET NULL,
+        nombre VARCHAR(120) NOT NULL,
+        es_predeterminado BOOLEAN DEFAULT false,
+        activo BOOLEAN DEFAULT true,
+        creado_en TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      ALTER TABLE "CRM_Opticas".tipos_lentes ADD COLUMN IF NOT EXISTS reemplaza_predeterminado_id INTEGER REFERENCES "CRM_Opticas".tipos_lentes(id) ON DELETE SET NULL;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_tipos_lentes_unicos 
+      ON "CRM_Opticas".tipos_lentes (COALESCE(optica_id, 0), LOWER(TRIM(nombre)));
+      CREATE INDEX IF NOT EXISTS idx_tipos_lentes_consulta 
+      ON "CRM_Opticas".tipos_lentes (optica_id, activo);
+      CREATE INDEX IF NOT EXISTS idx_tipos_lentes_reemplazo 
+      ON "CRM_Opticas".tipos_lentes (optica_id, reemplaza_predeterminado_id);
+
+      -- Soporte de horarios diferenciados de atención (ej: fin de semana) por óptica
+      ALTER TABLE "CRM_Opticas".opticas ADD COLUMN IF NOT EXISTS horarios_atencion_json JSONB;
+
+      -- Semilla de tipos predeterminados del sistema accesibles por todas las ópticas
+      INSERT INTO "CRM_Opticas".tipos_lentes (optica_id, nombre, es_predeterminado, activo)
+      SELECT NULL, t.nombre, true, true
+      FROM (VALUES
+        ('Monofocal Antirreflejo'),
+        ('Monofocal Blue Block (Filtro Azul)'),
+        ('Progresivo Digital Premium'),
+        ('Fotocromático Transitions'),
+        ('Policarbonato Alto Impacto'),
+        ('Lente de Contacto Blando'),
+        ('Bifocal Flat-Top')
+      ) AS t(nombre)
+      WHERE NOT EXISTS (
+        SELECT 1 FROM "CRM_Opticas".tipos_lentes 
+        WHERE optica_id IS NULL AND LOWER(TRIM("CRM_Opticas".tipos_lentes.nombre)) = LOWER(TRIM(t.nombre))
+      );
     `);
 
     const res = await pool.query(`

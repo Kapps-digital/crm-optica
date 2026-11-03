@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, Check, Search, X } from 'lucide-react';
+import { ChevronDown, Check, Search, X, Plus, Edit3 } from 'lucide-react';
+import { EtiquetaTooltip } from './EtiquetaTooltip';
 
 export interface OpcionDesplegable {
   valor: string | number;
@@ -31,6 +32,10 @@ export interface PropiedadesSelectorDesplegable {
   className?: string;
   style?: React.CSSProperties;
   estiloBoton?: React.CSSProperties;
+  alCrearNuevo?: (nuevoValor: string) => Promise<boolean | void> | void;
+  textoCrearNuevo?: string;
+  permitirCrearNuevo?: boolean;
+  alEditarOpcion?: (opcion: OpcionDesplegable, evento: React.MouseEvent) => void;
 }
 
 /**
@@ -55,15 +60,23 @@ export const SelectorDesplegable: React.FC<PropiedadesSelectorDesplegable> = ({
   className = '',
   style = {},
   estiloBoton = {},
+  alCrearNuevo,
+  textoCrearNuevo,
+  permitirCrearNuevo = false,
+  alEditarOpcion,
 }) => {
   const [estaAbierto, setEstaAbierto] = useState(false);
   const [montado, setMontado] = useState(false);
   const [estiloPosicion, setEstiloPosicion] = useState<React.CSSProperties>({});
   const [terminoBusqueda, setTerminoBusqueda] = useState('');
+  const [guardandoNuevo, setGuardandoNuevo] = useState(false);
+  const [mostrarInputCrear, setMostrarInputCrear] = useState(false);
+  const [valorInputCrear, setValorInputCrear] = useState('');
 
   const referenciaContenedor = useRef<HTMLDivElement>(null);
   const referenciaMenu = useRef<HTMLDivElement>(null);
   const referenciaInputBusqueda = useRef<HTMLInputElement>(null);
+  const referenciaInputNuevo = useRef<HTMLInputElement>(null);
   const referenciaLista = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -129,6 +142,41 @@ export const SelectorDesplegable: React.FC<PropiedadesSelectorDesplegable> = ({
       referenciaLista.current.scrollTop = 0;
     }
   }, [terminoBusqueda]);
+
+  // Comprobar si el término buscado ya coincide exactamente con alguna opción
+  const existeExacto = useMemo(() => {
+    if (!terminoBusqueda.trim()) return false;
+    const busq = terminoBusqueda.trim().toLowerCase();
+    return opcionesNormalizadas.some(
+      (opc) => opc.etiqueta.trim().toLowerCase() === busq || String(opc.valor).trim().toLowerCase() === busq
+    );
+  }, [terminoBusqueda, opcionesNormalizadas]);
+
+  const manejarCrearNuevo = async (nombreParaCrear: string) => {
+    const nombreLimpio = nombreParaCrear.trim();
+    if (!nombreLimpio || !alCrearNuevo || guardandoNuevo) return;
+    try {
+      setGuardandoNuevo(true);
+      await alCrearNuevo(nombreLimpio);
+      setTerminoBusqueda('');
+      setMostrarInputCrear(false);
+      setValorInputCrear('');
+      setEstaAbierto(false);
+    } catch (err) {
+      console.error('Error al crear nueva opción:', err);
+    } finally {
+      setGuardandoNuevo(false);
+    }
+  };
+
+  useEffect(() => {
+    if (mostrarInputCrear) {
+      const temporizador = setTimeout(() => {
+        referenciaInputNuevo.current?.focus();
+      }, 50);
+      return () => clearTimeout(temporizador);
+    }
+  }, [mostrarInputCrear]);
 
   // Obtener la opción actualmente seleccionada
   const opcionSeleccionada =
@@ -345,6 +393,13 @@ export const SelectorDesplegable: React.FC<PropiedadesSelectorDesplegable> = ({
                     e.stopPropagation();
                     if (e.key === 'Escape') {
                       setEstaAbierto(false);
+                    } else if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (alCrearNuevo && terminoBusqueda.trim() && !existeExacto) {
+                        manejarCrearNuevo(terminoBusqueda);
+                      } else if (opcionesFiltradas.length === 1) {
+                        seleccionarOpcion(opcionesFiltradas[0]);
+                      }
                     }
                   }}
                 />
@@ -367,10 +422,55 @@ export const SelectorDesplegable: React.FC<PropiedadesSelectorDesplegable> = ({
 
             {/* Listado Scrolleable de Opciones Filtradas */}
             <div ref={referenciaLista} className="selector-desplegable-lista">
+              {/* Botón directo si el usuario busca algo que no existe y puede crearlo */}
+              {conBuscador && Boolean(alCrearNuevo || permitirCrearNuevo) && terminoBusqueda.trim() && !existeExacto && (
+                <button
+                  type="button"
+                  className="selector-desplegable-opcion-crear"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    manejarCrearNuevo(terminoBusqueda);
+                  }}
+                  disabled={guardandoNuevo}
+                >
+                  <div className="selector-opcion-contenido-izq">
+                    <Plus size={14} className="selector-icono-crear" />
+                    <span className="selector-opcion-texto">
+                      {guardandoNuevo ? 'Guardando nuevo tipo...' : (
+                        <>
+                          Crear &ldquo;<strong>{terminoBusqueda.trim()}</strong>&rdquo;
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  <span className="selector-opcion-badge selector-badge-crear">Nuevo</span>
+                </button>
+              )}
+
               {opcionesFiltradas.length === 0 ? (
-                <div className="selector-desplegable-sin-resultados">
-                  No se encontraron resultados
-                </div>
+                Boolean(alCrearNuevo || permitirCrearNuevo) && terminoBusqueda.trim() ? (
+                  <div className="selector-desplegable-sin-resultados-crear">
+                    <span className="selector-sin-resultados-texto">
+                      No se encontró &ldquo;{terminoBusqueda.trim()}&rdquo;
+                    </span>
+                    <button
+                      type="button"
+                      className="selector-desplegable-btn-crear-accion"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        manejarCrearNuevo(terminoBusqueda);
+                      }}
+                      disabled={guardandoNuevo}
+                    >
+                      <Plus size={13} />
+                      <span>{guardandoNuevo ? 'Guardando...' : `Agregar "${terminoBusqueda.trim()}"`}</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="selector-desplegable-sin-resultados">
+                    No se encontraron resultados
+                  </div>
+                )
               ) : (
                 opcionesFiltradas.map((opcion) => {
                   const esSeleccionada = String(opcion.valor) === String(valor) && String(valor) !== '';
@@ -408,6 +508,30 @@ export const SelectorDesplegable: React.FC<PropiedadesSelectorDesplegable> = ({
                           </span>
                         )}
 
+                        {alEditarOpcion && (
+                          <EtiquetaTooltip texto="Editar nombre" posicion="arriba">
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              className="selector-btn-editar-opcion"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                alEditarOpcion(opcion, e);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  alEditarOpcion(opcion, e as any);
+                                }
+                              }}
+                            >
+                              <Edit3 size={12} />
+                            </span>
+                          </EtiquetaTooltip>
+                        )}
+
                         {esSeleccionada && (
                           <Check size={15} className="selector-icono-check" />
                         )}
@@ -417,6 +541,73 @@ export const SelectorDesplegable: React.FC<PropiedadesSelectorDesplegable> = ({
                 })
               )}
             </div>
+
+            {/* Pie de acción fija para agregar nuevo elemento sin saturar la pantalla */}
+            {Boolean(alCrearNuevo || permitirCrearNuevo) && (
+              <div className="selector-desplegable-pie-crear" onClick={(e) => e.stopPropagation()}>
+                {mostrarInputCrear ? (
+                  <div className="selector-desplegable-caja-crear-rapido">
+                    <input
+                      ref={referenciaInputNuevo}
+                      type="text"
+                      className="selector-desplegable-input-crear"
+                      placeholder="Nombre del nuevo tipo..."
+                      value={valorInputCrear}
+                      onChange={(e) => setValorInputCrear(e.target.value)}
+                      onKeyDown={(e) => {
+                        e.stopPropagation();
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          manejarCrearNuevo(valorInputCrear);
+                        } else if (e.key === 'Escape') {
+                          setMostrarInputCrear(false);
+                        }
+                      }}
+                    />
+                    <EtiquetaTooltip texto="Guardar nuevo" posicion="arriba">
+                      <button
+                        type="button"
+                        className="selector-btn-confirmar-crear"
+                        disabled={guardandoNuevo || !valorInputCrear.trim()}
+                        onClick={() => manejarCrearNuevo(valorInputCrear)}
+                        aria-label="Guardar nuevo"
+                      >
+                        {guardandoNuevo ? '...' : <Check size={14} />}
+                      </button>
+                    </EtiquetaTooltip>
+                    <EtiquetaTooltip texto="Cancelar" posicion="arriba">
+                      <button
+                        type="button"
+                        className="selector-btn-cancelar-crear"
+                        disabled={guardandoNuevo}
+                        onClick={() => {
+                          setMostrarInputCrear(false);
+                          setValorInputCrear('');
+                        }}
+                        aria-label="Cancelar"
+                      >
+                        <X size={14} />
+                      </button>
+                    </EtiquetaTooltip>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="selector-desplegable-btn-abrir-crear"
+                    onClick={() => {
+                      if (terminoBusqueda.trim() && !existeExacto) {
+                        manejarCrearNuevo(terminoBusqueda);
+                      } else {
+                        setMostrarInputCrear(true);
+                      }
+                    }}
+                  >
+                    <Plus size={13} />
+                    <span>{textoCrearNuevo || '+ Agregar nuevo tipo...'}</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>,
           document.body
         )}

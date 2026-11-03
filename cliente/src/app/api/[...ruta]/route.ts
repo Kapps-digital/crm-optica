@@ -650,7 +650,7 @@ async function procesarPeticion(
           id, nombre, slug, logo_url, color_primario, color_secundario, telefono,
           duracion_cita_minutos, control_meses_defecto, especialista_defecto,
           registro_profesional_defecto, motivo_cita_defecto, notificacion_auto_citas_whatsapp,
-          dias_atencion, hora_inicio_atencion, hora_fin_atencion,
+          dias_atencion, hora_inicio_atencion, hora_fin_atencion, horarios_atencion_json,
           COALESCE(ia_activa, true) AS ia_activa,
           COALESCE(ia_habilitada, true) AS ia_habilitada,
           activo,
@@ -686,6 +686,7 @@ async function procesarPeticion(
           dias_atencion: opticaDb.dias_atencion || 'Lunes a Domingo',
           hora_inicio_atencion: opticaDb.hora_inicio_atencion || '08:00 AM',
           hora_fin_atencion: opticaDb.hora_fin_atencion || '06:00 PM',
+          horarios_atencion_json: opticaDb.horarios_atencion_json || null,
           ia_activa: Boolean(opticaDb.ia_activa ?? true),
           ia_habilitada: Boolean(opticaDb.ia_habilitada ?? true),
           activo: Boolean(opticaDb.activo ?? true),
@@ -1600,6 +1601,143 @@ async function procesarPeticion(
       await base_datos.prepare('UPDATE contactos SET tipologia_id = NULL WHERE tipologia_id = ? AND optica_id = ?').run(idTipologia, optica_id);
       // 2. Borrado físico real de la base de datos
       await base_datos.prepare('DELETE FROM tipologias_pacientes WHERE id = ? AND optica_id = ?').run(idTipologia, optica_id);
+      return NextResponse.json({ exito: true }, { headers: ENCABEZADOS_NO_CACHE });
+    }
+
+    // 8.2. TIPOS DE LENTES (PREDETERMINADOS DEL SISTEMA + PERSONALIZADOS POR ÓPTICA)
+    if (metodo === 'GET' && rutaStr === 'configuracion/tipos-lentes') {
+      const tipos = await base_datos.prepare(`
+        SELECT id, optica_id, reemplaza_predeterminado_id, nombre, es_predeterminado, activo, creado_en
+        FROM tipos_lentes
+        WHERE (
+          (optica_id = ? AND activo = true)
+          OR (
+            optica_id IS NULL 
+            AND activo = true
+            AND id NOT IN (
+              SELECT COALESCE(reemplaza_predeterminado_id, 0)
+              FROM tipos_lentes 
+              WHERE optica_id = ? AND reemplaza_predeterminado_id IS NOT NULL AND activo = true
+            )
+          )
+        )
+        ORDER BY LOWER(nombre) ASC
+      `).all(optica_id, optica_id);
+      return NextResponse.json({ exito: true, tipos_lentes: tipos }, { headers: ENCABEZADOS_NO_CACHE });
+    }
+
+    if (metodo === 'POST' && rutaStr === 'configuracion/tipos-lentes') {
+      const { nombre } = body;
+      const nombreLimpio = String(nombre || '').trim();
+      if (!nombreLimpio) {
+        return NextResponse.json({ exito: false, error: 'El nombre del tipo de lente es obligatorio' }, { status: 400 });
+      }
+
+      // Validar si ya existe en predeterminados del sistema o en la óptica
+      const existente = await base_datos.prepare(`
+        SELECT id, optica_id, nombre, es_predeterminado, activo, creado_en
+        FROM tipos_lentes 
+        WHERE (optica_id IS NULL OR optica_id = ?) AND LOWER(TRIM(nombre)) = LOWER(?)
+      `).get(optica_id, nombreLimpio);
+
+      if (existente) {
+        if (!existente.activo) {
+          await base_datos.prepare('UPDATE tipos_lentes SET activo = true WHERE id = ?').run(existente.id);
+          existente.activo = true;
+        }
+        return NextResponse.json({ exito: true, tipo_lente: existente, ya_existia: true }, { headers: ENCABEZADOS_NO_CACHE });
+      }
+
+      const res = await base_datos.prepare(`
+        INSERT INTO tipos_lentes (optica_id, nombre, es_predeterminado, activo)
+        VALUES (?, ?, false, true)
+      `).run(optica_id, nombreLimpio);
+
+      const nuevo = await base_datos.prepare(`
+        SELECT id, optica_id, reemplaza_predeterminado_id, nombre, es_predeterminado, activo, creado_en
+        FROM tipos_lentes WHERE id = ?
+      `).get(res.lastInsertRowid);
+
+      return NextResponse.json({ exito: true, tipo_lente: nuevo }, { headers: ENCABEZADOS_NO_CACHE });
+    }
+
+    if (metodo === 'PUT' && (rutaStr === 'configuracion/tipos-lentes' || (segmentosRuta[0] === 'configuracion' && segmentosRuta[1] === 'tipos-lentes'))) {
+      const idTipo = Number(segmentosRuta[2] || searchParams.get('id') || body.id);
+      const nombreLimpio = String(body.nombre || '').trim();
+      if (!idTipo || !nombreLimpio) {
+        return NextResponse.json({ exito: false, error: 'ID y nuevo nombre de tipo de lente requeridos' }, { status: 400 });
+      }
+
+      const tipoActual = await base_datos.prepare(`
+        SELECT id, optica_id, reemplaza_predeterminado_id, nombre, es_predeterminado
+        FROM tipos_lentes
+        WHERE id = ?
+      `).get(idTipo);
+
+      if (!tipoActual) {
+        return NextResponse.json({ exito: false, error: 'Tipo de lente no encontrado' }, { status: 404 });
+      }
+
+      // Si es un tipo predeterminado del sistema (optica_id IS NULL):
+      // Creamos un reemplazo personalizado para esta óptica para que el predeterminado no aparezca más en ella
+      if (tipoActual.optica_id === null || tipoActual.es_predeterminado) {
+        const res = await base_datos.prepare(`
+          INSERT INTO tipos_lentes (optica_id, reemplaza_predeterminado_id, nombre, es_predeterminado, activo)
+          VALUES (?, ?, ?, false, true)
+        `).run(optica_id, tipoActual.id, nombreLimpio);
+
+        const tipoReemplazado = await base_datos.prepare(`
+          SELECT id, optica_id, reemplaza_predeterminado_id, nombre, es_predeterminado, activo, creado_en
+          FROM tipos_lentes WHERE id = ?
+        `).get(res.lastInsertRowid);
+
+        return NextResponse.json({ exito: true, tipo_lente: tipoReemplazado }, { headers: ENCABEZADOS_NO_CACHE });
+      }
+
+      // Si es un tipo personalizado propio de la óptica:
+      if (tipoActual.optica_id !== optica_id) {
+        return NextResponse.json({ exito: false, error: 'No tienes permisos para editar este tipo de lente' }, { status: 403 });
+      }
+
+      await base_datos.prepare(`
+        UPDATE tipos_lentes 
+        SET nombre = ? 
+        WHERE id = ? AND optica_id = ?
+      `).run(nombreLimpio, idTipo, optica_id);
+
+      const tipoActualizado = await base_datos.prepare(`
+        SELECT id, optica_id, reemplaza_predeterminado_id, nombre, es_predeterminado, activo, creado_en
+        FROM tipos_lentes WHERE id = ?
+      `).get(idTipo);
+
+      return NextResponse.json({ exito: true, tipo_lente: tipoActualizado }, { headers: ENCABEZADOS_NO_CACHE });
+    }
+
+    if (metodo === 'DELETE' && (rutaStr === 'configuracion/tipos-lentes' || (segmentosRuta[0] === 'configuracion' && segmentosRuta[1] === 'tipos-lentes'))) {
+      const idTipo = segmentosRuta[2] || searchParams.get('id') || body.id;
+      if (!idTipo) {
+        return NextResponse.json({ exito: false, error: 'ID de tipo de lente requerido' }, { status: 400 });
+      }
+
+      const tipoExistente = await base_datos.prepare(`
+        SELECT id, optica_id, nombre, es_predeterminado 
+        FROM tipos_lentes 
+        WHERE id = ?
+      `).get(idTipo);
+
+      if (!tipoExistente) {
+        return NextResponse.json({ exito: false, error: 'Tipo de lente no encontrado' }, { status: 404 });
+      }
+
+      if (tipoExistente.es_predeterminado || tipoExistente.optica_id === null) {
+        return NextResponse.json({ exito: false, error: 'No es posible eliminar los tipos de lente predeterminados del sistema' }, { status: 403 });
+      }
+
+      if (tipoExistente.optica_id !== optica_id) {
+        return NextResponse.json({ exito: false, error: 'No tienes permisos para eliminar este tipo de lente' }, { status: 403 });
+      }
+
+      await base_datos.prepare('DELETE FROM tipos_lentes WHERE id = ? AND optica_id = ?').run(idTipo, optica_id);
       return NextResponse.json({ exito: true }, { headers: ENCABEZADOS_NO_CACHE });
     }
 

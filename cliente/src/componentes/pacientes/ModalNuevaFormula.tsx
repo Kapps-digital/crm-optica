@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Save, FilePlus2, CheckCircle2, Edit3, Glasses } from 'lucide-react';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
-import type { Contacto, FormulaOptica } from '@/tipos/crm';
-import { obtenerOpticaSesion } from '@/servicios/api_crm';
+import type { Contacto, FormulaOptica, TipoLente } from '@/tipos/crm';
+import { obtenerOpticaSesion, obtenerTiposLentesApi, crearTipoLenteApi, actualizarTipoLenteApi } from '@/servicios/api_crm';
 import { formatearTelefono, obtenerNombrePaciente, formatearDistanciaPupilar, formatearNombreEspecialista } from '@/utilidades/formato';
 
 // Helpers de normalización y formateo optométrico inteligente
@@ -160,14 +160,110 @@ export const ModalNuevaFormula: React.FC<PropiedadesModalNuevaFormula> = ({
 }) => {
   const [montado, setMontado] = useState(false);
   const [cargando, setCargando] = useState(false);
+  const [tiposLentes, setTiposLentes] = useState<TipoLente[]>([]);
 
   // Formulario con valores clínicos por defecto en tabla OD/OI y campos complementarios limpios
   const [formulario, setFormulario] = useState(obtenerValoresPorDefecto());
   const [modalConfirmacionAbierto, setModalConfirmacionAbierto] = useState(false);
 
+  // Cargar lista de tipos de lentes (predeterminados del sistema + personalizados de la óptica)
+  const cargarTiposLentes = async () => {
+    try {
+      const res = await obtenerTiposLentesApi();
+      if (res.exito) {
+        setTiposLentes(res.tipos_lentes);
+      }
+    } catch (err) {
+      console.error('Error al cargar tipos de lentes:', err);
+    }
+  };
+
   useEffect(() => {
     setMontado(true);
+    cargarTiposLentes();
   }, []);
+
+  // Estados para edición de tipos de lente
+  const [tipoLenteParaEditar, setTipoLenteParaEditar] = useState<TipoLente | null>(null);
+  const [nombreEditandoTipo, setNombreEditandoTipo] = useState('');
+  const [guardandoEdicionTipo, setGuardandoEdicionTipo] = useState(false);
+  const [errorEdicionTipo, setErrorEdicionTipo] = useState<string | null>(null);
+
+  // Manejar creación rápida de un nuevo tipo de lente desde el propio buscador del selector
+  const manejarCrearTipoLente = async (nuevoNombre: string) => {
+    try {
+      const res = await crearTipoLenteApi(nuevoNombre);
+      if (res.exito && res.tipo_lente) {
+        setTiposLentes((prev) => {
+          const yaExiste = prev.some((t) => t.id === res.tipo_lente!.id);
+          if (yaExiste) return prev;
+          return [...prev, res.tipo_lente!].sort((a, b) => a.nombre.localeCompare(b.nombre));
+        });
+        setFormulario((prev) => ({ ...prev, tipo_lente: res.tipo_lente!.nombre }));
+      }
+    } catch (err) {
+      console.error('Error al crear nuevo tipo de lente:', err);
+    }
+  };
+
+  const abrirModalEditarTipoLente = (nombreOpcion: string | number) => {
+    const encontrado = tiposLentes.find((t) => t.nombre === String(nombreOpcion));
+    if (encontrado) {
+      setTipoLenteParaEditar(encontrado);
+      setNombreEditandoTipo(encontrado.nombre);
+      setErrorEdicionTipo(null);
+    }
+  };
+
+  const manejarGuardarEdicionTipoLente = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tipoLenteParaEditar || !nombreEditandoTipo.trim()) return;
+    setGuardandoEdicionTipo(true);
+    setErrorEdicionTipo(null);
+    try {
+      const res = await actualizarTipoLenteApi(tipoLenteParaEditar.id, nombreEditandoTipo.trim());
+      if (res.exito && res.tipo_lente) {
+        const nombreAnterior = tipoLenteParaEditar.nombre;
+        const nombreNuevo = res.tipo_lente.nombre;
+
+        // Recargar desde base de datos para excluir el predeterminado y mostrar el personalizado
+        await cargarTiposLentes();
+
+        // Si la fórmula actual tenía seleccionado este tipo, actualizarlo inmediatamente
+        if (formulario.tipo_lente === nombreAnterior) {
+          setFormulario((prev) => ({ ...prev, tipo_lente: nombreNuevo }));
+        }
+
+        setTipoLenteParaEditar(null);
+      } else {
+        setErrorEdicionTipo(res.error || 'No se pudo actualizar el tipo de lente');
+      }
+    } catch {
+      setErrorEdicionTipo('Error de conexión al actualizar tipo de lente');
+    } finally {
+      setGuardandoEdicionTipo(false);
+    }
+  };
+
+  // Normalizar opciones para el desplegable con buscador (orden alfabético estricto de A a Z y sin badges)
+  const opcionesTiposLentes = useMemo(() => {
+    const lista = tiposLentes.length > 0 ? [...tiposLentes] : [
+      { id: 1, optica_id: null, nombre: 'Bifocal Flat-Top', es_predeterminado: true },
+      { id: 2, optica_id: null, nombre: 'Fotocromático Transitions', es_predeterminado: true },
+      { id: 3, optica_id: null, nombre: 'Lente de Contacto Blando', es_predeterminado: true },
+      { id: 4, optica_id: null, nombre: 'Monofocal Antirreflejo', es_predeterminado: true },
+      { id: 5, optica_id: null, nombre: 'Monofocal Blue Block (Filtro Azul)', es_predeterminado: true },
+      { id: 6, optica_id: null, nombre: 'Policarbonato Alto Impacto', es_predeterminado: true },
+      { id: 7, optica_id: null, nombre: 'Progresivo Digital Premium', es_predeterminado: true },
+    ];
+
+    lista.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    return lista.map((tipo) => ({
+      valor: tipo.nombre,
+      etiqueta: tipo.nombre,
+    }));
+  }, [tiposLentes]);
 
   // Reiniciar formulario cada vez que se abre el modal o cambia el paciente activo
   useEffect(() => {
@@ -535,15 +631,12 @@ export const ModalNuevaFormula: React.FC<PropiedadesModalNuevaFormula> = ({
                   alCambiar={(val) => setFormulario({ ...formulario, tipo_lente: val })}
                   placeholder="Seleccionar tipo de lente..."
                   anchoMinimo="100%"
-                  opciones={[
-                    { valor: 'Monofocal Antirreflejo', etiqueta: 'Monofocal Antirreflejo' },
-                    { valor: 'Monofocal Blue Block (Filtro Azul)', etiqueta: 'Monofocal Blue Block (Filtro Azul)' },
-                    { valor: 'Progresivo Digital Premium', etiqueta: 'Progresivo Digital Premium' },
-                    { valor: 'Bifocal Invisible', etiqueta: 'Bifocal Invisible' },
-                    { valor: 'Fotocromático Transitions', etiqueta: 'Fotocromático Transitions' },
-                    { valor: 'Policarbonato Alto Impacto', etiqueta: 'Policarbonato Alto Impacto' },
-                    { valor: 'Lente de Contacto Blando', etiqueta: 'Lente de Contacto Blando' },
-                  ]}
+                  conBuscador={true}
+                  placeholderBuscador="Buscar o escribir nuevo tipo de lente..."
+                  alCrearNuevo={manejarCrearTipoLente}
+                  alEditarOpcion={(opc) => abrirModalEditarTipoLente(opc.valor)}
+                  textoCrearNuevo="+ Agregar nuevo tipo de lente..."
+                  opciones={opcionesTiposLentes}
                 />
               </div>
 
@@ -842,6 +935,100 @@ export const ModalNuevaFormula: React.FC<PropiedadesModalNuevaFormula> = ({
                   <span>{cargando ? 'Guardando...' : 'Confirmar'}</span>
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal para Editar Nombre de Tipo de Lente */}
+        {tipoLenteParaEditar && (
+          <div
+            className="modal-cierre-backdrop"
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !guardandoEdicionTipo) {
+                setTipoLenteParaEditar(null);
+              }
+            }}
+            style={{ zIndex: 1000002 }}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div
+              className="modal-cierre-tarjeta"
+              style={{ maxWidth: '400px', textAlign: 'left', padding: '1.5rem 1.6rem 1.35rem 1.6rem' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div
+                    style={{
+                      width: '30px',
+                      height: '30px',
+                      borderRadius: '8px',
+                      background: 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.12)',
+                      color: 'var(--color-primario, #0284c7)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Glasses size={16} />
+                  </div>
+                  <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: 'var(--texto-principal)' }}>
+                    Editar Tipo de Lente
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTipoLenteParaEditar(null)}
+                  disabled={guardandoEdicionTipo}
+                  className="modal-cierre-btn-cerrar"
+                  style={{ position: 'static' }}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              <form onSubmit={manejarGuardarEdicionTipoLente}>
+                <div className="modal-campo-grupo" style={{ marginBottom: '1.15rem' }}>
+                  <label className="modal-label">Nombre del Tipo de Lente</label>
+                  <input
+                    type="text"
+                    value={nombreEditandoTipo}
+                    onChange={(e) => setNombreEditandoTipo(e.target.value)}
+                    className="modal-input"
+                    autoFocus
+                    required
+                  />
+                  <span style={{ fontSize: '0.69rem', color: 'var(--texto-atenuado)', marginTop: '0.25rem' }}>
+                    El nuevo nombre quedará personalizado y activo para tu óptica.
+                  </span>
+                </div>
+
+                {errorEdicionTipo && (
+                  <div style={{ fontSize: '0.74rem', color: '#ef4444', marginBottom: '0.85rem' }}>
+                    {errorEdicionTipo}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setTipoLenteParaEditar(null)}
+                    disabled={guardandoEdicionTipo}
+                    className="btn-pildora-secundario"
+                    style={{ padding: '0.4rem 0.95rem', fontSize: '0.78rem' }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={guardandoEdicionTipo || !nombreEditandoTipo.trim()}
+                    className="btn-pildora-primario"
+                    style={{ padding: '0.4rem 1.1rem', fontSize: '0.78rem' }}
+                  >
+                    {guardandoEdicionTipo ? 'Guardando...' : 'Guardar Cambios'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

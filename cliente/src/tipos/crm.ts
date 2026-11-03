@@ -38,6 +38,16 @@ export interface TipologiaPaciente {
   total_pacientes?: number;
 }
 
+export interface TipoLente {
+  id: number;
+  optica_id: number | null;
+  reemplaza_predeterminado_id?: number | null;
+  nombre: string;
+  es_predeterminado: boolean;
+  activo?: boolean;
+  creado_en?: string;
+}
+
 export interface Conversacion {
   id: number;
   contacto_id: number;
@@ -128,6 +138,14 @@ export interface FormulaOptica {
   creado_en: string;
 }
 
+export interface GrupoHorarioConfig {
+  id: 'regular' | 'fin_semana' | string;
+  nombre: string;
+  dias: string[];
+  inicio: string;
+  fin: string;
+}
+
 export interface Optica {
   id: number;
   nombre: string;
@@ -149,6 +167,7 @@ export interface Optica {
   dias_atencion?: string;
   hora_inicio_atencion?: string;
   hora_fin_atencion?: string;
+  horarios_atencion_json?: GrupoHorarioConfig[] | string | null;
   ia_activa?: boolean;
   ia_nombre?: string;
   ia_tono?: string;
@@ -266,6 +285,8 @@ export interface CriteriosSegmento {
   cilindro_minimo?: number | null;
   dias_sin_cita?: number | null;
   sexo?: 'masculino' | 'femenino' | string | null;
+  tipologia_id?: number | null;
+  tipologia_nombre?: string | null;
 }
 
 export interface Segmento {
@@ -285,6 +306,9 @@ export interface Segmento {
 }
 
 export interface PacienteSegmento extends Contacto {
+  tipologia_id?: number | null;
+  tipologia_nombre?: string | null;
+  tipologia_color?: string | null;
   formula_id?: number | null;
   fecha_examen?: string | null;
   proximo_control?: string | null;

@@ -324,7 +324,24 @@ export const ModalVerPacientesSegmento: React.FC<PropiedadesModalVerPacientesSeg
                       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                     >
                       <td style={{ padding: '0.65rem 0.5rem' }}>
-                        <div style={{ fontWeight: 600, color: 'var(--texto-principal)' }}>{nombre}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 600, color: 'var(--texto-principal)' }}>{nombre}</span>
+                          {p.tipologia_nombre && (
+                            <span
+                              style={{
+                                fontSize: '0.65rem',
+                                padding: '1px 6px',
+                                borderRadius: '10px',
+                                backgroundColor: `${p.tipologia_color || '#0284c7'}18`,
+                                color: p.tipologia_color || 'var(--color-primario)',
+                                border: `1px solid ${p.tipologia_color || '#0284c7'}40`,
+                                fontWeight: 700,
+                              }}
+                            >
+                              {p.tipologia_nombre}
+                            </span>
+                          )}
+                        </div>
                         <div style={{ fontSize: '0.7rem', color: 'var(--texto-atenuado)' }}>Doc: {doc}</div>
                       </td>
 

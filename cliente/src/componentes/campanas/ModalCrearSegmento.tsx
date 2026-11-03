@@ -19,8 +19,8 @@ import {
   AlertCircle,
   HelpCircle,
 } from 'lucide-react';
-import type { CriteriosSegmento, Segmento } from '@/tipos/crm';
-import { crearSegmentoPersonalizado, actualizarSegmentoPersonalizado } from '@/servicios/api_crm';
+import type { CriteriosSegmento, Segmento, TipologiaPaciente } from '@/tipos/crm';
+import { crearSegmentoPersonalizado, actualizarSegmentoPersonalizado, obtenerTipologiasPacientesApi } from '@/servicios/api_crm';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
 
 interface PropiedadesModalCrearSegmento {
@@ -28,6 +28,7 @@ interface PropiedadesModalCrearSegmento {
   alCerrar: () => void;
   alGuardarExitoso: (segmento: Segmento) => void;
   segmentoParaEditar?: Segmento | null;
+  opticaId?: number;
 }
 
 const ICONOS_DISPONIBLES = [
@@ -57,6 +58,7 @@ export const ModalCrearSegmento: React.FC<PropiedadesModalCrearSegmento> = ({
   alCerrar,
   alGuardarExitoso,
   segmentoParaEditar,
+  opticaId,
 }) => {
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
@@ -85,11 +87,36 @@ export const ModalCrearSegmento: React.FC<PropiedadesModalCrearSegmento> = ({
   const [activarSexo, setActivarSexo] = useState(false);
   const [sexoSeleccionado, setSexoSeleccionado] = useState<'femenino' | 'masculino'>('femenino');
 
+  // Criterio: Tipología del paciente (estrictamente por óptica)
+  const [activarTipologia, setActivarTipologia] = useState(false);
+  const [tipologiaId, setTipologiaId] = useState<string>('');
+  const [tipologias, setTipologias] = useState<TipologiaPaciente[]>([]);
+  const [cargandoTipologias, setCargandoTipologias] = useState(false);
+
   const [guardando, setGuardando] = useState(false);
   const [errorFormulario, setErrorFormulario] = useState<string | null>(null);
 
   // Estado para ventana emergente de confirmación / resumen
   const [modalConfirmacionAbierto, setModalConfirmacionAbierto] = useState(false);
+
+  // Cargar tipologías de la óptica activa al abrir modal
+  useEffect(() => {
+    if (!abierto) return;
+    setCargandoTipologias(true);
+    obtenerTipologiasPacientesApi(opticaId)
+      .then((res) => {
+        if (res.exito) {
+          const activas = (res.tipologias || []).filter((t) => t.activo !== false);
+          setTipologias(activas);
+        }
+      })
+      .catch((err) => {
+        console.error('Error cargando tipologías de la óptica:', err);
+      })
+      .finally(() => {
+        setCargandoTipologias(false);
+      });
+  }, [abierto, opticaId]);
 
   // Función para resetear completamente el formulario a blanco
   const limpiarFormulario = () => {
@@ -111,6 +138,8 @@ export const ModalCrearSegmento: React.FC<PropiedadesModalCrearSegmento> = ({
     setDiasInactividad(180);
     setActivarSexo(false);
     setSexoSeleccionado('femenino');
+    setActivarTipologia(false);
+    setTipologiaId('');
     setErrorFormulario(null);
     setModalConfirmacionAbierto(false);
   };
@@ -189,6 +218,14 @@ export const ModalCrearSegmento: React.FC<PropiedadesModalCrearSegmento> = ({
         setActivarSexo(false);
         setSexoSeleccionado('femenino');
       }
+
+      if (crit.tipologia_id) {
+        setActivarTipologia(true);
+        setTipologiaId(String(crit.tipologia_id));
+      } else {
+        setActivarTipologia(false);
+        setTipologiaId('');
+      }
     } else {
       limpiarFormulario();
     }
@@ -220,9 +257,15 @@ export const ModalCrearSegmento: React.FC<PropiedadesModalCrearSegmento> = ({
       activarTipoLente ||
       activarCilindro ||
       activarInactividad ||
-      activarSexo;
+      activarSexo ||
+      activarTipologia;
 
     if (!algunCriterioActivo) return false;
+
+    // Si se activa tipología, debe haber al menos una tipología seleccionada
+    if (activarTipologia && !tipologiaId) {
+      return false;
+    }
 
     // Si se activa rango de edad, debe ingresar al menos un valor numérico válido
     if (activarEdad) {
@@ -267,6 +310,8 @@ export const ModalCrearSegmento: React.FC<PropiedadesModalCrearSegmento> = ({
     diasInactividad,
     activarSexo,
     sexoSeleccionado,
+    activarTipologia,
+    tipologiaId,
   ]);
 
   if (!abierto) return null;
@@ -313,6 +358,14 @@ export const ModalCrearSegmento: React.FC<PropiedadesModalCrearSegmento> = ({
 
     if (activarSexo) {
       criterios.sexo = sexoSeleccionado;
+    }
+
+    if (activarTipologia && tipologiaId) {
+      criterios.tipologia_id = Number(tipologiaId);
+      const tipEncontrada = tipologias.find((t) => String(t.id) === String(tipologiaId));
+      if (tipEncontrada) {
+        criterios.tipologia_nombre = tipEncontrada.nombre;
+      }
     }
 
     setGuardando(true);
@@ -382,6 +435,10 @@ export const ModalCrearSegmento: React.FC<PropiedadesModalCrearSegmento> = ({
   }
   if (activarSexo) {
     listaResumenCriterios.push(`Género: Pacientes de sexo ${sexoSeleccionado === 'femenino' ? 'Femenino' : 'Masculino'}`);
+  }
+  if (activarTipologia && tipologiaId) {
+    const tip = tipologias.find((t) => String(t.id) === String(tipologiaId));
+    listaResumenCriterios.push(`Tipología: ${tip ? tip.nombre : 'Asignada'}`);
   }
 
   const IconoSeleccionado = ICONOS_DISPONIBLES.find((i) => i.id === icono)?.icono || Target;
@@ -947,6 +1004,57 @@ export const ModalCrearSegmento: React.FC<PropiedadesModalCrearSegmento> = ({
                   posicionAlineacion="derecha"
                   anchoMinimo="150px"
                 />
+              )}
+            </div>
+
+            {/* 8. Tipología del Paciente */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.5rem 0.75rem',
+                backgroundColor: 'var(--fondo-tarjeta)',
+                borderRadius: 'var(--radio-sm)',
+                border: '1px solid var(--borde-tarjeta)',
+              }}
+            >
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--texto-principal)' }}>
+                <input
+                  type="checkbox"
+                  checked={activarTipologia}
+                  onChange={(e) => {
+                    const activado = e.target.checked;
+                    setActivarTipologia(activado);
+                    if (activado && !tipologiaId && tipologias.length > 0) {
+                      setTipologiaId(String(tipologias[0].id));
+                    }
+                  }}
+                />
+                <span>Tipología del paciente</span>
+              </label>
+              {activarTipologia && (
+                cargandoTipologias ? (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--texto-secundario)' }}>Cargando tipologías...</span>
+                ) : tipologias.length === 0 ? (
+                  <span style={{ fontSize: '0.74rem', color: '#ef4444', fontWeight: 600 }}>
+                    Sin tipologías en esta óptica
+                  </span>
+                ) : (
+                  <SelectorDesplegable
+                    valor={tipologiaId}
+                    alCambiar={(val) => setTipologiaId(val)}
+                    opciones={tipologias.map((t) => ({
+                      valor: String(t.id),
+                      etiqueta: t.nombre,
+                      colorIndicador: t.color || '#0284c7',
+                    }))}
+                    placeholder="Seleccionar tipología..."
+                    tamano="compacto"
+                    posicionAlineacion="derecha"
+                    anchoMinimo="190px"
+                  />
+                )
               )}
             </div>
           </div>

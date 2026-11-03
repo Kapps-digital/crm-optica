@@ -661,6 +661,21 @@ export const ModuloAutoSegmentacion: React.FC<PropiedadesModuloAutoSegmentacion>
                         Género: {criterios.sexo === 'femenino' ? 'Femenino' : 'Masculino'}
                       </span>
                     )}
+                    {(criterios.tipologia_nombre || criterios.tipologia_id) && (
+                      <span
+                        style={{
+                          fontSize: '0.68rem',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          backgroundColor: 'var(--fondo-base)',
+                          border: '1px solid var(--borde-tarjeta)',
+                          color: 'var(--color-primario)',
+                          fontWeight: 600,
+                        }}
+                      >
+                        Tipología: {criterios.tipologia_nombre || 'Asignada'}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -753,6 +768,7 @@ export const ModuloAutoSegmentacion: React.FC<PropiedadesModuloAutoSegmentacion>
       <ModalCrearSegmento
         abierto={modalCrearAbierto}
         segmentoParaEditar={segmentoParaEditar}
+        opticaId={opticaId}
         alCerrar={() => {
           setModalCrearAbierto(false);
           setSegmentoParaEditar(null);

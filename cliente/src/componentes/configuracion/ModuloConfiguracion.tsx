@@ -36,6 +36,8 @@ import {
   Tag,
   Trash2,
   Users,
+  Glasses,
+  Edit3,
 } from 'lucide-react';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
 import { SelectorColorPopover } from '../comunes/SelectorColorPopover';
@@ -58,10 +60,14 @@ import {
   obtenerTipologiasPacientesApi,
   crearTipologiaPacienteApi,
   eliminarTipologiaPacienteApi,
+  obtenerTiposLentesApi,
+  crearTipoLenteApi,
+  actualizarTipoLenteApi,
+  eliminarTipoLenteApi,
   type ResumenConsumoIA,
   type ConsumoTokensIA,
 } from '@/servicios/api_crm';
-import type { Optica, CuentaCanalWhatsApp, ConfiguracionIA, Usuario, TipologiaPaciente } from '@/tipos/crm';
+import type { Optica, CuentaCanalWhatsApp, ConfiguracionIA, Usuario, TipologiaPaciente, TipoLente, GrupoHorarioConfig } from '@/tipos/crm';
 import { formatearTelefono, formatearNombreEspecialista } from '@/utilidades/formato';
 
 interface PropiedadesModuloConfiguracion {
@@ -148,6 +154,17 @@ const generarTextoDias = (activos: Record<string, boolean>): string => {
   if (lista.length === 2 && activos.Sab && activos.Dom) return 'Sábados y Domingos';
   if (lista.length === 0) return 'Lunes a Domingo';
   return lista.map((d) => d.corto).join(', ');
+};
+
+const generarTextoDiasAbreviado = (activos: Record<string, boolean>): string => {
+  const lista = DIAS_SEMANA_OPCIONES.filter((d) => activos[d.id]);
+  if (lista.length === 7) return 'Todos';
+  if (lista.length === 6 && !activos.Dom) return 'Lun-Sáb';
+  if (lista.length === 5 && !activos.Sab && !activos.Dom) return 'Lun-Vie';
+  if (lista.length === 2 && activos.Sab && activos.Dom) return 'Sáb-Dom';
+  if (lista.length === 1) return lista[0].corto;
+  if (lista.length === 0) return 'Ninguno';
+  return lista.map((d) => d.corto).join(',');
 };
 
 export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
@@ -285,6 +302,20 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
   const [tipologiaParaEliminar, setTipologiaParaEliminar] = useState<TipologiaPaciente | null>(null);
   const [eliminandoTipologia, setEliminandoTipologia] = useState(false);
 
+  // Estados para gestión de Tipos de Lentes por Óptica (Predeterminados + Personalizados)
+  const [tiposLentes, setTiposLentes] = useState<TipoLente[]>([]);
+  const [cargandoTiposLentes, setCargandoTiposLentes] = useState(false);
+  const [modalNuevoTipoLenteAbierto, setModalNuevoTipoLenteAbierto] = useState(false);
+  const [nombreNuevoTipoLente, setNombreNuevoTipoLente] = useState('');
+  const [guardandoTipoLente, setGuardandoTipoLente] = useState(false);
+  const [errorTipoLente, setErrorTipoLente] = useState<string | null>(null);
+  const [tipoLenteParaEliminar, setTipoLenteParaEliminar] = useState<TipoLente | null>(null);
+  const [eliminandoTipoLente, setEliminandoTipoLente] = useState(false);
+  const [tipoLenteParaEditar, setTipoLenteParaEditar] = useState<TipoLente | null>(null);
+  const [nombreEditandoTipoLente, setNombreEditandoTipoLente] = useState('');
+  const [guardandoEdicionTipoLente, setGuardandoEdicionTipoLente] = useState(false);
+  const [errorEdicionTipoLente, setErrorEdicionTipoLente] = useState<string | null>(null);
+
   // Modal de confirmación de cambios del perfil
   const [modalConfirmarPerfilAbierto, setModalConfirmarPerfilAbierto] = useState(false);
   const [listaCambiosPerfil, setListaCambiosPerfil] = useState<
@@ -304,21 +335,172 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
   const [registroProfesionalDefecto, setRegistroProfesionalDefecto] = useState('');
   const [motivoCitaDefecto, setMotivoCitaDefecto] = useState('');
   const [notificacionAutoCitas, setNotificacionAutoCitas] = useState(true);
-  const [diasAtencion, setDiasAtencion] = useState('Lunes a Domingo');
-  const [horaInicioAtencion, setHoraInicioAtencion] = useState('08:00 AM');
-  const [horaFinAtencion, setHoraFinAtencion] = useState('06:00 PM');
+
+  // Grupo 1: Horario Regular
+  const [diasGrupoRegular, setDiasGrupoRegular] = useState<Record<string, boolean>>({
+    Lun: true, Mar: true, Mie: true, Jue: true, Vie: true, Sab: true, Dom: false,
+  });
+  const [horaInicioRegular, setHoraInicioRegular] = useState('08:00 AM');
+  const [horaFinRegular, setHoraFinRegular] = useState('06:00 PM');
+
+  // Grupo 2: Fin de semana (opcional)
+  const [tieneHorarioFinSemana, setTieneHorarioFinSemana] = useState(false);
+  const [diasGrupoFinSemana, setDiasGrupoFinSemana] = useState<Record<string, boolean>>({
+    Lun: false, Mar: false, Mie: false, Jue: false, Vie: false, Sab: false, Dom: true,
+  });
+  const [horaInicioFinSemana, setHoraInicioFinSemana] = useState('08:00 AM');
+  const [horaFinFinSemana, setHoraFinFinSemana] = useState('01:00 PM');
   const [guardandoClinica, setGuardandoClinica] = useState(false);
 
-  const diasActivos = useMemo(() => {
-    return obtenerDiasActivos(diasAtencion);
-  }, [diasAtencion]);
+  const sincronizarHorariosDesdeOptica = useCallback((optica?: Partial<Optica> | null) => {
+    if (!optica) return;
+    let parsed: GrupoHorarioConfig[] = [];
+    if (optica.horarios_atencion_json) {
+      try {
+        parsed = typeof optica.horarios_atencion_json === 'string'
+          ? JSON.parse(optica.horarios_atencion_json)
+          : (optica.horarios_atencion_json as GrupoHorarioConfig[]);
+      } catch (e) {
+        console.warn('Error al parsear horarios_atencion_json:', e);
+      }
+    }
 
-  const alternarDia = (idDia: string) => {
-    const nuevos = { ...diasActivos, [idDia]: !diasActivos[idDia] };
-    const totalActivos = Object.values(nuevos).filter(Boolean).length;
-    if (totalActivos === 0) return;
-    setDiasAtencion(generarTextoDias(nuevos));
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const regular = parsed.find((g) => g.id === 'regular') || parsed[0];
+      const finSemana = parsed.find((g) => g.id === 'fin_semana') || (parsed.length > 1 ? parsed[1] : null);
+
+      const regActivos: Record<string, boolean> = { Lun: false, Mar: false, Mie: false, Jue: false, Vie: false, Sab: false, Dom: false };
+      if (Array.isArray(regular?.dias)) {
+        regular.dias.forEach((d) => { regActivos[d] = true; });
+      }
+      setDiasGrupoRegular(regActivos);
+      setHoraInicioRegular(normalizarHoraTexto(regular?.inicio) || '08:00 AM');
+      setHoraFinRegular(normalizarHoraTexto(regular?.fin) || '06:00 PM');
+
+      if (finSemana && Array.isArray(finSemana.dias) && finSemana.dias.length > 0) {
+        setTieneHorarioFinSemana(true);
+        const finActivos: Record<string, boolean> = { Lun: false, Mar: false, Mie: false, Jue: false, Vie: false, Sab: false, Dom: false };
+        finSemana.dias.forEach((d) => { finActivos[d] = true; });
+        setDiasGrupoFinSemana(finActivos);
+        setHoraInicioFinSemana(normalizarHoraTexto(finSemana.inicio) || '08:00 AM');
+        setHoraFinFinSemana(normalizarHoraTexto(finSemana.fin) || '01:00 PM');
+      } else {
+        setTieneHorarioFinSemana(false);
+        setDiasGrupoFinSemana({ Lun: false, Mar: false, Mie: false, Jue: false, Vie: false, Sab: false, Dom: true });
+        setHoraInicioFinSemana('08:00 AM');
+        setHoraFinFinSemana('01:00 PM');
+      }
+    } else {
+      const activos = obtenerDiasActivos(optica.dias_atencion);
+      setDiasGrupoRegular(activos);
+      setHoraInicioRegular(normalizarHoraTexto(optica.hora_inicio_atencion) || '08:00 AM');
+      setHoraFinRegular(normalizarHoraTexto(optica.hora_fin_atencion) || '06:00 PM');
+      setTieneHorarioFinSemana(false);
+      setDiasGrupoFinSemana({ Lun: false, Mar: false, Mie: false, Jue: false, Vie: false, Sab: false, Dom: true });
+      setHoraInicioFinSemana('08:00 AM');
+      setHoraFinFinSemana('01:00 PM');
+    }
+  }, []);
+
+  const alternarDiaRegular = (idDia: string) => {
+    const activoActual = Boolean(diasGrupoRegular[idDia]);
+    if (activoActual) {
+      const restantesRegular = Object.entries(diasGrupoRegular).filter(([k, v]) => k !== idDia && v).length;
+      const restantesFin = tieneHorarioFinSemana ? Object.values(diasGrupoFinSemana).filter(Boolean).length : 0;
+      if (restantesRegular === 0 && restantesFin === 0) return;
+      setDiasGrupoRegular((prev) => ({ ...prev, [idDia]: false }));
+    } else {
+      setDiasGrupoRegular((prev) => ({ ...prev, [idDia]: true }));
+      if (tieneHorarioFinSemana && diasGrupoFinSemana[idDia]) {
+        setDiasGrupoFinSemana((prev) => ({ ...prev, [idDia]: false }));
+      }
+    }
   };
+
+  const alternarDiaFinSemana = (idDia: string) => {
+    const activoActual = Boolean(diasGrupoFinSemana[idDia]);
+    if (activoActual) {
+      const restantesFin = Object.entries(diasGrupoFinSemana).filter(([k, v]) => k !== idDia && v).length;
+      const restantesRegular = Object.values(diasGrupoRegular).filter(Boolean).length;
+      if (restantesFin === 0 && restantesRegular === 0) return;
+      setDiasGrupoFinSemana((prev) => ({ ...prev, [idDia]: false }));
+    } else {
+      setDiasGrupoFinSemana((prev) => ({ ...prev, [idDia]: true }));
+      if (diasGrupoRegular[idDia]) {
+        setDiasGrupoRegular((prev) => ({ ...prev, [idDia]: false }));
+      }
+    }
+  };
+
+  const activarGrupoFinSemana = () => {
+    setTieneHorarioFinSemana(true);
+    if (diasGrupoRegular.Dom) {
+      setDiasGrupoRegular((prev) => ({ ...prev, Dom: false }));
+      setDiasGrupoFinSemana({ Lun: false, Mar: false, Mie: false, Jue: false, Vie: false, Sab: false, Dom: true });
+    } else if (diasGrupoRegular.Sab) {
+      setDiasGrupoRegular((prev) => ({ ...prev, Sab: false }));
+      setDiasGrupoFinSemana({ Lun: false, Mar: false, Mie: false, Jue: false, Vie: false, Sab: true, Dom: false });
+    } else {
+      setDiasGrupoFinSemana({ Lun: false, Mar: false, Mie: false, Jue: false, Vie: false, Sab: false, Dom: true });
+    }
+  };
+
+  const quitarGrupoFinSemana = () => {
+    const diasFinActivos = Object.entries(diasGrupoFinSemana).filter(([, v]) => v).map(([k]) => k);
+    setDiasGrupoRegular((prev) => {
+      const copia = { ...prev };
+      diasFinActivos.forEach((d) => { copia[d] = true; });
+      return copia;
+    });
+    setTieneHorarioFinSemana(false);
+  };
+
+  const resumenDiasRegular = useMemo(() => {
+    return generarTextoDias(diasGrupoRegular);
+  }, [diasGrupoRegular]);
+
+  const resumenDiasRegularAbrev = useMemo(() => {
+    return generarTextoDiasAbreviado(diasGrupoRegular);
+  }, [diasGrupoRegular]);
+
+  const resumenDiasFinSemana = useMemo(() => {
+    return generarTextoDias(diasGrupoFinSemana);
+  }, [diasGrupoFinSemana]);
+
+  const resumenDiasFinSemanaAbrev = useMemo(() => {
+    return generarTextoDiasAbreviado(diasGrupoFinSemana);
+  }, [diasGrupoFinSemana]);
+
+  // Subpestaña activa para alternar entre Horario Regular y Fin de semana
+  const [subPestanaHorario, setSubPestanaHorario] = useState<'regular' | 'fin_semana'>('regular');
+
+  const describirConfigHorarios = (
+    regActivos: Record<string, boolean>,
+    horaIniReg: string,
+    horaFinReg: string,
+    tieneFin: boolean,
+    finActivos: Record<string, boolean>,
+    horaIniFin: string,
+    horaFinFin: string
+  ): string => {
+    const textoReg = generarTextoDias(regActivos);
+    const iniReg = normalizarHoraTexto(horaIniReg) || '08:00 AM';
+    const finReg = normalizarHoraTexto(horaFinReg) || '06:00 PM';
+    let desc = `Regular [${textoReg}]: ${iniReg} a ${finReg}`;
+    if (tieneFin) {
+      const textoFin = generarTextoDias(finActivos);
+      const iniFin = normalizarHoraTexto(horaIniFin) || '08:00 AM';
+      const finFin = normalizarHoraTexto(horaFinFin) || '01:00 PM';
+      desc += ` | Fin de semana [${textoFin}]: ${iniFin} a ${finFin}`;
+    }
+    return desc;
+  };
+
+  useEffect(() => {
+    if (opticaActual) {
+      sincronizarHorariosDesdeOptica(opticaActual);
+    }
+  }, [opticaActual, sincronizarHorariosDesdeOptica]);
 
   // Modal de confirmación de cambios clínicos y agenda
   const [modalConfirmarClinicaAbierto, setModalConfirmarClinicaAbierto] = useState(false);
@@ -366,9 +548,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
           setRegistroProfesionalDefecto(opticaMapeada.registro_profesional_defecto || '');
           setMotivoCitaDefecto(opticaMapeada.motivo_cita_defecto || '');
           setNotificacionAutoCitas(opticaMapeada.notificacion_auto_citas_whatsapp !== false);
-          setDiasAtencion(opticaMapeada.dias_atencion || 'Lunes a Domingo');
-          setHoraInicioAtencion(normalizarHoraTexto(opticaMapeada.hora_inicio_atencion) || '08:00 AM');
-          setHoraFinAtencion(normalizarHoraTexto(opticaMapeada.hora_fin_atencion) || '06:00 PM');
+          sincronizarHorariosDesdeOptica(opticaMapeada);
 
           if (alActualizarOptica) {
             alActualizarOptica(opticaMapeada);
@@ -496,6 +676,106 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
       setTimeout(() => setMensajeError(null), 3500);
     } finally {
       setEliminandoTipologia(false);
+    }
+  };
+
+  // Cargar tipos de lentes de la óptica (predeterminados del sistema y personalizados)
+  const cargarTiposLentes = useCallback(async () => {
+    setCargandoTiposLentes(true);
+    try {
+      const res = await obtenerTiposLentesApi();
+      if (res.exito) {
+        setTiposLentes(res.tipos_lentes || []);
+      }
+    } catch (e) {
+      console.error('Error al cargar tipos de lentes:', e);
+    } finally {
+      setCargandoTiposLentes(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    cargarTiposLentes();
+  }, [cargarTiposLentes]);
+
+  const manejarCrearTipoLente = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nombreNuevoTipoLente.trim()) return;
+    setGuardandoTipoLente(true);
+    setErrorTipoLente(null);
+    try {
+      const res = await crearTipoLenteApi(nombreNuevoTipoLente.trim());
+      if (res.exito && res.tipo_lente) {
+        setTiposLentes((prev) => {
+          const yaExiste = prev.some((t) => t.id === res.tipo_lente!.id);
+          if (yaExiste) return prev;
+          return [...prev, res.tipo_lente!].sort((a, b) => a.nombre.localeCompare(b.nombre));
+        });
+        setNombreNuevoTipoLente('');
+        setModalNuevoTipoLenteAbierto(false);
+        setMensajeExito(`✓ Tipo de lente "${res.tipo_lente.nombre}" agregado con éxito.`);
+        setTimeout(() => setMensajeExito(null), 3500);
+      } else {
+        setErrorTipoLente(res.error || 'No se pudo crear el tipo de lente');
+      }
+    } catch {
+      setErrorTipoLente('Error de conexión al guardar tipo de lente');
+    } finally {
+      setGuardandoTipoLente(false);
+    }
+  };
+
+  const abrirModalEditarTipoLente = (tipo: TipoLente) => {
+    setTipoLenteParaEditar(tipo);
+    setNombreEditandoTipoLente(tipo.nombre);
+    setErrorEdicionTipoLente(null);
+  };
+
+  const manejarEditarTipoLente = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tipoLenteParaEditar || !nombreEditandoTipoLente.trim()) return;
+    setGuardandoEdicionTipoLente(true);
+    setErrorEdicionTipoLente(null);
+    try {
+      const res = await actualizarTipoLenteApi(tipoLenteParaEditar.id, nombreEditandoTipoLente.trim());
+      if (res.exito && res.tipo_lente) {
+        await cargarTiposLentes();
+        setTipoLenteParaEditar(null);
+        setMensajeExito(`✓ Tipo de lente actualizado a "${res.tipo_lente.nombre}".`);
+        setTimeout(() => setMensajeExito(null), 3500);
+      } else {
+        setErrorEdicionTipoLente(res.error || 'No se pudo actualizar el tipo de lente');
+      }
+    } catch {
+      setErrorEdicionTipoLente('Error de conexión al actualizar tipo de lente');
+    } finally {
+      setGuardandoEdicionTipoLente(false);
+    }
+  };
+
+  const abrirModalEliminarTipoLente = (tipo: TipoLente) => {
+    setTipoLenteParaEliminar(tipo);
+  };
+
+  const confirmarEliminarTipoLente = async () => {
+    if (!tipoLenteParaEliminar) return;
+    setEliminandoTipoLente(true);
+    try {
+      const res = await eliminarTipoLenteApi(tipoLenteParaEliminar.id);
+      if (res.exito) {
+        setTiposLentes((prev) => prev.filter((t) => t.id !== tipoLenteParaEliminar.id));
+        setMensajeExito(`✓ Tipo de lente "${tipoLenteParaEliminar.nombre}" eliminado.`);
+        setTimeout(() => setMensajeExito(null), 3500);
+        setTipoLenteParaEliminar(null);
+      } else {
+        setMensajeError(res.error || 'No se pudo eliminar el tipo de lente');
+        setTimeout(() => setMensajeError(null), 3500);
+      }
+    } catch {
+      setMensajeError('Error al eliminar tipo de lente');
+      setTimeout(() => setMensajeError(null), 3500);
+    } finally {
+      setEliminandoTipoLente(false);
     }
   };
 
@@ -902,26 +1182,64 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
       });
     }
 
-    // 6. Días y Horario de Atención
-    const diasOrig = opticaData?.dias_atencion || 'Lunes a Domingo';
-    const diasActual = diasAtencion || 'Lunes a Domingo';
-    if (diasActual !== diasOrig) {
-      cambios.push({
-        campo: 'Días de Atención',
-        anterior: diasOrig,
-        nuevo: diasActual,
-      });
+    // 6. Días y Horarios de Atención (Regular y Fin de semana)
+    let horariosOrigJson: GrupoHorarioConfig[] = [];
+    if (opticaData?.horarios_atencion_json) {
+      try {
+        horariosOrigJson = typeof opticaData.horarios_atencion_json === 'string'
+          ? JSON.parse(opticaData.horarios_atencion_json)
+          : (opticaData.horarios_atencion_json as GrupoHorarioConfig[]);
+      } catch {}
     }
 
-    const horaIniOrig = normalizarHoraTexto(opticaData?.hora_inicio_atencion) || '08:00 AM';
-    const horaFinOrig = normalizarHoraTexto(opticaData?.hora_fin_atencion) || '06:00 PM';
-    const horaIniActual = normalizarHoraTexto(horaInicioAtencion) || '08:00 AM';
-    const horaFinActual = normalizarHoraTexto(horaFinAtencion) || '06:00 PM';
-    if (horaIniActual !== horaIniOrig || horaFinActual !== horaFinOrig) {
+    let diasRegOrig: Record<string, boolean> = {};
+    let horaIniRegOrig = '08:00 AM';
+    let horaFinRegOrig = '06:00 PM';
+    let tieneFinOrig = false;
+    let diasFinOrig: Record<string, boolean> = { Lun: false, Mar: false, Mie: false, Jue: false, Vie: false, Sab: false, Dom: true };
+    let horaIniFinOrig = '08:00 AM';
+    let horaFinFinOrig = '01:00 PM';
+
+    if (Array.isArray(horariosOrigJson) && horariosOrigJson.length > 0) {
+      const reg = horariosOrigJson.find(g => g.id === 'regular') || horariosOrigJson[0];
+      const fin = horariosOrigJson.find(g => g.id === 'fin_semana') || (horariosOrigJson.length > 1 ? horariosOrigJson[1] : null);
+      diasRegOrig = { Lun: false, Mar: false, Mie: false, Jue: false, Vie: false, Sab: false, Dom: false };
+      if (Array.isArray(reg?.dias)) reg.dias.forEach(d => { diasRegOrig[d] = true; });
+      horaIniRegOrig = normalizarHoraTexto(reg?.inicio) || '08:00 AM';
+      horaFinRegOrig = normalizarHoraTexto(reg?.fin) || '06:00 PM';
+
+      if (fin && Array.isArray(fin.dias) && fin.dias.length > 0) {
+        tieneFinOrig = true;
+        diasFinOrig = { Lun: false, Mar: false, Mie: false, Jue: false, Vie: false, Sab: false, Dom: false };
+        fin.dias.forEach(d => { diasFinOrig[d] = true; });
+        horaIniFinOrig = normalizarHoraTexto(fin.inicio) || '08:00 AM';
+        horaFinFinOrig = normalizarHoraTexto(fin.fin) || '01:00 PM';
+      }
+    } else {
+      diasRegOrig = obtenerDiasActivos(opticaData?.dias_atencion);
+      horaIniRegOrig = normalizarHoraTexto(opticaData?.hora_inicio_atencion) || '08:00 AM';
+      horaFinRegOrig = normalizarHoraTexto(opticaData?.hora_fin_atencion) || '06:00 PM';
+      tieneFinOrig = false;
+    }
+
+    const cambioHorarios =
+      JSON.stringify(diasGrupoRegular) !== JSON.stringify(diasRegOrig) ||
+      normalizarHoraTexto(horaInicioRegular) !== horaIniRegOrig ||
+      normalizarHoraTexto(horaFinRegular) !== horaFinRegOrig ||
+      tieneHorarioFinSemana !== tieneFinOrig ||
+      (tieneHorarioFinSemana && (
+        JSON.stringify(diasGrupoFinSemana) !== JSON.stringify(diasFinOrig) ||
+        normalizarHoraTexto(horaInicioFinSemana) !== horaIniFinOrig ||
+        normalizarHoraTexto(horaFinFinSemana) !== horaFinFinOrig
+      ));
+
+    if (cambioHorarios) {
+      const descAnterior = describirConfigHorarios(diasRegOrig, horaIniRegOrig, horaFinRegOrig, tieneFinOrig, diasFinOrig, horaIniFinOrig, horaFinFinOrig);
+      const descNueva = describirConfigHorarios(diasGrupoRegular, horaInicioRegular, horaFinRegular, tieneHorarioFinSemana, diasGrupoFinSemana, horaInicioFinSemana, horaFinFinSemana);
       cambios.push({
-        campo: 'Horario Hábil de Atención',
-        anterior: `${horaIniOrig} a ${horaFinOrig}`,
-        nuevo: `${horaIniActual} a ${horaFinActual}`,
+        campo: 'Días y Horarios de Atención',
+        anterior: descAnterior,
+        nuevo: descNueva,
       });
     }
 
@@ -952,6 +1270,37 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
     setMensajeExito(null);
 
     try {
+      const diasRegularIds = DIAS_SEMANA_OPCIONES.filter((d) => diasGrupoRegular[d.id]).map((d) => d.id);
+      const diasFinSemanaIds = tieneHorarioFinSemana
+        ? DIAS_SEMANA_OPCIONES.filter((d) => diasGrupoFinSemana[d.id]).map((d) => d.id)
+        : [];
+
+      const gruposPayload: GrupoHorarioConfig[] = [
+        {
+          id: 'regular',
+          nombre: 'Horario Regular',
+          dias: diasRegularIds,
+          inicio: normalizarHoraTexto(horaInicioRegular) || '08:00 AM',
+          fin: normalizarHoraTexto(horaFinRegular) || '06:00 PM',
+        },
+      ];
+
+      if (tieneHorarioFinSemana && diasFinSemanaIds.length > 0) {
+        gruposPayload.push({
+          id: 'fin_semana',
+          nombre: 'Fin de semana',
+          dias: diasFinSemanaIds,
+          inicio: normalizarHoraTexto(horaInicioFinSemana) || '08:00 AM',
+          fin: normalizarHoraTexto(horaFinFinSemana) || '01:00 PM',
+        });
+      }
+
+      const todosDiasActivos = DIAS_SEMANA_OPCIONES.reduce((acc, d) => {
+        acc[d.id] = Boolean(diasGrupoRegular[d.id] || (tieneHorarioFinSemana && diasGrupoFinSemana[d.id]));
+        return acc;
+      }, {} as Record<string, boolean>);
+      const textoDiasLegacy = generarTextoDias(todosDiasActivos);
+
       const res = await actualizarDatosOpticaApi({
         optica_id: opticaData?.id || 1,
         duracion_cita_minutos: Number(duracionConsulta) || 30,
@@ -960,9 +1309,10 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
         registro_profesional_defecto: registroProfesionalDefecto.trim(),
         motivo_cita_defecto: motivoCitaDefecto.trim(),
         notificacion_auto_citas_whatsapp: notificacionAutoCitas,
-        dias_atencion: diasAtencion.trim() || 'Lunes a Domingo',
-        hora_inicio_atencion: normalizarHoraTexto(horaInicioAtencion),
-        hora_fin_atencion: normalizarHoraTexto(horaFinAtencion),
+        dias_atencion: textoDiasLegacy,
+        hora_inicio_atencion: normalizarHoraTexto(horaInicioRegular),
+        hora_fin_atencion: normalizarHoraTexto(horaFinRegular),
+        horarios_atencion_json: gruposPayload,
       });
 
       if (!res.exito || !res.optica) {
@@ -984,9 +1334,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
       setRegistroProfesionalDefecto(opticaActualizada.registro_profesional_defecto || '');
       setMotivoCitaDefecto(opticaActualizada.motivo_cita_defecto || '');
       setNotificacionAutoCitas(opticaActualizada.notificacion_auto_citas_whatsapp !== false);
-      setDiasAtencion(opticaActualizada.dias_atencion || 'Lunes a Domingo');
-      setHoraInicioAtencion(normalizarHoraTexto(opticaActualizada.hora_inicio_atencion) || '08:00 AM');
-      setHoraFinAtencion(normalizarHoraTexto(opticaActualizada.hora_fin_atencion) || '06:00 PM');
+      sincronizarHorariosDesdeOptica(opticaActualizada);
 
       if (alActualizarOptica) alActualizarOptica(opticaActualizada);
       if (typeof window !== 'undefined') {
@@ -1946,26 +2294,136 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                   </span>
                 </div>
 
-                {/* 3. Días y Horario de Atención */}
+                {/* 3. Horarios de Atención (Diseño original limpio con alternancia Regular / Fin de semana en 1 sola fila) */}
                 <div className="modal-campo-grupo">
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
-                    <label className="modal-label" style={{ fontSize: '0.73rem', fontWeight: 600, margin: 0 }}>
-                      Días & Horario de Atención
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '0.25rem',
+                    gap: '0.35rem',
+                    flexWrap: 'nowrap',
+                  }}>
+                    <label
+                      className="modal-label"
+                      style={{
+                        fontSize: '0.73rem',
+                        fontWeight: 600,
+                        margin: 0,
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                      }}
+                    >
+                      Horarios de Atención
                     </label>
-                    <span style={{ fontSize: '0.67rem', fontWeight: 700, color: 'var(--color-primario)', background: 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.12)', padding: '0.06rem 0.38rem', borderRadius: '4px' }}>
-                      {diasAtencion || 'Lunes a Domingo'}
-                    </span>
+
+                    {/* Alternador de grupos de horario estilo píldoras limpias en 1 sola fila */}
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', flexShrink: 0 }}>
+                      <button
+                        type="button"
+                        onClick={() => setSubPestanaHorario('regular')}
+                        title={`Horario Regular: ${resumenDiasRegular}`}
+                        style={{
+                          fontSize: '0.65rem',
+                          fontWeight: 700,
+                          color: subPestanaHorario === 'regular' ? '#ffffff' : 'var(--texto-atenuado)',
+                          backgroundColor: subPestanaHorario === 'regular' ? 'var(--color-primario)' : 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.1)',
+                          border: 'none',
+                          padding: '0.12rem 0.38rem',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        Regular ({resumenDiasRegularAbrev})
+                      </button>
+
+                      {tieneHorarioFinSemana ? (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.1rem' }}>
+                          <button
+                            type="button"
+                            onClick={() => setSubPestanaHorario('fin_semana')}
+                            title={`Fin de semana: ${resumenDiasFinSemana}`}
+                            style={{
+                              fontSize: '0.65rem',
+                              fontWeight: 700,
+                              color: subPestanaHorario === 'fin_semana' ? '#ffffff' : 'var(--texto-atenuado)',
+                              backgroundColor: subPestanaHorario === 'fin_semana' ? 'var(--color-primario)' : 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.1)',
+                              border: 'none',
+                              padding: '0.12rem 0.38rem',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            Fin de sem ({resumenDiasFinSemanaAbrev})
+                          </button>
+                          {subPestanaHorario === 'fin_semana' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                quitarGrupoFinSemana();
+                                setSubPestanaHorario('regular');
+                              }}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: '#ef4444',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '0.08rem',
+                              }}
+                              title="Quitar horario especial de fin de semana"
+                            >
+                              <Trash2 style={{ width: '10px', height: '10px' }} />
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            activarGrupoFinSemana();
+                            setSubPestanaHorario('fin_semana');
+                          }}
+                          title="Agregar horario diferenciado para fin de semana (ej: domingos medio día)"
+                          style={{
+                            fontSize: '0.64rem',
+                            fontWeight: 700,
+                            color: 'var(--color-primario)',
+                            backgroundColor: 'transparent',
+                            border: '1px dashed var(--color-primario)',
+                            padding: '0.1rem 0.35rem',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.18rem',
+                            whiteSpace: 'nowrap',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <Plus style={{ width: '10px', height: '10px' }} />
+                          <span>+ Fin de sem</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Selector interactivo de días de atención */}
+                  {/* Selector interactivo de días (diseño original idéntico) */}
                   <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.35rem', width: '100%' }}>
                     {DIAS_SEMANA_OPCIONES.map((dia) => {
-                      const activo = diasActivos[dia.id];
+                      const activo = subPestanaHorario === 'regular'
+                        ? Boolean(diasGrupoRegular[dia.id])
+                        : Boolean(diasGrupoFinSemana[dia.id]);
                       return (
                         <button
                           key={dia.id}
                           type="button"
-                          onClick={() => alternarDia(dia.id)}
+                          onClick={() => (subPestanaHorario === 'regular' ? alternarDiaRegular(dia.id) : alternarDiaFinSemana(dia.id))}
                           title={`${dia.etiqueta}: ${activo ? 'Abierto (clic para desactivar)' : 'Cerrado (clic para activar)'}`}
                           style={{
                             flex: 1,
@@ -1993,25 +2451,31 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                     })}
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  {/* Rango Horario reducido y más compacto */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                     <div style={{ flex: 1 }}>
                       <SelectorHoraPopover
-                        valor={horaInicioAtencion}
-                        alCambiar={setHoraInicioAtencion}
+                        valor={subPestanaHorario === 'regular' ? horaInicioRegular : horaInicioFinSemana}
+                        alCambiar={subPestanaHorario === 'regular' ? setHoraInicioRegular : setHoraInicioFinSemana}
                         placeholder="Inicio..."
+                        tamano="compacto"
                       />
                     </div>
-                    <span style={{ color: 'var(--texto-atenuado)', fontSize: '0.76rem', fontWeight: 600 }}>a</span>
+                    <span style={{ color: 'var(--texto-atenuado)', fontSize: '0.72rem', fontWeight: 600 }}>a</span>
                     <div style={{ flex: 1 }}>
                       <SelectorHoraPopover
-                        valor={horaFinAtencion}
-                        alCambiar={setHoraFinAtencion}
+                        valor={subPestanaHorario === 'regular' ? horaFinRegular : horaFinFinSemana}
+                        alCambiar={subPestanaHorario === 'regular' ? setHoraFinRegular : setHoraFinFinSemana}
                         placeholder="Fin..."
+                        tamano="compacto"
                       />
                     </div>
                   </div>
+
                   <span style={{ fontSize: '0.69rem', color: 'var(--texto-atenuado)', marginTop: '0.2rem', lineHeight: '1.2' }}>
-                    Días y rango horario operativo visibles en el selector de citas.
+                    {subPestanaHorario === 'regular'
+                      ? 'Días y horario regular operativo en agenda y citas.'
+                      : 'Horario especial de fin de semana para los días seleccionados.'}
                   </span>
                 </div>
 
@@ -2128,6 +2592,180 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                     (envía especialista, fecha y hora al paciente)
                   </span>
                 </label>
+              </div>
+            </div>
+
+            {/* Tarjeta 2: Tipos de Lentes de la Óptica (Predeterminados y Personalizados) */}
+            <div
+              style={{
+                background: 'var(--fondo-tarjeta)',
+                border: '1px solid var(--borde-tarjeta)',
+                borderRadius: 'var(--radio-lg)',
+                padding: '1.15rem 1.35rem',
+                boxShadow: 'var(--sombra-sm)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.85rem',
+                marginTop: '1.25rem',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  borderBottom: '1px solid var(--borde-tarjeta)',
+                  paddingBottom: '0.65rem',
+                  flexWrap: 'wrap',
+                  gap: '0.5rem',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <div
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: 'var(--fondo-elevado)',
+                      border: '1px solid var(--borde-tarjeta)',
+                      color: 'var(--color-primario)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Glasses style={{ width: '18px', height: '18px' }} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '0.96rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
+                      Tipos de Lente de la Óptica
+                    </h3>
+                    <p style={{ fontSize: '0.74rem', color: 'var(--texto-atenuado)', margin: 0 }}>
+                      Predeterminados del sistema y personalizados propios de tu óptica para prescripción de fórmulas.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNombreNuevoTipoLente('');
+                    setErrorTipoLente(null);
+                    setModalNuevoTipoLenteAbierto(true);
+                  }}
+                  className="btn-pildora-primario"
+                  style={{
+                    padding: '0.4rem 1rem',
+                    fontSize: '0.8rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                  }}
+                >
+                  <Plus style={{ width: '13px', height: '13px' }} />
+                  <span>Nuevo Tipo de Lente</span>
+                </button>
+              </div>
+
+              {/* Listado de Tipos de Lentes con scroll controlado */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '0.45rem',
+                  maxHeight: '260px',
+                  overflowY: 'auto',
+                  padding: '0.25rem 0',
+                }}
+              >
+                {cargandoTiposLentes && tiposLentes.length === 0 ? (
+                  <span style={{ fontSize: '0.74rem', color: 'var(--texto-atenuado)', fontStyle: 'italic' }}>
+                    Cargando catálogo de lentes...
+                  </span>
+                ) : tiposLentes.length === 0 ? (
+                  <span style={{ fontSize: '0.74rem', color: 'var(--texto-atenuado)', fontStyle: 'italic' }}>
+                    No hay tipos de lente registrados.
+                  </span>
+                ) : (
+                  tiposLentes.map((tipo) => (
+                    <div
+                      key={tipo.id}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        padding: '0.26rem 0.65rem',
+                        borderRadius: '9999px',
+                        background: 'var(--fondo-elevado)',
+                        border: '1px solid var(--borde-tarjeta)',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        color: 'var(--texto-principal)',
+                      }}
+                    >
+                      <span>{tipo.nombre}</span>
+
+                      {/* Botón de editar nombre con icono de lápiz sutil */}
+                      <EtiquetaTooltip texto="Editar nombre" posicion="arriba">
+                        <button
+                          type="button"
+                          onClick={() => abrirModalEditarTipoLente(tipo)}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            padding: '2px',
+                            cursor: 'pointer',
+                            color: 'var(--texto-atenuado)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            transition: 'all 0.15s ease',
+                            borderRadius: '4px',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = 'var(--color-primario)';
+                            e.currentTarget.style.background = 'var(--fondo-hover)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = 'var(--texto-atenuado)';
+                            e.currentTarget.style.background = 'transparent';
+                          }}
+                        >
+                          <Edit3 style={{ width: '11px', height: '11px' }} />
+                        </button>
+                      </EtiquetaTooltip>
+
+                      {!tipo.es_predeterminado && (
+                        <EtiquetaTooltip texto="Eliminar tipo" posicion="arriba">
+                          <button
+                            type="button"
+                            onClick={() => abrirModalEliminarTipoLente(tipo)}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              padding: '2px',
+                              cursor: 'pointer',
+                              color: 'var(--texto-atenuado)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              transition: 'all 0.15s ease',
+                              borderRadius: '4px',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.color = 'var(--color-peligro-rojo)';
+                              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.color = 'var(--texto-atenuado)';
+                              e.currentTarget.style.background = 'transparent';
+                            }}
+                          >
+                            <X style={{ width: '11px', height: '11px' }} />
+                          </button>
+                        </EtiquetaTooltip>
+                      )}
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </form>
@@ -3272,6 +3910,285 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                 <span>{eliminandoTipologia ? 'Eliminando...' : 'Eliminar Tipología'}</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Crear Nuevo Tipo de Lente */}
+      {modalNuevoTipoLenteAbierto && (
+        <div
+          className="modal-cierre-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !guardandoTipoLente) {
+              setModalNuevoTipoLenteAbierto(false);
+            }
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="modal-cierre-tarjeta"
+            style={{ maxWidth: '420px', textAlign: 'left', padding: '1.75rem 1.75rem 1.5rem 1.75rem' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    background: 'rgba(2, 132, 199, 0.12)',
+                    color: 'var(--color-primario, #0284c7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Glasses size={16} />
+                </div>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: 'var(--texto-principal)' }}>
+                  Nuevo Tipo de Lente
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalNuevoTipoLenteAbierto(false)}
+                disabled={guardandoTipoLente}
+                className="modal-cierre-btn-cerrar"
+                style={{ position: 'static' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={manejarCrearTipoLente}>
+              <div className="modal-campo-grupo" style={{ marginBottom: '1.25rem' }}>
+                <label className="modal-label">Nombre del Tipo de Lente</label>
+                <input
+                  type="text"
+                  value={nombreNuevoTipoLente}
+                  onChange={(e) => setNombreNuevoTipoLente(e.target.value)}
+                  placeholder="Ej: Ocupacional Antifatiga, Progresivo HD..."
+                  className="modal-input"
+                  autoFocus
+                  required
+                />
+                <span style={{ fontSize: '0.70rem', color: 'var(--texto-atenuado)', marginTop: '0.25rem' }}>
+                  Solo tu óptica podrá ver y prescribir este tipo de lente personalizado.
+                </span>
+              </div>
+
+              {errorTipoLente && (
+                <div style={{ fontSize: '0.75rem', color: '#ef4444', marginBottom: '1rem' }}>
+                  {errorTipoLente}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setModalNuevoTipoLenteAbierto(false)}
+                  disabled={guardandoTipoLente}
+                  className="btn-pildora-secundario"
+                  style={{ padding: '0.45rem 1rem', fontSize: '0.80rem' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={guardandoTipoLente || !nombreNuevoTipoLente.trim()}
+                  className="btn-pildora-primario"
+                  style={{ padding: '0.45rem 1.15rem', fontSize: '0.80rem' }}
+                >
+                  {guardandoTipoLente ? 'Guardando...' : 'Guardar Tipo'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Confirmar Eliminación de Tipo de Lente */}
+      {tipoLenteParaEliminar && (
+        <div
+          className="modal-cierre-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !eliminandoTipoLente) {
+              setTipoLenteParaEliminar(null);
+            }
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="modal-cierre-tarjeta"
+            style={{
+              maxWidth: '410px',
+              textAlign: 'center',
+              padding: '1.75rem 1.75rem 1.5rem 1.75rem',
+              position: 'relative',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setTipoLenteParaEliminar(null)}
+              disabled={eliminandoTipoLente}
+              className="modal-cierre-btn-cerrar"
+              style={{ position: 'absolute', top: '1rem', right: '1rem' }}
+              title="Cerrar ventana"
+            >
+              <X size={16} />
+            </button>
+
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
+                background: 'rgba(239, 68, 68, 0.12)',
+                color: '#ef4444',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 1rem auto',
+              }}
+            >
+              <Trash2 size={22} />
+            </div>
+
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--texto-principal)' }}>
+              ¿Eliminar tipo de lente?
+            </h3>
+
+            <p
+              style={{
+                fontSize: '0.82rem',
+                color: 'var(--texto-atenuado)',
+                margin: '0.75rem 0 1.35rem 0',
+                lineHeight: '1.45',
+              }}
+            >
+              ¿Seguro que deseas eliminar el tipo de lente{' '}
+              <strong style={{ color: 'var(--texto-principal)' }}>
+                "{tipoLenteParaEliminar.nombre}"
+              </strong>
+              ? Las fórmulas ya prescritas mantendrán su información histórica intacta.
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setTipoLenteParaEliminar(null)}
+                disabled={eliminandoTipoLente}
+                className="btn-pildora-secundario"
+                style={{ padding: '0.45rem 1.15rem', fontSize: '0.82rem' }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmarEliminarTipoLente}
+                disabled={eliminandoTipoLente}
+                className="btn-pildora-peligro"
+                style={{ padding: '0.45rem 1.25rem', fontSize: '0.82rem' }}
+              >
+                <Trash2 style={{ width: '13px', height: '13px' }} />
+                <span>{eliminandoTipoLente ? 'Eliminando...' : 'Eliminar Tipo'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Editar Tipo de Lente */}
+      {tipoLenteParaEditar && (
+        <div
+          className="modal-cierre-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !guardandoEdicionTipoLente) {
+              setTipoLenteParaEditar(null);
+            }
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="modal-cierre-tarjeta"
+            style={{ maxWidth: '420px', textAlign: 'left', padding: '1.75rem 1.75rem 1.5rem 1.75rem' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    background: 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.12)',
+                    color: 'var(--color-primario, #0284c7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Glasses size={16} />
+                </div>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: 'var(--texto-principal)' }}>
+                  Editar Tipo de Lente
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTipoLenteParaEditar(null)}
+                disabled={guardandoEdicionTipoLente}
+                className="modal-cierre-btn-cerrar"
+                style={{ position: 'static' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={manejarEditarTipoLente}>
+              <div className="modal-campo-grupo" style={{ marginBottom: '1.25rem' }}>
+                <label className="modal-label">Nombre del Tipo de Lente</label>
+                <input
+                  type="text"
+                  value={nombreEditandoTipoLente}
+                  onChange={(e) => setNombreEditandoTipoLente(e.target.value)}
+                  className="modal-input"
+                  autoFocus
+                  required
+                />
+                <span style={{ fontSize: '0.70rem', color: 'var(--texto-atenuado)', marginTop: '0.25rem' }}>
+                  El nuevo nombre quedará personalizado y activo para tu óptica.
+                </span>
+              </div>
+
+              {errorEdicionTipoLente && (
+                <div style={{ fontSize: '0.75rem', color: '#ef4444', marginBottom: '1rem' }}>
+                  {errorEdicionTipoLente}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setTipoLenteParaEditar(null)}
+                  disabled={guardandoEdicionTipoLente}
+                  className="btn-pildora-secundario"
+                  style={{ padding: '0.45rem 1rem', fontSize: '0.80rem' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={guardandoEdicionTipoLente || !nombreEditandoTipoLente.trim()}
+                  className="btn-pildora-primario"
+                  style={{ padding: '0.45rem 1.15rem', fontSize: '0.80rem' }}
+                >
+                  {guardandoEdicionTipoLente ? 'Guardando...' : 'Guardar Cambios'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

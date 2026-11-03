@@ -9,6 +9,7 @@ interface PropiedadesSelectorHoraPopover {
   valor: string; // Formato esperado: "11:00 AM" o vacio ""
   alCambiar: (nuevaHora: string) => void;
   placeholder?: string;
+  tamano?: 'normal' | 'compacto';
 }
 
 const ATAJOS_RAPIDOS = [
@@ -23,6 +24,7 @@ export const SelectorHoraPopover: React.FC<PropiedadesSelectorHoraPopover> = ({
   valor,
   alCambiar,
   placeholder = 'Seleccionar hora...',
+  tamano = 'normal',
 }) => {
   const [abierto, setAbierto] = useState(false);
   const [montado, setMontado] = useState(false);
@@ -222,7 +224,17 @@ export const SelectorHoraPopover: React.FC<PropiedadesSelectorHoraPopover> = ({
       <button
         ref={disparadorRef}
         type="button"
-        className={`selector-hora-disparador ${abierto ? 'abierto' : ''}`}
+        className={`selector-hora-disparador ${tamano === 'compacto' ? 'selector-hora-disparador-compacto' : ''} ${abierto ? 'abierto' : ''}`}
+        style={
+          tamano === 'compacto'
+            ? {
+                height: '29px',
+                padding: '0 0.55rem',
+                fontSize: '0.74rem',
+                borderRadius: '5px',
+              }
+            : undefined
+        }
         onClick={() => {
           setAbierto(!abierto);
           setMenuHoraAbierto(false);
@@ -231,11 +243,20 @@ export const SelectorHoraPopover: React.FC<PropiedadesSelectorHoraPopover> = ({
         aria-haspopup="dialog"
         aria-expanded={abierto}
       >
-        <span className={`selector-texto-etiqueta ${!valor ? 'es-placeholder' : ''}`}>
+        <span
+          className={`selector-texto-etiqueta ${!valor ? 'es-placeholder' : ''}`}
+          style={tamano === 'compacto' ? { fontSize: '0.74rem' } : undefined}
+        >
           {textoMostrado}
         </span>
-        <div className="selector-hora-disparador-icono-wrapper">
-          <Clock className="selector-hora-disparador-icono" />
+        <div
+          className="selector-hora-disparador-icono-wrapper"
+          style={tamano === 'compacto' ? { width: '15px', height: '15px' } : undefined}
+        >
+          <Clock
+            className="selector-hora-disparador-icono"
+            style={tamano === 'compacto' ? { width: '13px', height: '13px' } : undefined}
+          />
         </div>
       </button>
 
