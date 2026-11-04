@@ -35,6 +35,7 @@ import {
   lanzarLoteCampana,
   obtenerHistorialLotes,
   eliminarLoteCampana,
+  obtenerDestinatariosFallidosCampana,
   obtenerMapaPlantillasPorNombre,
   subirMultimediaStorage,
 } from '@/backend/servicios/gestor_plantillas.mjs';
@@ -244,7 +245,12 @@ async function procesarPeticion(
           o.color_primario, o.color_secundario, o.telefono AS optica_telefono,
           COALESCE(o.ia_habilitada, true) AS optica_ia_habilitada,
           o.activo AS optica_activo,
-          o.fecha_vencimiento AS optica_fecha_vencimiento
+          o.fecha_vencimiento AS optica_fecha_vencimiento,
+          o.especialista_defecto AS optica_especialista_defecto,
+          o.registro_profesional_defecto AS optica_registro_profesional_defecto,
+          o.control_meses_defecto AS optica_control_meses_defecto,
+          o.duracion_cita_minutos AS optica_duracion_cita_minutos,
+          o.motivo_cita_defecto AS optica_motivo_cita_defecto
         FROM usuarios u
         LEFT JOIN opticas o ON u.optica_id = o.id
         WHERE LOWER(u.usuario) = ?
@@ -354,6 +360,11 @@ async function procesarPeticion(
           dias_restantes: suscripcionOptica.dias_restantes,
           plan_vencido: suscripcionOptica.plan_vencido,
           estado_plan: suscripcionOptica.estado_plan,
+          especialista_defecto: usuarioDb.optica_especialista_defecto || '',
+          registro_profesional_defecto: usuarioDb.optica_registro_profesional_defecto || '',
+          control_meses_defecto: usuarioDb.optica_control_meses_defecto || 12,
+          duracion_cita_minutos: usuarioDb.optica_duracion_cita_minutos || 30,
+          motivo_cita_defecto: usuarioDb.optica_motivo_cita_defecto || '',
         },
       });
     }
@@ -945,10 +956,10 @@ async function procesarPeticion(
     }
 
     if (metodo === 'POST' && rutaStr === 'contactos') {
-      const { nombre, nombre_completo, tipo_documento = 'CC', cedula, documento, telefono, correo, edad, sexo = 'masculino', es_paciente = true, tipologia_id } = body;
+      const { nombre, nombre_completo, tipo_documento = 'CC', cedula, documento, telefono, correo, edad, sexo, es_paciente = true, tipologia_id } = body;
       const nombreFinal = String(nombre_completo || nombre || '').trim();
       const doc = String(cedula || documento || '').trim();
-      const sexoFinal = sexo ? String(sexo).trim().toLowerCase() : 'masculino';
+      const sexoFinal = sexo && String(sexo).trim() ? String(sexo).trim().toLowerCase() : null;
 
       if (!nombreFinal) {
         return NextResponse.json({ exito: false, error: 'El nombre completo es obligatorio' }, { status: 400 });
@@ -1046,7 +1057,7 @@ async function procesarPeticion(
         telefono !== undefined ? (telefono ? String(telefono).trim() : null) : actual.telefono,
         correo !== undefined ? (correo ? String(correo).trim() : null) : actual.correo,
         edad !== undefined ? (edad ? Number(edad) : null) : actual.edad,
-        sexo !== undefined ? (sexo ? String(sexo).trim().toLowerCase() : 'masculino') : (actual.sexo || 'masculino'),
+        sexo !== undefined ? (sexo && String(sexo).trim() ? String(sexo).trim().toLowerCase() : null) : (actual.sexo || null),
         es_paciente !== undefined ? Boolean(es_paciente) : actual.es_paciente,
         tipologia_id !== undefined ? (tipologia_id ? Number(tipologia_id) : null) : actual.tipologia_id,
         id,
@@ -1166,10 +1177,16 @@ async function procesarPeticion(
           try {
             const parseado = JSON.parse(val);
             if (Array.isArray(parseado)) return JSON.stringify(parseado);
-          } catch {}
+          } catch { }
           return JSON.stringify(val.split(',').map((s: string) => s.trim()).filter(Boolean));
         }
         return JSON.stringify([]);
+      };
+
+      const limpiarPresion = (val: any) => {
+        if (!val) return null;
+        const num = String(val).replace(/[^\d]/g, '').trim();
+        return num ? `${num} mmHg` : null;
       };
 
       const insercion = await base_datos.prepare(`
@@ -1206,7 +1223,7 @@ async function procesarPeticion(
         normalizarArrayJson(antecedentes_familiares), antecedentes_familiares_otros || null,
         av_sc_od || null, av_sc_oi || null, refraccion_od || null, refraccion_oi || null,
         queratometria_od || null, queratometria_oi || null,
-        presion_intraocular_od || null, presion_intraocular_oi || null,
+        limpiarPresion(presion_intraocular_od), limpiarPresion(presion_intraocular_oi),
         biomicroscopia || null, fondo_ojo || null, String(diagnostico || '').trim(),
         normalizarArrayJson(plan_manejo), plan_manejo_otros || null, plan_manejo_control_meses ? Number(plan_manejo_control_meses) : null,
         observaciones || null, String(optometra || 'Especialista').trim(), tarjeta_profesional || null
@@ -1219,9 +1236,22 @@ async function procesarPeticion(
 
     if (metodo === 'PUT' && segmentosRuta[0] === 'historias_clinicas' && segmentosRuta.length === 2) {
       const historiaId = Number(segmentosRuta[1]);
-      const actual = await base_datos.prepare('SELECT id FROM historias_clinicas WHERE id = ? AND optica_id = ?').get(historiaId, optica_id);
+      const actual = await base_datos.prepare('SELECT id, creado_en, actualizado_en, fecha_atencion, hora_atencion FROM historias_clinicas WHERE id = ? AND optica_id = ?').get(historiaId, optica_id);
       if (!actual) {
         return NextResponse.json({ exito: false, error: 'Historia clínica no encontrada' }, { status: 404 });
+      }
+
+      // Validar ventana de edición de 24 horas
+      const fechaRef = actual.actualizado_en || actual.creado_en;
+      if (fechaRef) {
+        const tiempo = new Date(fechaRef).getTime();
+        const MILISEGUNDOS_24_HORAS = 24 * 60 * 60 * 1000;
+        if (!isNaN(tiempo) && (Date.now() - tiempo > MILISEGUNDOS_24_HORAS)) {
+          return NextResponse.json(
+            { exito: false, error: 'No es posible editar historias clínicas después de transcurridas 24 horas desde su registro o actualización.' },
+            { status: 403 }
+          );
+        }
       }
 
       const {
@@ -1259,10 +1289,16 @@ async function procesarPeticion(
           try {
             const parseado = JSON.parse(val);
             if (Array.isArray(parseado)) return JSON.stringify(parseado);
-          } catch {}
+          } catch { }
           return JSON.stringify(val.split(',').map((s: string) => s.trim()).filter(Boolean));
         }
         return JSON.stringify([]);
+      };
+
+      const limpiarPresion = (val: any) => {
+        if (!val) return null;
+        const num = String(val).replace(/[^\d]/g, '').trim();
+        return num ? `${num} mmHg` : null;
       };
 
       await base_datos.prepare(`
@@ -1303,7 +1339,7 @@ async function procesarPeticion(
         normalizarArrayJson(antecedentes_familiares), antecedentes_familiares_otros || null,
         av_sc_od || null, av_sc_oi || null, refraccion_od || null, refraccion_oi || null,
         queratometria_od || null, queratometria_oi || null,
-        presion_intraocular_od || null, presion_intraocular_oi || null,
+        limpiarPresion(presion_intraocular_od), limpiarPresion(presion_intraocular_oi),
         biomicroscopia || null, fondo_ojo || null, String(diagnostico || '').trim(),
         normalizarArrayJson(plan_manejo), plan_manejo_otros || null, plan_manejo_control_meses ? Number(plan_manejo_control_meses) : null,
         observaciones || null, String(optometra || 'Especialista').trim(), tarjeta_profesional || null,
@@ -1702,6 +1738,12 @@ async function procesarPeticion(
       return NextResponse.json(resultado);
     }
 
+    if (metodo === 'GET' && segmentosRuta[0] === 'plantillas' && segmentosRuta[1] === 'lotes' && segmentosRuta[3] === 'fallidos' && segmentosRuta.length === 4) {
+      const idCampana = Number(segmentosRuta[2]);
+      const resultado = await obtenerDestinatariosFallidosCampana(optica_id, idCampana);
+      return NextResponse.json(resultado);
+    }
+
     // 9. CANALES Y CONFIGURACIÓN
     if (metodo === 'GET' && rutaStr === 'canales/estado') {
       const resultado = await obtener_canales_optica(optica_id);
@@ -1820,11 +1862,11 @@ async function procesarPeticion(
       return NextResponse.json({ exito: true }, { headers: ENCABEZADOS_NO_CACHE });
     }
 
-    // 8.2. TIPOS DE LENTES (PREDETERMINADOS DEL SISTEMA + PERSONALIZADOS POR ÓPTICA)
-    if (metodo === 'GET' && rutaStr === 'configuracion/tipos-lentes') {
-      const tipos = await base_datos.prepare(`
+    // 8.2. TRATAMIENTOS Y MATERIALES DE LENTES (PREDETERMINADOS DEL SISTEMA + PERSONALIZADOS POR ÓPTICA)
+    if (metodo === 'GET' && rutaStr === 'configuracion/tratamientos-lentes') {
+      const tratamientos = await base_datos.prepare(`
         SELECT id, optica_id, reemplaza_predeterminado_id, nombre, es_predeterminado, activo, creado_en
-        FROM tipos_lentes
+        FROM tratamientos_lentes
         WHERE (
           (optica_id = ? AND activo = true)
           OR (
@@ -1832,128 +1874,149 @@ async function procesarPeticion(
             AND activo = true
             AND id NOT IN (
               SELECT COALESCE(reemplaza_predeterminado_id, 0)
-              FROM tipos_lentes 
+              FROM tratamientos_lentes 
               WHERE optica_id = ? AND reemplaza_predeterminado_id IS NOT NULL AND activo = true
             )
           )
         )
         ORDER BY LOWER(nombre) ASC
       `).all(optica_id, optica_id);
-      return NextResponse.json({ exito: true, tipos_lentes: tipos }, { headers: ENCABEZADOS_NO_CACHE });
+      return NextResponse.json({
+        exito: true,
+        tratamientos_lentes: tratamientos,
+      }, { headers: ENCABEZADOS_NO_CACHE });
     }
 
-    if (metodo === 'POST' && rutaStr === 'configuracion/tipos-lentes') {
+    if (metodo === 'POST' && rutaStr === 'configuracion/tratamientos-lentes') {
       const { nombre } = body;
       const nombreLimpio = String(nombre || '').trim();
       if (!nombreLimpio) {
-        return NextResponse.json({ exito: false, error: 'El nombre del tipo de lente es obligatorio' }, { status: 400 });
+        return NextResponse.json({ exito: false, error: 'El nombre del tratamiento es obligatorio' }, { status: 400 });
       }
 
       // Validar si ya existe en predeterminados del sistema o en la óptica
       const existente = await base_datos.prepare(`
         SELECT id, optica_id, nombre, es_predeterminado, activo, creado_en
-        FROM tipos_lentes 
+        FROM tratamientos_lentes 
         WHERE (optica_id IS NULL OR optica_id = ?) AND LOWER(TRIM(nombre)) = LOWER(?)
       `).get(optica_id, nombreLimpio);
 
       if (existente) {
         if (!existente.activo) {
-          await base_datos.prepare('UPDATE tipos_lentes SET activo = true WHERE id = ?').run(existente.id);
+          await base_datos.prepare('UPDATE tratamientos_lentes SET activo = true WHERE id = ?').run(existente.id);
           existente.activo = true;
         }
-        return NextResponse.json({ exito: true, tipo_lente: existente, ya_existia: true }, { headers: ENCABEZADOS_NO_CACHE });
+        return NextResponse.json({
+          exito: true,
+          tratamiento_lente: existente,
+          ya_existia: true,
+        }, { headers: ENCABEZADOS_NO_CACHE });
       }
 
       const res = await base_datos.prepare(`
-        INSERT INTO tipos_lentes (optica_id, nombre, es_predeterminado, activo)
+        INSERT INTO tratamientos_lentes (optica_id, nombre, es_predeterminado, activo)
         VALUES (?, ?, false, true)
       `).run(optica_id, nombreLimpio);
 
       const nuevo = await base_datos.prepare(`
         SELECT id, optica_id, reemplaza_predeterminado_id, nombre, es_predeterminado, activo, creado_en
-        FROM tipos_lentes WHERE id = ?
+        FROM tratamientos_lentes WHERE id = ?
       `).get(res.lastInsertRowid);
 
-      return NextResponse.json({ exito: true, tipo_lente: nuevo }, { headers: ENCABEZADOS_NO_CACHE });
+      return NextResponse.json({
+        exito: true,
+        tratamiento_lente: nuevo,
+      }, { headers: ENCABEZADOS_NO_CACHE });
     }
 
-    if (metodo === 'PUT' && (rutaStr === 'configuracion/tipos-lentes' || (segmentosRuta[0] === 'configuracion' && segmentosRuta[1] === 'tipos-lentes'))) {
+    if (metodo === 'PUT' && (
+      rutaStr === 'configuracion/tratamientos-lentes' ||
+      (segmentosRuta[0] === 'configuracion' && segmentosRuta[1] === 'tratamientos-lentes')
+    )) {
       const idTipo = Number(segmentosRuta[2] || searchParams.get('id') || body.id);
       const nombreLimpio = String(body.nombre || '').trim();
       if (!idTipo || !nombreLimpio) {
-        return NextResponse.json({ exito: false, error: 'ID y nuevo nombre de tipo de lente requeridos' }, { status: 400 });
+        return NextResponse.json({ exito: false, error: 'ID y nuevo nombre de tratamiento requeridos' }, { status: 400 });
       }
 
       const tipoActual = await base_datos.prepare(`
         SELECT id, optica_id, reemplaza_predeterminado_id, nombre, es_predeterminado
-        FROM tipos_lentes
+        FROM tratamientos_lentes
         WHERE id = ?
       `).get(idTipo);
 
       if (!tipoActual) {
-        return NextResponse.json({ exito: false, error: 'Tipo de lente no encontrado' }, { status: 404 });
+        return NextResponse.json({ exito: false, error: 'Tratamiento no encontrado' }, { status: 404 });
       }
 
-      // Si es un tipo predeterminado del sistema (optica_id IS NULL):
-      // Creamos un reemplazo personalizado para esta óptica para que el predeterminado no aparezca más en ella
+      // Si es un tratamiento predeterminado del sistema (optica_id IS NULL):
       if (tipoActual.optica_id === null || tipoActual.es_predeterminado) {
         const res = await base_datos.prepare(`
-          INSERT INTO tipos_lentes (optica_id, reemplaza_predeterminado_id, nombre, es_predeterminado, activo)
+          INSERT INTO tratamientos_lentes (optica_id, reemplaza_predeterminado_id, nombre, es_predeterminado, activo)
           VALUES (?, ?, ?, false, true)
         `).run(optica_id, tipoActual.id, nombreLimpio);
 
         const tipoReemplazado = await base_datos.prepare(`
           SELECT id, optica_id, reemplaza_predeterminado_id, nombre, es_predeterminado, activo, creado_en
-          FROM tipos_lentes WHERE id = ?
+          FROM tratamientos_lentes WHERE id = ?
         `).get(res.lastInsertRowid);
 
-        return NextResponse.json({ exito: true, tipo_lente: tipoReemplazado }, { headers: ENCABEZADOS_NO_CACHE });
+        return NextResponse.json({
+          exito: true,
+          tratamiento_lente: tipoReemplazado,
+        }, { headers: ENCABEZADOS_NO_CACHE });
       }
 
-      // Si es un tipo personalizado propio de la óptica:
+      // Si es un tratamiento propio de la óptica:
       if (tipoActual.optica_id !== optica_id) {
-        return NextResponse.json({ exito: false, error: 'No tienes permisos para editar este tipo de lente' }, { status: 403 });
+        return NextResponse.json({ exito: false, error: 'No tienes permisos para editar este tratamiento' }, { status: 403 });
       }
 
       await base_datos.prepare(`
-        UPDATE tipos_lentes 
+        UPDATE tratamientos_lentes 
         SET nombre = ? 
         WHERE id = ? AND optica_id = ?
       `).run(nombreLimpio, idTipo, optica_id);
 
       const tipoActualizado = await base_datos.prepare(`
         SELECT id, optica_id, reemplaza_predeterminado_id, nombre, es_predeterminado, activo, creado_en
-        FROM tipos_lentes WHERE id = ?
+        FROM tratamientos_lentes WHERE id = ?
       `).get(idTipo);
 
-      return NextResponse.json({ exito: true, tipo_lente: tipoActualizado }, { headers: ENCABEZADOS_NO_CACHE });
+      return NextResponse.json({
+        exito: true,
+        tratamiento_lente: tipoActualizado,
+      }, { headers: ENCABEZADOS_NO_CACHE });
     }
 
-    if (metodo === 'DELETE' && (rutaStr === 'configuracion/tipos-lentes' || (segmentosRuta[0] === 'configuracion' && segmentosRuta[1] === 'tipos-lentes'))) {
+    if (metodo === 'DELETE' && (
+      rutaStr === 'configuracion/tratamientos-lentes' ||
+      (segmentosRuta[0] === 'configuracion' && segmentosRuta[1] === 'tratamientos-lentes')
+    )) {
       const idTipo = segmentosRuta[2] || searchParams.get('id') || body.id;
       if (!idTipo) {
-        return NextResponse.json({ exito: false, error: 'ID de tipo de lente requerido' }, { status: 400 });
+        return NextResponse.json({ exito: false, error: 'ID de tratamiento requerido' }, { status: 400 });
       }
 
       const tipoExistente = await base_datos.prepare(`
         SELECT id, optica_id, nombre, es_predeterminado 
-        FROM tipos_lentes 
+        FROM tratamientos_lentes 
         WHERE id = ?
       `).get(idTipo);
 
       if (!tipoExistente) {
-        return NextResponse.json({ exito: false, error: 'Tipo de lente no encontrado' }, { status: 404 });
+        return NextResponse.json({ exito: false, error: 'Tratamiento no encontrado' }, { status: 404 });
       }
 
       if (tipoExistente.es_predeterminado || tipoExistente.optica_id === null) {
-        return NextResponse.json({ exito: false, error: 'No es posible eliminar los tipos de lente predeterminados del sistema' }, { status: 403 });
+        return NextResponse.json({ exito: false, error: 'No es posible eliminar los tratamientos predeterminados del sistema' }, { status: 403 });
       }
 
       if (tipoExistente.optica_id !== optica_id) {
-        return NextResponse.json({ exito: false, error: 'No tienes permisos para eliminar este tipo de lente' }, { status: 403 });
+        return NextResponse.json({ exito: false, error: 'No tienes permisos para eliminar este tratamiento' }, { status: 403 });
       }
 
-      await base_datos.prepare('DELETE FROM tipos_lentes WHERE id = ? AND optica_id = ?').run(idTipo, optica_id);
+      await base_datos.prepare('DELETE FROM tratamientos_lentes WHERE id = ? AND optica_id = ?').run(idTipo, optica_id);
       return NextResponse.json({ exito: true }, { headers: ENCABEZADOS_NO_CACHE });
     }
 
@@ -2334,10 +2397,16 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
             o.fecha_vencimiento,
             o.zernio_api_key,
             o.zernio_webhook_secret,
+            o.especialista_defecto,
+            o.registro_profesional_defecto,
+            o.control_meses_defecto,
+            o.duracion_cita_minutos,
+            o.motivo_cita_defecto,
+            o.notificacion_auto_citas_whatsapp,
             COUNT(u.id) AS total_usuarios
           FROM opticas o
           LEFT JOIN usuarios u ON u.optica_id = o.id
-          GROUP BY o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa, o.ia_habilitada, o.fecha_vencimiento, o.zernio_api_key, o.zernio_webhook_secret
+          GROUP BY o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa, o.ia_habilitada, o.fecha_vencimiento, o.zernio_api_key, o.zernio_webhook_secret, o.especialista_defecto, o.registro_profesional_defecto, o.control_meses_defecto, o.duracion_cita_minutos, o.motivo_cita_defecto, o.notificacion_auto_citas_whatsapp
           ORDER BY o.id ASC
         `).all();
 
@@ -2539,10 +2608,16 @@ Paciente de prueba: Juan Pérez (Sin citas previas)`;
             o.fecha_vencimiento,
             o.zernio_api_key,
             o.zernio_webhook_secret,
+            o.especialista_defecto,
+            o.registro_profesional_defecto,
+            o.control_meses_defecto,
+            o.duracion_cita_minutos,
+            o.motivo_cita_defecto,
+            o.notificacion_auto_citas_whatsapp,
             COUNT(u.id) AS total_usuarios
           FROM opticas o
           LEFT JOIN usuarios u ON u.optica_id = o.id
-          GROUP BY o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa, o.ia_habilitada, o.fecha_vencimiento, o.zernio_api_key, o.zernio_webhook_secret
+          GROUP BY o.id, o.nombre, o.slug, o.telefono, o.color_primario, o.color_secundario, o.logo_url, o.activo, o.ia_activa, o.ia_habilitada, o.fecha_vencimiento, o.zernio_api_key, o.zernio_webhook_secret, o.especialista_defecto, o.registro_profesional_defecto, o.control_meses_defecto, o.duracion_cita_minutos, o.motivo_cita_defecto, o.notificacion_auto_citas_whatsapp
           ORDER BY o.id ASC
         `).all();
 

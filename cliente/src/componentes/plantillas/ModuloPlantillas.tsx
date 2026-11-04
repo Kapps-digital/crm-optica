@@ -24,6 +24,7 @@ import {
   HelpCircle,
   Check,
   Trash2,
+  UserX,
 } from 'lucide-react';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
@@ -33,6 +34,7 @@ import { BarraPaginacionTabla } from '../comunes/BarraPaginacionTabla';
 import { BurbujaWhatsApp } from './BurbujaWhatsApp';
 import { ModalCrearPlantilla } from './ModalCrearPlantilla';
 import { ModalLanzarLote } from './ModalLanzarLote';
+import { ModalDestinatariosFallidos } from './ModalDestinatariosFallidos';
 import {
   obtenerPlantillasYCuota,
   obtenerHistorialLotesApi,
@@ -89,6 +91,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
   const [modalCrearAbierto, setModalCrearAbierto] = useState(false);
   const [modalLanzarAbierto, setModalLanzarAbierto] = useState(false);
   const [plantillaSeleccionadaLanzar, setPlantillaSeleccionadaLanzar] = useState<PlantillaWhatsApp | null>(null);
+  const [campanaVerFallidos, setCampanaVerFallidos] = useState<CampanaEnvioHistorial | null>(null);
   const [segmentoPreseleccionadoId, setSegmentoPreseleccionadoId] = useState<number | null>(
     segmentoInicial ? segmentoInicial.id : null
   );
@@ -268,7 +271,8 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
     if (!fechaIso) return 'Reciente';
     try {
       const f = new Date(fechaIso);
-      return f.toLocaleDateString('es-ES', {
+      return f.toLocaleDateString('es-CO', {
+        timeZone: 'America/Bogota',
         day: '2-digit',
         month: 'short',
         year: 'numeric',
@@ -277,6 +281,28 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
       });
     } catch {
       return fechaIso;
+    }
+  };
+
+  const formatearFechaComponentes = (fechaIso?: string) => {
+    if (!fechaIso) return { fecha: 'Reciente', hora: '' };
+    try {
+      const f = new Date(fechaIso);
+      const fecha = f.toLocaleDateString('es-CO', {
+        timeZone: 'America/Bogota',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+      const hora = f.toLocaleTimeString('es-CO', {
+        timeZone: 'America/Bogota',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+      return { fecha, hora };
+    } catch {
+      return { fecha: 'Reciente', hora: '' };
     }
   };
 
@@ -949,7 +975,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
             ) : (
               <>
                 <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left', tableLayout: 'fixed' }}>
                   <thead>
                     <tr
                       style={{
@@ -958,134 +984,123 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                         color: 'var(--texto-secundario)',
                         fontWeight: 700,
                         textTransform: 'uppercase',
-                        fontSize: '0.72rem',
+                        fontSize: '0.70rem',
                         letterSpacing: '0.04em',
                       }}
                     >
-                      <th style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Fecha</th>
-                      <th style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Campaña</th>
-                      <th style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Plantilla</th>
-                      <th style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Audiencia</th>
-                      <th style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>Destinatarios</th>
-                      <th style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>Enviados</th>
-                      <th style={{ padding: '0.85rem 1rem' }}>Estado</th>
-                      <th style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>Acciones</th>
+                      <th style={{ padding: '0.8rem 0.65rem', width: '14%' }}>Fecha</th>
+                      <th style={{ padding: '0.8rem 0.65rem', width: '30%' }}>Campaña y Audiencia</th>
+                      <th style={{ padding: '0.8rem 0.65rem', width: '17%' }}>Plantilla</th>
+                      <th style={{ padding: '0.8rem 0.5rem', width: '10%', textAlign: 'center' }}>Destinatarios</th>
+                      <th style={{ padding: '0.8rem 0.65rem', width: '15%', textAlign: 'center' }}>Enviados</th>
+                      <th style={{ padding: '0.8rem 0.5rem', width: '7%', textAlign: 'center' }}>Estado</th>
+                      <th style={{ padding: '0.8rem 0.5rem', width: '7%', textAlign: 'center' }}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {historialLotesPaginados.map((item) => (
-                      <tr
-                        key={item.id}
-                        style={{
-                          borderBottom: '1px solid var(--borde-suave)',
-                          transition: 'background 0.15s ease',
-                        }}
-                      >
-                        <td style={{ padding: '0.85rem 1rem', color: 'var(--texto-secundario)', whiteSpace: 'nowrap' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            <Calendar size={13} />
-                            {formatearFecha(item.creado_en)}
-                          </div>
-                        </td>
-                        <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
-                          {(() => {
-                            const LIMITE_CARACTERES_CAMPANA = 20;
-                            const esLargo = (item.nombre_campana || '').length > LIMITE_CARACTERES_CAMPANA;
-                            const textoAMostrar = esLargo
-                              ? `${item.nombre_campana.slice(0, 19).trimEnd()}...`
-                              : item.nombre_campana;
+                    {historialLotesPaginados.map((item) => {
+                      const { fecha: fechaCol, hora: horaCol } = formatearFechaComponentes(item.creado_en);
+                      return (
+                        <tr
+                          key={item.id}
+                          style={{
+                            borderBottom: '1px solid var(--borde-suave)',
+                            transition: 'background 0.15s ease',
+                          }}
+                        >
+                          {/* 1. Fecha */}
+                          <td style={{ padding: '0.75rem 0.65rem', whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.25 }}>
+                              <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--texto-principal)' }}>
+                                {fechaCol}
+                              </span>
+                              <span style={{ fontSize: '0.70rem', color: 'var(--texto-secundario)' }}>
+                                {horaCol}
+                              </span>
+                            </div>
+                          </td>
 
-                            return esLargo ? (
-                              <EtiquetaTooltip texto={item.nombre_campana} posicion="arriba">
-                                <span
-                                  style={{
-                                    display: 'inline-block',
-                                    whiteSpace: 'nowrap',
-                                    fontWeight: 700,
-                                    color: 'var(--texto-principal)',
-                                    cursor: 'help',
-                                  }}
-                                >
-                                  {textoAMostrar}
+                          {/* 2. Campaña combinada con Audiencia */}
+                          <td style={{ padding: '0.75rem 0.65rem', textAlign: 'left' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.2rem', textAlign: 'left' }}>
+                              <EtiquetaTooltip texto={item.nombre_campana} posicion="arriba" style={{ justifyContent: 'flex-start', display: 'inline-flex' }}>
+                                <span style={{ fontWeight: 700, color: 'var(--texto-principal)', fontSize: '0.82rem', cursor: 'help', textAlign: 'left' }}>
+                                  {item.nombre_campana}
                                 </span>
                               </EtiquetaTooltip>
-                            ) : (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--texto-secundario)', fontSize: '0.72rem' }}>
+                                {item.origen_tipo === 'segmento' ? (
+                                  <>
+                                    <Users size={12} color="#3b82f6" style={{ flexShrink: 0 }} />
+                                    <span style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      {item.segmento_nombre || 'Segmento Inteligente'}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <FileSpreadsheet size={12} color="#f59e0b" style={{ flexShrink: 0 }} />
+                                    <span>Lista Externa</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* 3. Plantilla */}
+                          <td style={{ padding: '0.75rem 0.65rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <EtiquetaTooltip texto={item.plantilla_etiqueta || 'Plantilla WhatsApp'} posicion="arriba">
                               <span
                                 style={{
                                   display: 'inline-block',
+                                  maxWidth: '100%',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
-                                  fontWeight: 700,
-                                  color: 'var(--texto-principal)',
+                                  verticalAlign: 'middle',
+                                  padding: '0.2rem 0.5rem',
+                                  borderRadius: '6px',
+                                  background: 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.1)',
+                                  color: 'var(--color-primario)',
+                                  fontWeight: 600,
+                                  fontSize: '0.74rem',
+                                  border: '1px solid rgba(var(--color-primario-rgb, 2, 132, 199), 0.2)',
+                                  cursor: 'default',
                                 }}
                               >
-                                {item.nombre_campana}
+                                {item.plantilla_etiqueta || 'Plantilla WhatsApp'}
                               </span>
-                            );
-                          })()}
-                        </td>
-                        <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
-                          <EtiquetaTooltip texto={item.plantilla_etiqueta || 'Plantilla WhatsApp'} posicion="arriba">
-                            <span
-                              style={{
-                                display: 'inline-block',
-                                maxWidth: '165px',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                verticalAlign: 'middle',
-                                padding: '0.22rem 0.55rem',
-                                borderRadius: '6px',
-                                background: 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.1)',
-                                color: 'var(--color-primario)',
-                                fontWeight: 600,
-                                fontSize: '0.75rem',
-                                border: '1px solid rgba(var(--color-primario-rgb, 2, 132, 199), 0.2)',
-                                cursor: 'default',
-                              }}
-                            >
-                              {item.plantilla_etiqueta || 'Plantilla WhatsApp'}
-                            </span>
-                          </EtiquetaTooltip>
-                        </td>
-                        <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--texto-secundario)' }}>
-                            {item.origen_tipo === 'segmento' ? (
-                              <>
-                                <Users size={14} color="#3b82f6" style={{ flexShrink: 0 }} />
-                                <span style={{ maxWidth: '170px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  {item.segmento_nombre || 'Segmento Inteligente'}
+                            </EtiquetaTooltip>
+                          </td>
+
+                          {/* 4. Destinatarios */}
+                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', fontWeight: 700, fontSize: '0.82rem' }}>
+                            {item.total_destinatarios}
+                          </td>
+
+                          {/* 5. Enviados (con fallidos en una sola línea horizontal) */}
+                          <td style={{ padding: '0.75rem 0.65rem', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
+                              <span style={{ color: '#10b981', fontWeight: 700, fontSize: '0.82rem' }}>
+                                {item.total_enviados}
+                              </span>
+                              {item.total_fallidos > 0 && (
+                                <span style={{ color: '#ef4444', fontSize: '0.73rem', fontWeight: 600 }}>
+                                  ({item.total_fallidos} fallidos)
                                 </span>
-                              </>
-                            ) : (
-                              <>
-                                <FileSpreadsheet size={14} color="#f59e0b" style={{ flexShrink: 0 }} />
-                                <span>Lista Externa</span>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                        <td style={{ padding: '0.85rem 1rem', textAlign: 'center', fontWeight: 700 }}>
-                          {item.total_destinatarios}
-                        </td>
-                        <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>
-                          <span style={{ color: '#10b981', fontWeight: 700 }}>
-                            {item.total_enviados}
-                          </span>
-                          {item.total_fallidos > 0 && (
-                            <span style={{ color: '#ef4444', fontSize: '0.72rem', marginLeft: '0.3rem' }}>
-                              ({item.total_fallidos} fallidos)
-                            </span>
-                          )}
-                        </td>
-                        <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* 6. Estado (Badge conciso con tooltip informativo) */}
+                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', whiteSpace: 'nowrap' }}>
                             <EtiquetaTooltip
                               texto={
-                                (item.estado || '').toLowerCase() === 'completado'
+                                item.error_mensaje ||
+                                ((item.estado || '').toLowerCase() === 'completado'
                                   ? 'Lote completado con éxito'
                                   : (item.estado || '').toLowerCase() === 'fallido'
                                     ? 'Lote con envíos fallidos'
-                                    : `Estado: ${item.estado || 'En proceso'}`
+                                    : `Estado: ${item.estado || 'En proceso'}`)
                               }
                               posicion="arriba"
                             >
@@ -1108,15 +1123,14 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                                       ? '#10b981'
                                       : (item.estado || '').toLowerCase() === 'fallido'
                                         ? '#ef4444'
-                                        : '#f59e0b',
+                                        : '#d97706',
                                   border:
                                     (item.estado || '').toLowerCase() === 'completado'
                                       ? '1px solid rgba(16, 185, 129, 0.25)'
                                       : (item.estado || '').toLowerCase() === 'fallido'
                                         ? '1px solid rgba(239, 68, 68, 0.25)'
                                         : '1px solid rgba(245, 158, 11, 0.25)',
-                                  flexShrink: 0,
-                                  cursor: 'default',
+                                  cursor: 'help',
                                 }}
                               >
                                 {(item.estado || '').toLowerCase() === 'completado' ? (
@@ -1126,57 +1140,73 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                                 )}
                               </span>
                             </EtiquetaTooltip>
+                          </td>
 
-                            {item.error_mensaje && (
-                              <EtiquetaTooltip texto={item.error_mensaje} posicion="arriba">
-                                <span
-                                  style={{
-                                    display: 'inline-block',
-                                    maxWidth: '180px',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    verticalAlign: 'middle',
-                                    fontSize: '0.70rem',
-                                    color: '#ef4444',
-                                    cursor: 'help',
-                                    fontWeight: 500,
-                                  }}
-                                >
-                                  {(item.error_mensaje || '').length > 24
-                                    ? `${(item.error_mensaje || '').slice(0, 22).trimEnd()}...`
-                                    : item.error_mensaje}
-                                </span>
-                              </EtiquetaTooltip>
-                            )}
-                          </div>
-                        </td>
-                        <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>
-                          <EtiquetaTooltip texto="Eliminar lote del historial" posicion="arriba">
-                            <button
-                              onClick={() => manejarEliminarLote(item.id)}
-                              aria-label="Eliminar lote del historial"
-                              style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: 'var(--texto-secundario)',
-                                cursor: 'pointer',
-                                padding: '0.3rem',
-                                borderRadius: '6px',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                transition: 'color 0.15s ease',
-                              }}
-                              onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-                              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--texto-secundario)')}
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </EtiquetaTooltip>
-                        </td>
-                      </tr>
-                    ))}
+                          {/* 7. Acciones: Rejilla fija de 2 slots para alinear iconos verticalmente sin saltos */}
+                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.45rem', minWidth: '58px' }}>
+                              <div style={{ width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {(item.total_fallidos > 0 || (item.estado || '').toLowerCase() === 'fallido' || (item.estado || '').toLowerCase() === 'parcial') && (
+                                  <EtiquetaTooltip texto={`Ver números y motivos fallidos (${item.total_fallidos || 0})`} posicion="arriba">
+                                    <button
+                                      onClick={() => setCampanaVerFallidos(item)}
+                                      aria-label="Ver destinatarios fallidos"
+                                      style={{
+                                        background: 'rgba(239, 68, 68, 0.1)',
+                                        border: '1px solid rgba(239, 68, 68, 0.25)',
+                                        color: '#ef4444',
+                                        cursor: 'pointer',
+                                        padding: '0.35rem',
+                                        borderRadius: '6px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        transition: 'all 0.15s ease',
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = '#ef4444';
+                                        e.currentTarget.style.color = '#ffffff';
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                                        e.currentTarget.style.color = '#ef4444';
+                                      }}
+                                    >
+                                      <UserX size={15} />
+                                    </button>
+                                  </EtiquetaTooltip>
+                                )}
+                              </div>
+
+                              <div style={{ width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <EtiquetaTooltip texto="Eliminar lote del historial" posicion="arriba">
+                                  <button
+                                    onClick={() => manejarEliminarLote(item.id)}
+                                    aria-label="Eliminar lote del historial"
+                                    style={{
+                                      background: 'transparent',
+                                      border: 'none',
+                                      color: 'var(--texto-secundario)',
+                                      cursor: 'pointer',
+                                      padding: '0.35rem',
+                                      borderRadius: '6px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      transition: 'color 0.15s ease',
+                                    }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                                    onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--texto-secundario)')}
+                                  >
+                                    <Trash2 size={15} />
+                                  </button>
+                                </EtiquetaTooltip>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1240,6 +1270,16 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
             `${identificador} lanzado con éxito (${resultado.total_enviados ?? 0} mensajes enviados).`
           );
         }}
+      />
+
+      {/* Modal para Ver Destinatarios Fallidos y Exportar */}
+      <ModalDestinatariosFallidos
+        abierto={Boolean(campanaVerFallidos)}
+        campanaId={campanaVerFallidos?.id ?? null}
+        nombreCampana={campanaVerFallidos?.nombre_campana}
+        totalFallidosReportados={campanaVerFallidos?.total_fallidos}
+        opticaId={opticaId}
+        alCerrar={() => setCampanaVerFallidos(null)}
       />
     </div>
   );

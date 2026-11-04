@@ -1856,10 +1856,7 @@ input[type="number"] {
 }
 
 .etiqueta-tooltip-flecha {
-  position: absolute;
-  width: 0;
-  height: 0;
-  border-style: solid;
+  display: none !important;
 }
 
 /* Flechas según posición */

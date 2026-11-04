@@ -60,14 +60,14 @@ import {
   obtenerTipologiasPacientesApi,
   crearTipologiaPacienteApi,
   eliminarTipologiaPacienteApi,
-  obtenerTiposLentesApi,
-  crearTipoLenteApi,
-  actualizarTipoLenteApi,
-  eliminarTipoLenteApi,
+  obtenerTratamientosLentesApi,
+  crearTratamientoLenteApi,
+  actualizarTratamientoLenteApi,
+  eliminarTratamientoLenteApi,
   type ResumenConsumoIA,
   type ConsumoTokensIA,
 } from '@/servicios/api_crm';
-import type { Optica, CuentaCanalWhatsApp, ConfiguracionIA, Usuario, TipologiaPaciente, TipoLente, GrupoHorarioConfig } from '@/tipos/crm';
+import type { Optica, CuentaCanalWhatsApp, ConfiguracionIA, Usuario, TipologiaPaciente, TratamientoLente, GrupoHorarioConfig } from '@/tipos/crm';
 import { formatearTelefono, formatearNombreEspecialista } from '@/utilidades/formato';
 
 interface PropiedadesModuloConfiguracion {
@@ -302,16 +302,16 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
   const [tipologiaParaEliminar, setTipologiaParaEliminar] = useState<TipologiaPaciente | null>(null);
   const [eliminandoTipologia, setEliminandoTipologia] = useState(false);
 
-  // Estados para gestión de Tipos de Lentes por Óptica (Predeterminados + Personalizados)
-  const [tiposLentes, setTiposLentes] = useState<TipoLente[]>([]);
+  // Estados para gestión de Tratamientos y Materiales por Óptica (Predeterminados + Personalizados)
+  const [tiposLentes, setTiposLentes] = useState<TratamientoLente[]>([]);
   const [cargandoTiposLentes, setCargandoTiposLentes] = useState(false);
   const [modalNuevoTipoLenteAbierto, setModalNuevoTipoLenteAbierto] = useState(false);
   const [nombreNuevoTipoLente, setNombreNuevoTipoLente] = useState('');
   const [guardandoTipoLente, setGuardandoTipoLente] = useState(false);
   const [errorTipoLente, setErrorTipoLente] = useState<string | null>(null);
-  const [tipoLenteParaEliminar, setTipoLenteParaEliminar] = useState<TipoLente | null>(null);
+  const [tipoLenteParaEliminar, setTipoLenteParaEliminar] = useState<TratamientoLente | null>(null);
   const [eliminandoTipoLente, setEliminandoTipoLente] = useState(false);
-  const [tipoLenteParaEditar, setTipoLenteParaEditar] = useState<TipoLente | null>(null);
+  const [tipoLenteParaEditar, setTipoLenteParaEditar] = useState<TratamientoLente | null>(null);
   const [nombreEditandoTipoLente, setNombreEditandoTipoLente] = useState('');
   const [guardandoEdicionTipoLente, setGuardandoEdicionTipoLente] = useState(false);
   const [errorEdicionTipoLente, setErrorEdicionTipoLente] = useState<string | null>(null);
@@ -679,16 +679,16 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
     }
   };
 
-  // Cargar tipos de lentes de la óptica (predeterminados del sistema y personalizados)
+  // Cargar tratamientos de lentes de la óptica (predeterminados del sistema y personalizados)
   const cargarTiposLentes = useCallback(async () => {
     setCargandoTiposLentes(true);
     try {
-      const res = await obtenerTiposLentesApi();
+      const res = await obtenerTratamientosLentesApi();
       if (res.exito) {
-        setTiposLentes(res.tipos_lentes || []);
+        setTiposLentes(res.tratamientos_lentes || res.tipos_lentes || []);
       }
     } catch (e) {
-      console.error('Error al cargar tipos de lentes:', e);
+      console.error('Error al cargar tratamientos de lentes:', e);
     } finally {
       setCargandoTiposLentes(false);
     }
@@ -704,28 +704,29 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
     setGuardandoTipoLente(true);
     setErrorTipoLente(null);
     try {
-      const res = await crearTipoLenteApi(nombreNuevoTipoLente.trim());
-      if (res.exito && res.tipo_lente) {
+      const res = await crearTratamientoLenteApi(nombreNuevoTipoLente.trim());
+      const creado = res.tratamiento_lente || res.tipo_lente;
+      if (res.exito && creado) {
         setTiposLentes((prev) => {
-          const yaExiste = prev.some((t) => t.id === res.tipo_lente!.id);
+          const yaExiste = prev.some((t) => t.id === creado.id);
           if (yaExiste) return prev;
-          return [...prev, res.tipo_lente!].sort((a, b) => a.nombre.localeCompare(b.nombre));
+          return [...prev, creado].sort((a, b) => a.nombre.localeCompare(b.nombre));
         });
         setNombreNuevoTipoLente('');
         setModalNuevoTipoLenteAbierto(false);
-        setMensajeExito(`✓ Tipo de lente "${res.tipo_lente.nombre}" agregado con éxito.`);
+        setMensajeExito(`✓ Tratamiento "${creado.nombre}" agregado con éxito.`);
         setTimeout(() => setMensajeExito(null), 3500);
       } else {
-        setErrorTipoLente(res.error || 'No se pudo crear el tipo de lente');
+        setErrorTipoLente(res.error || 'No se pudo crear el tratamiento');
       }
     } catch {
-      setErrorTipoLente('Error de conexión al guardar tipo de lente');
+      setErrorTipoLente('Error de conexión al guardar tratamiento');
     } finally {
       setGuardandoTipoLente(false);
     }
   };
 
-  const abrirModalEditarTipoLente = (tipo: TipoLente) => {
+  const abrirModalEditarTipoLente = (tipo: TratamientoLente) => {
     setTipoLenteParaEditar(tipo);
     setNombreEditandoTipoLente(tipo.nombre);
     setErrorEdicionTipoLente(null);
@@ -737,23 +738,24 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
     setGuardandoEdicionTipoLente(true);
     setErrorEdicionTipoLente(null);
     try {
-      const res = await actualizarTipoLenteApi(tipoLenteParaEditar.id, nombreEditandoTipoLente.trim());
-      if (res.exito && res.tipo_lente) {
+      const res = await actualizarTratamientoLenteApi(tipoLenteParaEditar.id, nombreEditandoTipoLente.trim());
+      const actualizado = res.tratamiento_lente || res.tipo_lente;
+      if (res.exito && actualizado) {
         await cargarTiposLentes();
         setTipoLenteParaEditar(null);
-        setMensajeExito(`✓ Tipo de lente actualizado a "${res.tipo_lente.nombre}".`);
+        setMensajeExito(`✓ Tratamiento actualizado a "${actualizado.nombre}".`);
         setTimeout(() => setMensajeExito(null), 3500);
       } else {
-        setErrorEdicionTipoLente(res.error || 'No se pudo actualizar el tipo de lente');
+        setErrorEdicionTipoLente(res.error || 'No se pudo actualizar el tratamiento');
       }
     } catch {
-      setErrorEdicionTipoLente('Error de conexión al actualizar tipo de lente');
+      setErrorEdicionTipoLente('Error de conexión al actualizar tratamiento');
     } finally {
       setGuardandoEdicionTipoLente(false);
     }
   };
 
-  const abrirModalEliminarTipoLente = (tipo: TipoLente) => {
+  const abrirModalEliminarTipoLente = (tipo: TratamientoLente) => {
     setTipoLenteParaEliminar(tipo);
   };
 
@@ -761,18 +763,18 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
     if (!tipoLenteParaEliminar) return;
     setEliminandoTipoLente(true);
     try {
-      const res = await eliminarTipoLenteApi(tipoLenteParaEliminar.id);
+      const res = await eliminarTratamientoLenteApi(tipoLenteParaEliminar.id);
       if (res.exito) {
         setTiposLentes((prev) => prev.filter((t) => t.id !== tipoLenteParaEliminar.id));
-        setMensajeExito(`✓ Tipo de lente "${tipoLenteParaEliminar.nombre}" eliminado.`);
+        setMensajeExito(`✓ Tratamiento "${tipoLenteParaEliminar.nombre}" eliminado.`);
         setTimeout(() => setMensajeExito(null), 3500);
         setTipoLenteParaEliminar(null);
       } else {
-        setMensajeError(res.error || 'No se pudo eliminar el tipo de lente');
+        setMensajeError(res.error || 'No se pudo eliminar el tratamiento');
         setTimeout(() => setMensajeError(null), 3500);
       }
     } catch {
-      setMensajeError('Error al eliminar tipo de lente');
+      setMensajeError('Error al eliminar tratamiento');
       setTimeout(() => setMensajeError(null), 3500);
     } finally {
       setEliminandoTipoLente(false);
@@ -2638,10 +2640,10 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                   </div>
                   <div>
                     <h3 style={{ fontSize: '0.96rem', fontWeight: 700, color: 'var(--texto-principal)', margin: 0 }}>
-                      Tipos de Lente de la Óptica
+                      Tratamientos y Materiales de Lentes
                     </h3>
                     <p style={{ fontSize: '0.74rem', color: 'var(--texto-atenuado)', margin: 0 }}>
-                      Predeterminados del sistema y personalizados propios de tu óptica para prescripción de fórmulas.
+                      Tratamientos (Ar verde, Ar blue, Crizal), materiales (Policarbonato) y filtros (Transitions, Fotocromáticos) combinables con Monofocal, Bifocal y Progresivo.
                     </p>
                   </div>
                 </div>
@@ -2663,7 +2665,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                   }}
                 >
                   <Plus style={{ width: '13px', height: '13px' }} />
-                  <span>Nuevo Tipo de Lente</span>
+                  <span>Nuevo Tratamiento</span>
                 </button>
               </div>
 
@@ -2680,11 +2682,11 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
               >
                 {cargandoTiposLentes && tiposLentes.length === 0 ? (
                   <span style={{ fontSize: '0.74rem', color: 'var(--texto-atenuado)', fontStyle: 'italic' }}>
-                    Cargando catálogo de lentes...
+                    Cargando catálogo de tratamientos...
                   </span>
                 ) : tiposLentes.length === 0 ? (
                   <span style={{ fontSize: '0.74rem', color: 'var(--texto-atenuado)', fontStyle: 'italic' }}>
-                    No hay tipos de lente registrados.
+                    No hay tratamientos registrados.
                   </span>
                 ) : (
                   tiposLentes.map((tipo) => (
@@ -3947,7 +3949,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                   <Glasses size={16} />
                 </div>
                 <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: 'var(--texto-principal)' }}>
-                  Nuevo Tipo de Lente
+                  Nuevo Tratamiento o Material
                 </h3>
               </div>
               <button
@@ -3963,18 +3965,18 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
 
             <form onSubmit={manejarCrearTipoLente}>
               <div className="modal-campo-grupo" style={{ marginBottom: '1.25rem' }}>
-                <label className="modal-label">Nombre del Tipo de Lente</label>
+                <label className="modal-label">Nombre del Tratamiento o Material</label>
                 <input
                   type="text"
                   value={nombreNuevoTipoLente}
                   onChange={(e) => setNombreNuevoTipoLente(e.target.value)}
-                  placeholder="Ej: Ocupacional Antifatiga, Progresivo HD..."
+                  placeholder="Ej: Ar verde, Transitions, Policarbonato, Crizal..."
                   className="modal-input"
                   autoFocus
                   required
                 />
                 <span style={{ fontSize: '0.70rem', color: 'var(--texto-atenuado)', marginTop: '0.25rem' }}>
-                  Solo tu óptica podrá ver y prescribir este tipo de lente personalizado.
+                  Solo tu óptica podrá ver y prescribir este tratamiento personalizado.
                 </span>
               </div>
 
@@ -4057,7 +4059,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
             </div>
 
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--texto-principal)' }}>
-              ¿Eliminar tipo de lente?
+              ¿Eliminar tratamiento?
             </h3>
 
             <p
@@ -4068,7 +4070,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                 lineHeight: '1.45',
               }}
             >
-              ¿Seguro que deseas eliminar el tipo de lente{' '}
+              ¿Seguro que deseas eliminar el tratamiento{' '}
               <strong style={{ color: 'var(--texto-principal)' }}>
                 "{tipoLenteParaEliminar.nombre}"
               </strong>
@@ -4093,7 +4095,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                 style={{ padding: '0.45rem 1.25rem', fontSize: '0.82rem' }}
               >
                 <Trash2 style={{ width: '13px', height: '13px' }} />
-                <span>{eliminandoTipoLente ? 'Eliminando...' : 'Eliminar Tipo'}</span>
+                <span>{eliminandoTipoLente ? 'Eliminando...' : 'Eliminar Tratamiento'}</span>
               </button>
             </div>
           </div>
@@ -4133,7 +4135,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
                   <Glasses size={16} />
                 </div>
                 <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: 'var(--texto-principal)' }}>
-                  Editar Tipo de Lente
+                  Editar Tratamiento o Material
                 </h3>
               </div>
               <button
@@ -4149,7 +4151,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
 
             <form onSubmit={manejarEditarTipoLente}>
               <div className="modal-campo-grupo" style={{ marginBottom: '1.25rem' }}>
-                <label className="modal-label">Nombre del Tipo de Lente</label>
+                <label className="modal-label">Nombre del Tratamiento o Material</label>
                 <input
                   type="text"
                   value={nombreEditandoTipoLente}

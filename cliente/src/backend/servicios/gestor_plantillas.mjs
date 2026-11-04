@@ -356,6 +356,13 @@ export async function crearPlantilla(opticaId, datos) {
     throw new Error('La plantilla debe tener un título descriptivo y un mensaje en el cuerpo.');
   }
 
+  // Normalizar cuerpo y variables para cumplimiento estricto con Meta
+  const cuerpoLimpio = cuerpo
+    .trim()
+    .replace(/\{\{\s*(\d+)\s*\}\}/g, '{{$1}}')
+    .replace(/\s{2,}\{\{(\d+)\}\}/g, ' {{$1}}')
+    .replace(/\{\{(\d+)\}\}\s{2,}/g, '{{$1}} ');
+
   // Generar nombre técnico normalizado en minúsculas y guiones bajos (requisito estricto de Meta)
   const nombreNormalizado =
     nombre?.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_') ||
@@ -379,11 +386,19 @@ export async function crearPlantilla(opticaId, datos) {
 
     // Header (Texto, Imagen o Documento)
     if (encabezado_tipo === 'TEXTO' && encabezado_contenido) {
-      componentesZernio.push({
+      let textoHeaderLimpio = encabezado_contenido.trim().replace(/\{\{\s*(\d+)\s*\}\}/g, '{{$1}}');
+      const coincidenciasHeader = Array.from(textoHeaderLimpio.matchAll(/\{\{(\d+)\}\}/g)).map((m) => Number(m[1]));
+      const compHeader = {
         type: 'header',
         format: 'text',
-        text: encabezado_contenido.trim(),
-      });
+        text: textoHeaderLimpio,
+      };
+      if (coincidenciasHeader.length > 0) {
+        compHeader.example = {
+          header_text: coincidenciasHeader.map((num) => (num === 1 ? 'Carlos' : `Dato ${num}`)),
+        };
+      }
+      componentesZernio.push(compHeader);
     } else if (encabezado_tipo === 'IMAGEN') {
       const URL_MUESTRA_IMAGEN = 'https://images.unsplash.com/photo-1591076482161-42ce6da69f67?w=800&auto=format&fit=crop&q=80';
       let urlEjemplo = URL_MUESTRA_IMAGEN;
@@ -453,11 +468,29 @@ export async function crearPlantilla(opticaId, datos) {
       });
     }
 
-    // Body
-    componentesZernio.push({
+    // Body (Mensaje principal con normalización de variables y ejemplos exigidos por Meta)
+    const coincidenciasCuerpo = Array.from(cuerpoLimpio.matchAll(/\{\{(\d+)\}\}/g)).map((m) => Number(m[1]));
+    const variablesUnicas = Array.from(new Set(coincidenciasCuerpo)).sort((a, b) => a - b);
+
+    const componenteCuerpo = {
       type: 'body',
-      text: cuerpo.trim(),
-    });
+      text: cuerpoLimpio,
+    };
+
+    if (variablesUnicas.length > 0) {
+      // Requisito estricto de Meta: example.body_text con array bidimensional con valores de muestra
+      const ejemplos = variablesUnicas.map((num) => {
+        if (num === 1) return 'Carlos';
+        if (num === 2) return '15 de Noviembre';
+        if (num === 3) return 'Bruno Óptica';
+        return `Dato ${num}`;
+      });
+      componenteCuerpo.example = {
+        body_text: [ejemplos],
+      };
+    }
+
+    componentesZernio.push(componenteCuerpo);
 
     // Footer
     if (pie && pie.trim()) {
@@ -553,7 +586,7 @@ export async function crearPlantilla(opticaId, datos) {
       idioma,
       encabezado_tipo,
       encabezadoContenidoGuardar,
-      cuerpo.trim(),
+      cuerpoLimpio,
       pie ? pie.trim() : null,
       JSON.stringify(botones),
       estadoMeta,
@@ -713,14 +746,17 @@ export async function calcularAudienciaLote(opticaId, { plantillaId, segmentoId,
     }
   }
 
-  // 3. Consultar quiénes ya recibieron esta plantilla en los últimos `diasExclusion`
+  // 3. Consultar quiénes ya recibieron exitosamente esta plantilla en los últimos `diasExclusion`
+  // Nota: Si el envío fue fallido o con error, NO se excluye al destinatario para permitir reintentos.
   const resHistorial = await pool.query(
-    `SELECT cd.contacto_id, cd.telefono, cd.enviado_en, c.nombre_campana AS campana_nombre
+    `SELECT cd.contacto_id, cd.telefono, cd.enviado_en, cd.estado_entrega, c.nombre_campana AS campana_nombre
      FROM "CRM_Opticas".campanas_destinatarios cd
      LEFT JOIN "CRM_Opticas".campanas c ON c.id = cd.campana_id
      WHERE cd.optica_id = $1
        AND cd.plantilla_id = $2
        AND cd.enviado_en >= (NOW() - make_interval(days => $3))
+       AND (cd.estado_entrega IS NULL OR cd.estado_entrega NOT IN ('fallido', 'error'))
+       AND (c.estado IS NULL OR c.estado != 'fallido')
      ORDER BY cd.enviado_en DESC`,
     [idOpticaNumerico, idPlantillaNumerico, Number(diasExclusion) || 7]
   );
@@ -801,6 +837,9 @@ export async function calcularAudienciaLote(opticaId, { plantillaId, segmentoId,
       idioma: plantilla.idioma,
       encabezado_tipo: plantilla.encabezado_tipo,
       encabezado_contenido: plantilla.encabezado_contenido,
+      cuerpo: plantilla.cuerpo,
+      pie: plantilla.pie,
+      botones_json: plantilla.botones_json,
     },
     lote_numero: loteNumero,
     dias_exclusion_aplicados: Number(diasExclusion) || 7,
@@ -859,8 +898,8 @@ export async function lanzarLoteCampana(opticaId, datos) {
   const destinatarios = calculo.destinatarios_lote_hoy.slice(0, cantidadFinal);
 
   // 2. Obtener cuenta oficial conectada de WhatsApp en Zernio (forzar actualización)
-  cacheCuentaWp = null;
-  cacheTimestampCuenta = 0;
+  cacheCuentasPorOptica.delete(idOpticaNumerico);
+  cacheTimestampsPorOptica.delete(idOpticaNumerico);
   const cuentaWp = await obtenerCuentaWhatsAppZernio(idOpticaNumerico);
   if (!cuentaWp) {
     throw new Error('No hay una cuenta activa de WhatsApp conectada en Zernio para realizar envíos.');
@@ -894,6 +933,44 @@ export async function lanzarLoteCampana(opticaId, datos) {
           video: { link: calculo.plantilla.encabezado_contenido },
         },
       ],
+    });
+  }
+
+  // Asegurar datos completos de la plantilla desde base de datos
+  const resPl = await pool.query('SELECT * FROM "CRM_Opticas".plantillas WHERE id = $1', [calculo.plantilla.id]);
+  const plBd = resPl.rows[0] || calculo.plantilla;
+
+  // Variables en Encabezado de texto (si aplica)
+  if (plBd.encabezado_tipo === 'TEXTO' && plBd.encabezado_contenido) {
+    const varsHeader = Array.from(new Set(Array.from(plBd.encabezado_contenido.matchAll(/\{\{(\d+)\}\}/g)).map((m) => Number(m[1])))).sort((a, b) => a - b);
+    if (varsHeader.length > 0) {
+      const primerDest = destinatarios[0];
+      const nombreDest = (primerDest?.nombre && primerDest.nombre !== 'Paciente') ? primerDest.nombre : 'Estimado Paciente';
+      componentesBroadcast.push({
+        type: 'header',
+        parameters: varsHeader.map((num) => ({
+          type: 'text',
+          text: num === 1 ? nombreDest : `Dato ${num}`,
+        })),
+      });
+    }
+  }
+
+  // Si la plantilla tiene variables en el cuerpo ({{1}}, {{2}}...), agregar parámetros base para Meta
+  const textoCuerpoPlantilla = plBd.cuerpo || calculo.plantilla.cuerpo || '';
+  const variablesEnCuerpo = Array.from(new Set(Array.from(textoCuerpoPlantilla.matchAll(/\{\{(\d+)\}\}/g)).map((m) => Number(m[1])))).sort((a, b) => a - b);
+  if (variablesEnCuerpo.length > 0) {
+    const primerDest = destinatarios[0];
+    const nombreDest = (primerDest?.nombre && primerDest.nombre !== 'Paciente')
+      ? primerDest.nombre
+      : (destinatarios.length === 1 && primerDest?.nombre ? primerDest.nombre : 'Estimado Paciente');
+
+    componentesBroadcast.push({
+      type: 'body',
+      parameters: variablesEnCuerpo.map((num) => ({
+        type: 'text',
+        text: num === 1 ? nombreDest : (num === 2 ? new Date().toLocaleDateString('es-CO') : 'Óptica'),
+      })),
     });
   }
 
@@ -1221,4 +1298,167 @@ export async function obtenerMapaPlantillasPorNombre(opticaId = 1) {
     return new Map();
   }
 }
+
+/**
+ * Obtiene la lista detallada de números y contactos que fallaron en una campaña/lote
+ * cruzando datos en tiempo real con Zernio y la tabla de contactos del CRM.
+ *
+ * @param {number} opticaId - ID de la óptica
+ * @param {number} campanaId - ID de la campaña o lote
+ * @returns {Promise<{ exito: boolean, campana: any, total_fallidos: number, fallidos: Array<any> }>}
+ */
+export async function obtenerDestinatariosFallidosCampana(opticaId, campanaId) {
+  const idOpticaNumerico = Number(opticaId) > 0 ? Number(opticaId) : 1;
+  const idCampanaNumerico = Number(campanaId);
+
+  // 1. Obtener campaña y validar pertenencia a la óptica
+  const resCampana = await pool.query(
+    `SELECT c.*, p.etiqueta AS plantilla_etiqueta, p.nombre AS plantilla_nombre
+     FROM "CRM_Opticas".campanas c
+     LEFT JOIN "CRM_Opticas".plantillas p ON p.id = c.plantilla_id
+     WHERE c.id = $1 AND c.optica_id = $2`,
+    [idCampanaNumerico, idOpticaNumerico]
+  );
+
+  if (resCampana.rows.length === 0) {
+    throw new Error('Campaña no encontrada o no pertenece a esta óptica.');
+  }
+
+  const campana = resCampana.rows[0];
+  let fallidos = [];
+
+  // 2. Si tiene broadcast_id en Zernio, consultar a Zernio en tiempo real
+  if (campana.broadcast_id) {
+    try {
+      const cliente = await obtener_cliente_zernio(idOpticaNumerico);
+      let saltar = 0;
+      const limitePorPagina = 100;
+      let tieneMas = true;
+
+      while (tieneMas && fallidos.length < 500) {
+        const resZernio = await cliente.solicitar(
+          `/broadcasts/${campana.broadcast_id}/recipients?status=failed&limit=${limitePorPagina}&skip=${saltar}`
+        );
+
+        if (resZernio.exito && resZernio.datos?.recipients) {
+          const lista = resZernio.datos.recipients;
+          for (const item of lista) {
+            fallidos.push({
+              telefono: item.platformIdentifier || item.contactName,
+              error: item.error || 'Mensaje no entregado',
+              errorCode: item.errorCode || null,
+              errorExplanation: item.errorExplanation || null,
+              sentAt: item.sentAt || null,
+            });
+          }
+          tieneMas = Boolean(resZernio.datos.pagination?.hasMore) && lista.length === limitePorPagina;
+          saltar += lista.length;
+        } else {
+          tieneMas = false;
+        }
+      }
+
+      // Actualizar campanas_destinatarios en lote si encontramos fallidos
+      if (fallidos.length > 0) {
+        for (const f of fallidos) {
+          const u10 = (f.telefono || '').replace(/[^0-9]/g, '').slice(-10);
+          if (u10) {
+            const errorMsg = f.errorCode ? `${f.error} (código ${f.errorCode})` : f.error;
+            await pool.query(
+              `UPDATE "CRM_Opticas".campanas_destinatarios
+               SET estado_entrega = 'fallido', error_mensaje = $1
+               WHERE campana_id = $2 AND (telefono LIKE '%' || $3 OR RIGHT(REGEXP_REPLACE(telefono, '[^0-9]', '', 'g'), 10) = $3)`,
+              [errorMsg, campana.id, u10]
+            ).catch(() => {});
+          }
+        }
+      }
+    } catch (errZernio) {
+      console.warn('Advertencia al consultar recipients fallidos en Zernio:', errZernio.message);
+    }
+  }
+
+  // 3. Si Zernio no devolvió fallidos o no tiene broadcast_id, consultar campanas_destinatarios en BD
+  if (fallidos.length === 0) {
+    const resCd = await pool.query(
+      `SELECT cd.*, c.nombre_completo AS contacto_nombre, c.es_paciente
+       FROM "CRM_Opticas".campanas_destinatarios cd
+       LEFT JOIN "CRM_Opticas".contactos c ON c.id = cd.contacto_id
+       WHERE cd.campana_id = $1 AND cd.estado_entrega IN ('fallido', 'error')
+       ORDER BY cd.id ASC`,
+      [campana.id]
+    );
+
+    for (const row of resCd.rows) {
+      fallidos.push({
+        telefono: row.telefono,
+        nombre: row.nombre_destinatario && row.nombre_destinatario !== 'Paciente' ? row.nombre_destinatario : (row.contacto_nombre || null),
+        es_paciente: row.es_paciente || false,
+        contacto_id: row.contacto_id,
+        error: row.error_mensaje || 'No entregado',
+        errorCode: null,
+        errorExplanation: null,
+        sentAt: row.enviado_en,
+      });
+    }
+  }
+
+  // 4. Enriquecer con la tabla contactos para obtener el nombre real y si es paciente
+  if (fallidos.length > 0) {
+    try {
+      const resContactos = await pool.query(
+        `SELECT id, nombre_completo, telefono, es_paciente
+         FROM "CRM_Opticas".contactos
+         WHERE optica_id = $1`,
+        [idOpticaNumerico]
+      );
+
+      const mapaContactos = new Map();
+      for (const c of resContactos.rows) {
+        if (c.telefono) {
+          const u10 = c.telefono.replace(/[^0-9]/g, '').slice(-10);
+          if (u10) mapaContactos.set(u10, c);
+        }
+      }
+
+      for (const item of fallidos) {
+        const u10 = (item.telefono || '').replace(/[^0-9]/g, '').slice(-10);
+        const contactoBD = mapaContactos.get(u10);
+        if (contactoBD) {
+          if (!item.contacto_id) item.contacto_id = Number(contactoBD.id);
+          if (!item.nombre || item.nombre === 'Paciente' || item.nombre === item.telefono) {
+            item.nombre = contactoBD.nombre_completo || 'Contacto';
+          }
+          item.es_paciente = Boolean(contactoBD.es_paciente);
+        } else {
+          if (!item.nombre || item.nombre === 'Paciente' || item.nombre === item.telefono) {
+            item.nombre = 'Contacto';
+          }
+          if (item.es_paciente === undefined) {
+            item.es_paciente = false;
+          }
+        }
+      }
+    } catch (errEnriquecer) {
+      console.warn('Advertencia al enriquecer fallidos con contactos:', errEnriquecer.message);
+    }
+  }
+
+  return {
+    exito: true,
+    campana: {
+      id: campana.id,
+      nombre_campana: campana.nombre_campana,
+      plantilla_nombre: campana.plantilla_nombre || campana.plantilla_etiqueta,
+      total_destinatarios: campana.total_destinatarios,
+      total_enviados: campana.total_enviados,
+      total_fallidos: fallidos.length || campana.total_fallidos || 0,
+      estado: campana.estado,
+      creado_en: campana.creado_en,
+    },
+    total_fallidos: fallidos.length,
+    fallidos,
+  };
+}
+
 

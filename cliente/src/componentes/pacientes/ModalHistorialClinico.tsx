@@ -21,6 +21,7 @@ import {
   ChevronDown,
   ChevronUp,
   Glasses,
+  Edit,
 } from 'lucide-react';
 import type { Contacto, FormulaOptica, Cita, HistoriaClinicaOptometrica } from '@/tipos/crm';
 import { obtenerDetalleContacto } from '@/servicios/api_crm';
@@ -102,11 +103,7 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
             setCitas(datos.citas || []);
             const listaHistorias = (datos as any).historias_clinicas || [];
             setHistoriasClinicas(listaHistorias);
-            if (listaHistorias.length > 0) {
-              setHistoriasExpandidas([listaHistorias[0].id]);
-            } else {
-              setHistoriasExpandidas([]);
-            }
+            setHistoriasExpandidas([]);
             if (datos.formulas && datos.formulas.length > 0) {
               setFilasExpandidas([datos.formulas[0].id]);
             } else {
@@ -628,6 +625,37 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                     year: 'numeric',
                   });
 
+                  // Validar si la historia está dentro de las 24 horas para permitir edición
+                  const puedeEditarHistoria = (): boolean => {
+                    const fechaRef = historia.actualizado_en || historia.creado_en;
+                    if (fechaRef) {
+                      const tiempo = new Date(fechaRef).getTime();
+                      if (!isNaN(tiempo)) {
+                        return Date.now() - tiempo <= 24 * 60 * 60 * 1000;
+                      }
+                    }
+                    if (historia.fecha_atencion) {
+                      try {
+                        const tiempo = new Date(historia.fecha_atencion).getTime();
+                        if (!isNaN(tiempo)) {
+                          return Date.now() - tiempo <= 24 * 60 * 60 * 1000;
+                        }
+                      } catch {
+                        return false;
+                      }
+                    }
+                    return true;
+                  };
+
+                  const esEditable = puedeEditarHistoria();
+
+                  // Limpiar duplicados de mmHg
+                  const formatearPresion = (val?: string | null) => {
+                    if (!val) return 'N/R';
+                    const limpio = val.replace(/mmHg/gi, '').trim();
+                    return limpio ? `${limpio} mmHg` : 'N/R';
+                  };
+
                   // Parsear si vienen como strings o arrays
                   const sints: string[] = Array.isArray(historia.sintomas)
                     ? historia.sintomas
@@ -730,25 +758,58 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                             {historia.optometra}
                           </span>
                           {alAbrirNuevaHistoria && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                alCerrar();
-                                alAbrirNuevaHistoria(contacto, historia);
-                              }}
-                              className="modal-btn-cancelar"
-                              style={{
-                                padding: '0.2rem 0.55rem',
-                                height: '26px',
-                                fontSize: '0.71rem',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.25rem',
-                              }}
-                            >
-                              <span>Editar</span>
-                            </button>
+                            esEditable ? (
+                              <EtiquetaTooltip texto="Editar historia clínica" posicion="arriba">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    alCerrar();
+                                    alAbrirNuevaHistoria(contacto, historia);
+                                  }}
+                                  style={{
+                                    width: '28px',
+                                    height: '28px',
+                                    borderRadius: '6px',
+                                    border: '1px solid var(--borde-tarjeta)',
+                                    background: 'var(--fondo-elevado)',
+                                    color: 'var(--texto-secundario)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease',
+                                  }}
+                                  aria-label="Editar historia clínica"
+                                >
+                                  <Edit size={13} />
+                                </button>
+                              </EtiquetaTooltip>
+                            ) : (
+                              <EtiquetaTooltip texto="No editable: plazo de 24 horas expirado" posicion="arriba">
+                                <button
+                                  type="button"
+                                  disabled
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{
+                                    width: '28px',
+                                    height: '28px',
+                                    borderRadius: '6px',
+                                    border: '1px solid var(--borde-tarjeta)',
+                                    background: 'var(--fondo-hover)',
+                                    color: 'var(--texto-atenuado)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'not-allowed',
+                                    opacity: 0.45,
+                                  }}
+                                  aria-label="No editable: plazo de 24 horas expirado"
+                                >
+                                  <Edit size={13} />
+                                </button>
+                              </EtiquetaTooltip>
+                            )
                           )}
                           <div style={{ color: 'var(--texto-atenuado)' }}>
                             {expandida ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -813,31 +874,31 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                           {(antPers.length > 0 || antOcul.length > 0 || antFam.length > 0 || historia.antecedentes_personales_otros || historia.antecedentes_oculares_otros || historia.antecedentes_familiares_otros) && (
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.65rem' }}>
                               {(antPers.length > 0 || historia.antecedentes_personales_otros) && (
-                                <div style={{ border: '1px solid var(--borde-tarjeta)', borderRadius: '6px', padding: '0.55rem' }}>
-                                  <span style={{ fontWeight: 700, fontSize: '0.71rem', color: '#8b5cf6', display: 'block', marginBottom: '0.25rem' }}>
-                                    Personales
+                                <div style={{ background: 'var(--fondo-tarjeta)', border: '1px solid var(--borde-tarjeta)', borderRadius: '8px', padding: '0.65rem' }}>
+                                  <span style={{ fontWeight: 700, fontSize: '0.73rem', color: 'var(--texto-principal)', display: 'block', marginBottom: '0.3rem' }}>
+                                    Personales:
                                   </span>
-                                  <div style={{ color: 'var(--texto-secundario)', fontSize: '0.72rem' }}>
+                                  <div style={{ color: 'var(--texto-secundario)', fontSize: '0.72rem', lineHeight: '1.4' }}>
                                     {antPers.join(', ')} {historia.antecedentes_personales_otros ? `(${historia.antecedentes_personales_otros})` : ''}
                                   </div>
                                 </div>
                               )}
                               {(antOcul.length > 0 || historia.antecedentes_oculares_otros) && (
-                                <div style={{ border: '1px solid var(--borde-tarjeta)', borderRadius: '6px', padding: '0.55rem' }}>
-                                  <span style={{ fontWeight: 700, fontSize: '0.71rem', color: '#06b6d4', display: 'block', marginBottom: '0.25rem' }}>
-                                    Oculares
+                                <div style={{ background: 'var(--fondo-tarjeta)', border: '1px solid var(--borde-tarjeta)', borderRadius: '8px', padding: '0.65rem' }}>
+                                  <span style={{ fontWeight: 700, fontSize: '0.73rem', color: 'var(--texto-principal)', display: 'block', marginBottom: '0.3rem' }}>
+                                    Oculares:
                                   </span>
-                                  <div style={{ color: 'var(--texto-secundario)', fontSize: '0.72rem' }}>
+                                  <div style={{ color: 'var(--texto-secundario)', fontSize: '0.72rem', lineHeight: '1.4' }}>
                                     {antOcul.join(', ')} {historia.antecedentes_oculares_otros ? `(${historia.antecedentes_oculares_otros})` : ''}
                                   </div>
                                 </div>
                               )}
                               {(antFam.length > 0 || historia.antecedentes_familiares_otros) && (
-                                <div style={{ border: '1px solid var(--borde-tarjeta)', borderRadius: '6px', padding: '0.55rem' }}>
-                                  <span style={{ fontWeight: 700, fontSize: '0.71rem', color: '#10b981', display: 'block', marginBottom: '0.25rem' }}>
-                                    Familiares
+                                <div style={{ background: 'var(--fondo-tarjeta)', border: '1px solid var(--borde-tarjeta)', borderRadius: '8px', padding: '0.65rem' }}>
+                                  <span style={{ fontWeight: 700, fontSize: '0.73rem', color: 'var(--texto-principal)', display: 'block', marginBottom: '0.3rem' }}>
+                                    Familiares:
                                   </span>
-                                  <div style={{ color: 'var(--texto-secundario)', fontSize: '0.72rem' }}>
+                                  <div style={{ color: 'var(--texto-secundario)', fontSize: '0.72rem', lineHeight: '1.4' }}>
                                     {antFam.join(', ')} {historia.antecedentes_familiares_otros ? `(${historia.antecedentes_familiares_otros})` : ''}
                                   </div>
                                 </div>
@@ -886,7 +947,7 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                                   Presión Intraocular:
                                 </strong>
                                 <span style={{ color: 'var(--texto-secundario)' }}>
-                                  OD: {historia.presion_intraocular_od || 'N/R'} mmHg • OI: {historia.presion_intraocular_oi || 'N/R'} mmHg
+                                  OD: {formatearPresion(historia.presion_intraocular_od)} • OI: {formatearPresion(historia.presion_intraocular_oi)}
                                 </span>
                               </div>
                             )}
@@ -915,7 +976,12 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
 
                           {/* Plan y Observaciones */}
                           {(planes.length > 0 || historia.plan_manejo_otros || historia.plan_manejo_control_meses) && (
-                            <div style={{ background: 'rgba(2, 132, 199, 0.05)', border: '1px solid rgba(2, 132, 199, 0.15)', padding: '0.65rem', borderRadius: '6px' }}>
+                            <div style={{
+                              background: 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.05)',
+                              border: '1px solid rgba(var(--color-primario-rgb, 2, 132, 199), 0.18)',
+                              padding: '0.65rem 0.85rem',
+                              borderRadius: '8px',
+                            }}>
                               <strong style={{ color: 'var(--color-primario)', display: 'block', fontSize: '0.73rem' }}>
                                 Plan de Manejo Terapéutico:
                               </strong>

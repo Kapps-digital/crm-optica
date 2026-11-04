@@ -143,6 +143,7 @@ const SQL_BASE_DESDE = `
     ORDER BY fo.fecha_examen DESC NULLS LAST, fo.id DESC
     LIMIT 1
   ) f ON TRUE
+  LEFT JOIN "CRM_Opticas".tipologias_pacientes tp ON tp.id = c.tipologia_id AND tp.optica_id = c.optica_id
   WHERE c.optica_id = $1
     AND c.es_paciente IS TRUE
 `;
@@ -249,7 +250,6 @@ export async function obtenerPacientesDeSegmento(idSegmento, opticaId) {
         SELECT MAX(ci.fecha_cita) FROM "CRM_Opticas".citas ci WHERE ci.contacto_id = c.id
       ) AS ultima_cita
     ${SQL_BASE_DESDE}
-    LEFT JOIN "CRM_Opticas".tipologias_pacientes tp ON tp.id = c.tipologia_id AND tp.optica_id = c.optica_id
     ${clausulaExtra}
     ORDER BY c.nombre_completo ASC
     LIMIT 200

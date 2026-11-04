@@ -812,6 +812,11 @@ const HERRAMIENTAS_OPENAI = [
             type: 'string',
             description: 'Nombre y apellido si no estaba registrado.',
           },
+          sexo: {
+            type: 'string',
+            enum: ['masculino', 'femenino'],
+            description: 'Sexo del paciente ÚNICAMENTE si la persona lo indicó o confirmó voluntariamente y de manera explícita en la conversación. Si no lo dijo, NO lo asumas ni lo envíes; déjalo en blanco.',
+          },
         },
         required: ['fecha', 'hora', 'motivo'],
       },
@@ -850,7 +855,7 @@ const HERRAMIENTAS_OPENAI = [
     type: 'function',
     function: {
       name: 'transferir_a_asesor',
-      description: 'Transfiere el chat a un asesor humano. Si el FAQ o directrices contienen un precio o dato previo que el paciente preguntó, DEBES incluir ese precio o dato en tu respuesta al paciente junto con el aviso de transferencia.',
+      description: 'Transfiere la conversación a un asesor humano ÚNICAMENTE si el cliente pide hablar con una persona, o si consulta información o cotizaciones que NO existen en el FAQ ni en la configuración de la óptica. NUNCA transfieras si la respuesta ya está en el FAQ, horarios o directrices.',
       parameters: {
         type: 'object',
         properties: {
@@ -1003,7 +1008,7 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId, c
   }
 
   if (nombre === 'agendar_cita') {
-    const { fecha, hora, motivo, nombre_apellido } = argumentos;
+    const { fecha, hora, motivo, nombre_apellido, sexo } = argumentos;
     const hoyStr = obtenerFechaHoyColombia();
 
     // 1. Blindaje estricto: no permitir agendar citas en fechas pasadas
@@ -1107,6 +1112,20 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId, c
       `UPDATE "CRM_Opticas".contactos SET es_paciente = TRUE, actualizado_en = NOW() WHERE id = $1 AND optica_id = $2`,
       [contactoId, opticaId]
     );
+
+    // Gestión del sexo del paciente: Solo si el cliente lo indicó explícitamente se guarda; de lo contrario se deja en blanco (NULL)
+    if (sexo && (String(sexo).toLowerCase() === 'masculino' || String(sexo).toLowerCase() === 'femenino')) {
+      await pool.query(
+        `UPDATE "CRM_Opticas".contactos SET sexo = $1, actualizado_en = NOW() WHERE id = $2`,
+        [String(sexo).toLowerCase(), contactoId]
+      );
+    } else {
+      // Si la persona NO indicó el sexo, NO asumir masculino: dejarlo en blanco (NULL)
+      await pool.query(
+        `UPDATE "CRM_Opticas".contactos SET sexo = NULL, actualizado_en = NOW() WHERE id = $1 AND (sexo = 'masculino' OR sexo IS NULL)`,
+        [contactoId]
+      );
+    }
 
     const mensajeOficial = construirMensajeCitaWhatsApp({
       tipo: 'confirmacion',
@@ -1342,7 +1361,7 @@ async function ejecutarHerramienta({ nombre, argumentos, opticaId, contactoId, c
       exito: true,
       accion: 'transferido_a_humano',
       motivo: motivoTransferencia || 'Solicitud de atención humana',
-      mensaje: 'El caso ha sido marcado y transferido a un asesor en el CRM. Si el paciente preguntó por precios o datos definidos en el FAQ, asegúrate de indicarlos en tu respuesta final al paciente junto a la notificación de transferencia.',
+      mensaje: 'La conversación ha sido transferida al equipo de asesores en el CRM.',
     };
   }
 
@@ -1958,11 +1977,12 @@ REGLAS DE FORMATO Y REDACCIÓN (CRÍTICO PARA WHATSAPP):
 1. IDENTIDAD INSTITUCIONAL: El nombre oficial y exclusivo de esta óptica es "${nombreOpticaReal}". Utiliza siempre este nombre oficial en tus saludos o menciones. NUNCA uses nombres genéricos como "la óptica" ni inventes nombres de otras empresas.
 2. NEGRITAS: Utiliza EXCLUSIVAMENTE un solo asterisco a cada lado: *texto en negrita*.
 3. AGENDAR CITA: Si el cliente NO es paciente registrado, debes pedirle obligatoriamente su Nombre y Apellido completo antes de agendar. Si ya es paciente registrado, NO se lo pidas y usa su nombre registrado. Confirma siempre motivo, fecha y hora antes de llamar a "agendar_cita".
-4. COTIZACIONES, PRECIOS, EXÁMENES Y DUDAS SIN INFORMACIÓN: Si preguntan por cotizaciones, precios de consulta/exámenes/lentes/monturas, qué debe llevar para el examen, especificaciones técnicas de exámenes o productos, o cualquier pregunta que no tenga información en la base de datos o en FAQ, debes llamar obligatoriamente a "transferir_a_asesor".
-5. CERO MEMORIA: NUNCA copies horarios de mensajes viejos del chat. Cada vez que pregunten horarios o disponibilidad, llama a "consultar_horarios_disponibles".
-6. JORNADAS: Pregunta si prefieren en la mañana (antes de 1:00 PM) o tarde (1:00 PM a 6:00 PM).
-7. HOY: Prohibido ofrecer horas pasadas.
-8. REPROGRAMACIÓN: Prohibido auto-asignar hora sin confirmación explícita del paciente.
+4. SEXO: NUNCA lo asumas. Solo envíalo si el paciente lo dice explícitamente; si no, omítelo (queda en blanco).
+5. RESPUESTAS Y TRANSFERENCIAS: Si la información existe en el FAQ, directrices, horarios, ubicación o configuración, RESPONDE DIRECTAMENTE y NO transfieras a un asesor. Llama a "transferir_a_asesor" ÚNICAMENTE si el cliente pide hablar con una persona, o si consulta cotizaciones/precios que NO están en el FAQ ni en el contexto.
+6. CERO MEMORIA: NUNCA copies horarios de mensajes viejos del chat. Cada vez que pregunten horarios o disponibilidad, llama a "consultar_horarios_disponibles".
+7. JORNADAS: Pregunta si prefieren en la mañana (antes de 1:00 PM) o tarde (1:00 PM a 6:00 PM).
+8. HOY: Prohibido ofrecer horas pasadas.
+9. REPROGRAMACIÓN: Prohibido auto-asignar hora sin confirmación explícita del paciente.
 `;
   }
 

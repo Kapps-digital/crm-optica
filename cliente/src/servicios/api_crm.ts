@@ -24,6 +24,7 @@ import type {
   NotificacionCRM,
   RespuestaNotificaciones,
   TipologiaPaciente,
+  TratamientoLente,
   TipoLente,
 } from '@/tipos/crm';
 import { TIEMPO_MAXIMO_INACTIVIDAD_MS, CLAVE_ULTIMA_ACTIVIDAD } from '@/constantes/sesion';
@@ -989,6 +990,53 @@ export async function eliminarLoteApi(id: number): Promise<{ exito: boolean; err
   }
 }
 
+export interface DestinatarioFallidoCampana {
+  telefono: string;
+  nombre: string;
+  es_paciente: boolean;
+  contacto_id?: number | null;
+  error?: string | null;
+  errorCode?: number | null;
+  errorExplanation?: string | null;
+  sentAt?: string | null;
+}
+
+export interface RespuestaDestinatariosFallidos {
+  exito: boolean;
+  campana?: {
+    id: number;
+    nombre_campana: string;
+    plantilla_nombre?: string;
+    total_destinatarios: number;
+    total_enviados: number;
+    total_fallidos: number;
+    estado: string;
+    creado_en: string;
+  };
+  total_fallidos?: number;
+  fallidos?: DestinatarioFallidoCampana[];
+  error?: string;
+}
+
+export async function obtenerDestinatariosFallidosCampanaApi(
+  campanaId: number,
+  opticaId?: number
+): Promise<RespuestaDestinatariosFallidos> {
+  try {
+    const idOptica = opticaId || obtenerIdOpticaActiva();
+    const url = idOptica
+      ? `/api/plantillas/lotes/${campanaId}/fallidos?optica_id=${idOptica}`
+      : `/api/plantillas/lotes/${campanaId}/fallidos`;
+    const res = await fetch(url, {
+      headers: crearEncabezados(idOptica ? { 'x-optica-id': String(idOptica) } : {}),
+    });
+    return await res.json();
+  } catch (error) {
+    registrarErrorApi('obtenerDestinatariosFallidosCampanaApi', error);
+    return { exito: false, error: 'Error de red al consultar destinatarios fallidos' };
+  }
+}
+
 export async function sincronizarPlantillasConMetaApi(opticaId?: number): Promise<{
   exito: boolean;
   total_sincronizadas?: number;
@@ -1779,107 +1827,117 @@ export async function eliminarTipologiaPacienteApi(
 }
 
 /**
- * Obtiene los tipos de lentes disponibles (predeterminados del sistema + personalizados de la óptica)
+ * Obtiene los tratamientos y materiales de lentes disponibles (predeterminados del sistema + personalizados de la óptica)
  */
-export async function obtenerTiposLentesApi(): Promise<{
+export async function obtenerTratamientosLentesApi(): Promise<{
   exito: boolean;
-  tipos_lentes: TipoLente[];
+  tratamientos_lentes: TratamientoLente[];
+  tipos_lentes?: TratamientoLente[];
   error?: string;
 }> {
   try {
-    const res = await fetch('/api/configuracion/tipos-lentes', {
+    const res = await fetch('/api/configuracion/tratamientos-lentes', {
       method: 'GET',
       headers: crearEncabezados(),
     });
     const datos = await res.json();
     if (!res.ok) {
-      return { exito: false, tipos_lentes: [], error: datos.error || 'Error al obtener tipos de lentes' };
+      return { exito: false, tratamientos_lentes: [], tipos_lentes: [], error: datos.error || 'Error al obtener tratamientos de lentes' };
     }
-    return { exito: true, tipos_lentes: datos.tipos_lentes || [] };
+    const lista = datos.tratamientos_lentes || [];
+    return { exito: true, tratamientos_lentes: lista, tipos_lentes: lista };
   } catch (error) {
-    registrarErrorApi('obtenerTiposLentesApi', error);
-    return { exito: false, tipos_lentes: [], error: 'Error de red al cargar tipos de lentes' };
+    registrarErrorApi('obtenerTratamientosLentesApi', error);
+    return { exito: false, tratamientos_lentes: [], tipos_lentes: [], error: 'Error de red al cargar tratamientos de lentes' };
   }
 }
 
 /**
- * Crea un nuevo tipo de lente personalizado para la óptica activa
+ * Crea un nuevo tratamiento personalizado para la óptica activa
  */
-export async function crearTipoLenteApi(
+export async function crearTratamientoLenteApi(
   nombre: string
 ): Promise<{
   exito: boolean;
-  tipo_lente?: TipoLente;
+  tratamiento_lente?: TratamientoLente;
+  tipo_lente?: TratamientoLente;
   ya_existia?: boolean;
   error?: string;
 }> {
   try {
-    const res = await fetch('/api/configuracion/tipos-lentes', {
+    const res = await fetch('/api/configuracion/tratamientos-lentes', {
       method: 'POST',
       headers: crearEncabezados({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ nombre }),
     });
     const datos = await res.json();
     if (!res.ok || !datos.exito) {
-      return { exito: false, error: datos.error || 'No se pudo crear el tipo de lente' };
+      return { exito: false, error: datos.error || 'No se pudo crear el tratamiento' };
     }
-    return { exito: true, tipo_lente: datos.tipo_lente, ya_existia: datos.ya_existia };
+    const nuevo = datos.tratamiento_lente;
+    return { exito: true, tratamiento_lente: nuevo, tipo_lente: nuevo, ya_existia: datos.ya_existia };
   } catch (error) {
-    registrarErrorApi('crearTipoLenteApi', error);
-    return { exito: false, error: 'Error de conexión al crear tipo de lente' };
+    registrarErrorApi('crearTratamientoLenteApi', error);
+    return { exito: false, error: 'Error de conexión al crear tratamiento' };
   }
 }
 
 /**
- * Actualiza el nombre de un tipo de lente.
- * Si es predeterminado, el backend crea un reemplazo personalizado para la óptica y oculta el predeterminado.
+ * Actualiza el nombre de un tratamiento de lente.
  */
-export async function actualizarTipoLenteApi(
+export async function actualizarTratamientoLenteApi(
   id: number,
   nombre: string
 ): Promise<{
   exito: boolean;
-  tipo_lente?: TipoLente;
+  tratamiento_lente?: TratamientoLente;
+  tipo_lente?: TratamientoLente;
   error?: string;
 }> {
   try {
-    const res = await fetch('/api/configuracion/tipos-lentes', {
+    const res = await fetch('/api/configuracion/tratamientos-lentes', {
       method: 'PUT',
       headers: crearEncabezados({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ id, nombre }),
     });
     const datos = await res.json();
     if (!res.ok || !datos.exito) {
-      return { exito: false, error: datos.error || 'No se pudo actualizar el tipo de lente' };
+      return { exito: false, error: datos.error || 'No se pudo actualizar el tratamiento' };
     }
-    return { exito: true, tipo_lente: datos.tipo_lente };
+    const actualizado = datos.tratamiento_lente;
+    return { exito: true, tratamiento_lente: actualizado, tipo_lente: actualizado };
   } catch (error) {
-    registrarErrorApi('actualizarTipoLenteApi', error);
-    return { exito: false, error: 'Error de conexión al actualizar tipo de lente' };
+    registrarErrorApi('actualizarTratamientoLenteApi', error);
+    return { exito: false, error: 'Error de conexión al actualizar tratamiento' };
   }
 }
 
 /**
- * Elimina un tipo de lente personalizado en la óptica activa (los predeterminados están protegidos)
+ * Elimina un tratamiento personalizado en la óptica activa (los predeterminados están protegidos)
  */
-export async function eliminarTipoLenteApi(
+export async function eliminarTratamientoLenteApi(
   id: number
 ): Promise<{
   exito: boolean;
   error?: string;
 }> {
   try {
-    const res = await fetch(`/api/configuracion/tipos-lentes?id=${id}`, {
+    const res = await fetch(`/api/configuracion/tratamientos-lentes?id=${id}`, {
       method: 'DELETE',
       headers: crearEncabezados(),
     });
     const datos = await res.json();
     if (!res.ok || !datos.exito) {
-      return { exito: false, error: datos.error || 'No se pudo eliminar el tipo de lente' };
+      return { exito: false, error: datos.error || 'No se pudo eliminar el tratamiento' };
     }
     return { exito: true };
   } catch (error) {
-    registrarErrorApi('eliminarTipoLenteApi', error);
-    return { exito: false, error: 'Error de conexión al eliminar tipo de lente' };
+    registrarErrorApi('eliminarTratamientoLenteApi', error);
+    return { exito: false, error: 'Error de conexión al eliminar tratamiento' };
   }
 }
+
+export const obtenerTiposLentesApi = obtenerTratamientosLentesApi;
+export const crearTipoLenteApi = crearTratamientoLenteApi;
+export const actualizarTipoLenteApi = actualizarTratamientoLenteApi;
+export const eliminarTipoLenteApi = eliminarTratamientoLenteApi;

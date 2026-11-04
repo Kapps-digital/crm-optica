@@ -20,13 +20,14 @@ import {
 } from 'lucide-react';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
-import type { Contacto, FormulaOptica, HistoriaClinicaOptometrica, TipoLente } from '@/tipos/crm';
+import type { Contacto, FormulaOptica, HistoriaClinicaOptometrica, TratamientoLente, Optica } from '@/tipos/crm';
 import {
   obtenerOpticaSesion,
-  obtenerTiposLentesApi,
-  crearTipoLenteApi,
+  obtenerTratamientosLentesApi,
+  crearTratamientoLenteApi,
   registrarHistoriaClinica,
   actualizarHistoriaClinica,
+  obtenerEstadoCanalesApi,
 } from '@/servicios/api_crm';
 import {
   formatearTelefono,
@@ -143,6 +144,7 @@ const OPCIONES_PLAN_MANEJO = [
 interface PropiedadesModalRegistroClinicoCompleto {
   abierto: boolean;
   contacto: Contacto | null;
+  opticaActual?: Optica | null;
   alCerrar: () => void;
   alCompletarTodo: (datos: {
     historia: Partial<HistoriaClinicaOptometrica>;
@@ -155,6 +157,7 @@ interface PropiedadesModalRegistroClinicoCompleto {
 export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClinicoCompleto> = ({
   abierto,
   contacto,
+  opticaActual,
   alCerrar,
   alCompletarTodo,
   historiaInicialParaEditar = null,
@@ -168,24 +171,9 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
   // Pestañas de Anamnesis: Motivo & Síntomas vs Antecedentes Médicos
   const [pestañaAnamnesis, setPestañaAnamnesis] = useState<'sintomas' | 'antecedentes'>('sintomas');
 
-  // Datos fijos de atención (Fecha y Hora solo lectura)
-  const [fechaAtencion] = useState<string>(() => {
-    return new Date().toLocaleDateString('es-CO', {
-      timeZone: 'America/Bogota',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-  });
-
-  const [horaAtencion] = useState<string>(() => {
-    return new Intl.DateTimeFormat('es-CO', {
-      timeZone: 'America/Bogota',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    }).format(new Date());
-  });
+  // Datos de atención (Fecha y Hora frescos al momento de abrir el formulario)
+  const [fechaAtencion, setFechaAtencion] = useState<string>('');
+  const [horaAtencion, setHoraAtencion] = useState<string>('');
 
   // Estado del Paso 1: Historia Clínica
   const [idHistoriaGuardada, setIdHistoriaGuardada] = useState<number | null>(null);
@@ -233,7 +221,7 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
   const [tarjetaProfesional, setTarjetaProfesional] = useState('');
 
   // Estado del Paso 2: Fórmula Óptica
-  const [tiposLentes, setTiposLentes] = useState<TipoLente[]>([]);
+  const [tiposLentes, setTiposLentes] = useState<TratamientoLente[]>([]);
   const [formularioFormula, setFormularioFormula] = useState({
     esfera_od: '+0.00',
     cilindro_od: '-0.00',
@@ -253,13 +241,65 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
 
   const [modalConfirmacionFormula, setModalConfirmacionFormula] = useState(false);
 
+  // Estados para selección modular de fórmula en el Paso 2: Diseño base + Tratamientos
+  const [disenoBaseFormula, setDisenoBaseFormula] = useState<string>('Monofocal');
+  const [tratamientosSeleccionadosFormula, setTratamientosSeleccionadosFormula] = useState<string[]>([]);
+  const [editandoOtroTratamientoFormula, setEditandoOtroTratamientoFormula] = useState(false);
+  const [textoTempOtroTratamientoFormula, setTextoTempOtroTratamientoFormula] = useState('');
+
+  const componerLenteFormula = (base: string, trats: string[]) => {
+    const partes = [base, ...trats].map((s) => s.trim()).filter(Boolean);
+    return partes.join(' ');
+  };
+
+  const cambiarDisenoBaseFormula = (nuevoDiseno: string) => {
+    setDisenoBaseFormula(nuevoDiseno);
+    const resultado = componerLenteFormula(nuevoDiseno, tratamientosSeleccionadosFormula);
+    setFormularioFormula((prev) => ({ ...prev, tipo_lente: resultado }));
+  };
+
+  const alternarTratamientoFormula = (nombreTrat: string) => {
+    setTratamientosSeleccionadosFormula((prev) => {
+      const existe = prev.includes(nombreTrat);
+      const nuevos = existe ? prev.filter((t) => t !== nombreTrat) : [...prev, nombreTrat];
+      const resultado = componerLenteFormula(disenoBaseFormula, nuevos);
+      setFormularioFormula((p) => ({ ...p, tipo_lente: resultado }));
+      return nuevos;
+    });
+  };
+
+  const manejarCrearOtroTratamientoFormula = async () => {
+    const limpio = textoTempOtroTratamientoFormula.trim();
+    if (!limpio) {
+      setEditandoOtroTratamientoFormula(false);
+      return;
+    }
+    try {
+      const res = await crearTratamientoLenteApi(limpio);
+      const creado = res.tratamiento_lente || res.tipo_lente;
+      if (res.exito && creado) {
+        setTiposLentes((prev) => {
+          const yaExiste = prev.some((t) => t.id === creado.id);
+          if (yaExiste) return prev;
+          return [...prev, creado].sort((a, b) => a.nombre.localeCompare(b.nombre));
+        });
+        alternarTratamientoFormula(limpio);
+      }
+    } catch (err) {
+      console.error('Error al crear nuevo tratamiento:', err);
+    } finally {
+      setTextoTempOtroTratamientoFormula('');
+      setEditandoOtroTratamientoFormula(false);
+    }
+  };
+
   useEffect(() => {
     setMontado(true);
-    obtenerTiposLentesApi()
+    obtenerTratamientosLentesApi()
       .then((res) => {
-        if (res.exito) setTiposLentes(res.tipos_lentes);
+        if (res.exito) setTiposLentes(res.tratamientos_lentes || res.tipos_lentes || []);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const parsearListaOtros = (val?: string | null): string[] => {
@@ -270,12 +310,53 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
   // Cargar optómetra principal y datos iniciales
   useEffect(() => {
     if (!abierto) return;
-    const optSesion = obtenerOpticaSesion();
+
+    // Calcular fecha y hora actual en zona horaria de Colombia al momento de abrir el formulario
+    const ahora = new Date();
+    const horaActualStr = new Intl.DateTimeFormat('es-CO', {
+      timeZone: 'America/Bogota',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    }).format(ahora);
+
+    const fechaActualStr = ahora.toLocaleDateString('es-CO', {
+      timeZone: 'America/Bogota',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+
+    // Siempre reiniciar en la pestaña Motivo & Síntomas al abrir
+    setPestañaAnamnesis('sintomas');
+
+    const optSesion = opticaActual || obtenerOpticaSesion();
     const optometraPredeterminado = optSesion?.especialista_defecto || '';
     const registroPredeterminado = optSesion?.registro_profesional_defecto || '';
     const controlMeses = String(optSesion?.control_meses_defecto || '12');
 
+    // Respaldo asíncrono si la sesión local aún no tenía especialista configurado
+    if (!optometraPredeterminado && !historiaInicialParaEditar) {
+      obtenerEstadoCanalesApi()
+        .then((res) => {
+          if (res.exito && res.optica) {
+            if (res.optica.especialista_defecto) {
+              setOptometra((actual) => (actual ? actual : res.optica!.especialista_defecto || ''));
+            }
+            if (res.optica.registro_profesional_defecto) {
+              setTarjetaProfesional((actual) => (actual ? actual : res.optica!.registro_profesional_defecto || ''));
+            }
+            if (res.optica.control_meses_defecto) {
+              setPlanControlMeses((actual) => (actual ? actual : String(res.optica!.control_meses_defecto)));
+            }
+          }
+        })
+        .catch(() => {});
+    }
+
     if (historiaInicialParaEditar) {
+      setFechaAtencion(historiaInicialParaEditar.fecha_atencion || fechaActualStr);
+      setHoraAtencion(historiaInicialParaEditar.hora_atencion || horaActualStr);
       setIdHistoriaGuardada(historiaInicialParaEditar.id);
       setMotivoConsulta(historiaInicialParaEditar.motivo_consulta || '');
       setSintomas(historiaInicialParaEditar.sintomas || []);
@@ -304,8 +385,13 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
       setRefraccionOi(historiaInicialParaEditar.refraccion_oi || '');
       setQueratometriaOd(historiaInicialParaEditar.queratometria_od || '');
       setQueratometriaOi(historiaInicialParaEditar.queratometria_oi || '');
-      setPresionOd(historiaInicialParaEditar.presion_intraocular_od || '');
-      setPresionOi(historiaInicialParaEditar.presion_intraocular_oi || '');
+      const limpiarMmHg = (v?: string | null) => {
+        if (!v) return '';
+        const num = v.replace(/[^\d]/g, '').trim();
+        return num ? `${num} mmHg` : '';
+      };
+      setPresionOd(limpiarMmHg(historiaInicialParaEditar.presion_intraocular_od));
+      setPresionOi(limpiarMmHg(historiaInicialParaEditar.presion_intraocular_oi));
       setBiomicroscopia(historiaInicialParaEditar.biomicroscopia || '');
       setFondoOjo(historiaInicialParaEditar.fondo_ojo || '');
 
@@ -326,6 +412,8 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
         historiaInicialParaEditar.tarjeta_profesional || registroPredeterminado
       );
     } else {
+      setFechaAtencion(fechaActualStr);
+      setHoraAtencion(horaActualStr);
       setIdHistoriaGuardada(null);
       setMotivoConsulta('');
       setSintomas([]);
@@ -363,7 +451,7 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
       setOtrosPlanManejo([]);
       setTextoTempOtroPlan('');
       setEditandoOtroPlan(false);
-      setPlanControlMeses('');
+      setPlanControlMeses(controlMeses || '12');
       setObservaciones('');
       setOptometra(optometraPredeterminado);
       setTarjetaProfesional(registroPredeterminado);
@@ -386,7 +474,7 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
       });
       setPasoActual(iniciarEnPaso);
     }
-  }, [abierto, historiaInicialParaEditar, iniciarEnPaso]);
+  }, [abierto, historiaInicialParaEditar, iniciarEnPaso, opticaActual]);
 
   const alternarItemArray = (lista: string[], item: string, setter: (val: string[]) => void) => {
     setter(lista.includes(item) ? lista.filter((x) => x !== item) : [...lista, item]);
@@ -443,8 +531,14 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
       refraccion_oi: refraccionOi.trim() || undefined,
       queratometria_od: queratometriaOd.trim() || undefined,
       queratometria_oi: queratometriaOi.trim() || undefined,
-      presion_intraocular_od: presionOd.trim() || undefined,
-      presion_intraocular_oi: presionOi.trim() || undefined,
+      presion_intraocular_od: (() => {
+        const digitos = presionOd.replace(/[^\d]/g, '').trim();
+        return digitos ? `${digitos} mmHg` : undefined;
+      })(),
+      presion_intraocular_oi: (() => {
+        const digitos = presionOi.replace(/[^\d]/g, '').trim();
+        return digitos ? `${digitos} mmHg` : undefined;
+      })(),
       biomicroscopia: biomicroscopia.trim() || undefined,
       fondo_ojo: fondoOjo.trim() || undefined,
       diagnostico: diagnostico.trim(),
@@ -578,28 +672,6 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
     }
   };
 
-  const opcionesTiposLentes = useMemo(() => {
-    return tiposLentes.map((t) => ({ valor: t.nombre, etiqueta: t.nombre }));
-  }, [tiposLentes]);
-
-  const manejarCrearNuevoTipoLente = async (nuevoNombre: string) => {
-    try {
-      const res = await crearTipoLenteApi(nuevoNombre);
-      if (res.exito && res.tipo_lente) {
-        setTiposLentes((prev) => {
-          const yaExiste = prev.some((t) => t.id === res.tipo_lente!.id);
-          if (yaExiste) return prev;
-          return [...prev, res.tipo_lente!].sort((a, b) => a.nombre.localeCompare(b.nombre));
-        });
-        setFormularioFormula((prev) => ({ ...prev, tipo_lente: res.tipo_lente!.nombre }));
-      } else {
-        setFormularioFormula((prev) => ({ ...prev, tipo_lente: nuevoNombre }));
-      }
-    } catch (err) {
-      console.error('Error al crear nuevo tipo de lente:', err);
-    }
-  };
-
   if (!montado || !abierto || !contacto) return null;
 
   return createPortal(
@@ -634,7 +706,7 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                 <h3 className="modal-titulo-principal" style={{ fontSize: '1.05rem', margin: 0 }}>
-                  {pasoActual === 1 ? 'Historia Clínica Optométrica' : 'Prescripción y Fórmula Óptica'}
+                  {pasoActual === 1 ? 'Historia Clínica Optométrica' : 'Prescripción Final'}
                 </h3>
                 <div
                   style={{
@@ -912,20 +984,42 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
 
               {/* Contenido según la pestaña activa */}
               {pestañaAnamnesis === 'sintomas' ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                  <div className="modal-campo-grupo">
-                    <label className="modal-label" style={{ fontWeight: 700 }}>Motivo de Consulta *</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.75rem', alignItems: 'stretch' }}>
+                  {/* Tarjeta Motivo de Consulta */}
+                  <div
+                    style={{
+                      background: 'var(--fondo-tarjeta)',
+                      padding: '0.75rem',
+                      borderRadius: '8px',
+                      border: '1px solid var(--borde-tarjeta)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                      <label className="modal-label" style={{ margin: 0, fontWeight: 700 }}>Motivo de Consulta *</label>
+                    </div>
                     <textarea
                       value={motivoConsulta}
                       onChange={(e) => setMotivoConsulta(e.target.value)}
                       className="modal-textarea"
                       rows={2}
                       placeholder="Razón de la consulta..."
-                      style={{ minHeight: '52px' }}
+                      style={{ minHeight: '60px', height: '100%', flex: 1, resize: 'vertical' }}
                     />
                   </div>
 
-                  <div>
+                  {/* Tarjeta Síntomas Actuales */}
+                  <div
+                    style={{
+                      background: 'var(--fondo-tarjeta)',
+                      padding: '0.75rem',
+                      borderRadius: '8px',
+                      border: '1px solid var(--borde-tarjeta)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                    }}
+                  >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
                       <label className="modal-label" style={{ margin: 0, fontWeight: 600 }}>Síntomas Actuales</label>
                     </div>
@@ -1763,219 +1857,216 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
                     Plan de Manejo
                   </label>
                 </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.45rem' }}>
+                    {OPCIONES_PLAN_MANEJO.map((plan) => {
+                      const sel = planManejo.includes(plan);
+                      return (
+                        <button
+                          key={plan}
+                          type="button"
+                          onClick={() => alternarItemArray(planManejo, plan, setPlanManejo)}
+                          style={{
+                            padding: '0.32rem 0.7rem',
+                            borderRadius: '20px',
+                            fontSize: '0.75rem',
+                            fontWeight: sel ? 600 : 500,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            border: sel ? '1px solid var(--color-primario)' : '1px solid var(--borde-tarjeta)',
+                            background: sel ? 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.12)' : 'var(--fondo-elevado)',
+                            color: sel ? 'var(--color-primario)' : 'var(--texto-principal)',
+                          }}
+                        >
+                          {sel && <Check size={13} style={{ strokeWidth: 3 }} />}
+                          <span>{plan}</span>
+                        </button>
+                      );
+                    })}
 
-                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.45rem' }}>
-                  {OPCIONES_PLAN_MANEJO.map((plan) => {
-                    const sel = planManejo.includes(plan);
-                    return (
-                      <button
-                        key={plan}
-                        type="button"
-                        onClick={() => alternarItemArray(planManejo, plan, setPlanManejo)}
+                    {otrosPlanManejo.map((item) => (
+                      <span
+                        key={item}
                         style={{
-                          padding: '0.35rem 0.75rem',
+                          padding: '0.32rem 0.7rem',
                           borderRadius: '20px',
-                          fontSize: '0.76rem',
-                          fontWeight: sel ? 600 : 500,
-                          cursor: 'pointer',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '0.35rem',
-                          border: sel ? '1px solid var(--color-primario)' : '1px solid var(--borde-tarjeta)',
-                          background: sel ? 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.12)' : 'var(--fondo-elevado)',
-                          color: sel ? 'var(--color-primario)' : 'var(--texto-principal)',
+                          border: '1px solid var(--color-primario)',
+                          background: 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.12)',
+                          color: 'var(--color-primario)',
                         }}
                       >
-                        {sel && <Check size={13} style={{ strokeWidth: 3 }} />}
-                        <span>{plan}</span>
-                      </button>
-                    );
-                  })}
+                        <Check size={13} style={{ strokeWidth: 3 }} />
+                        <span>{item}</span>
+                        <button
+                          type="button"
+                          onClick={() => eliminarOtroItem(item, otrosPlanManejo, setOtrosPlanManejo)}
+                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', color: 'inherit', marginLeft: '0.2rem' }}
+                          title="Eliminar opción"
+                        >
+                          <X size={13} />
+                        </button>
+                      </span>
+                    ))}
 
-                  {/* Chips Otras Indicaciones agregadas */}
-                  {otrosPlanManejo.map((item) => (
-                    <span
-                      key={item}
-                      style={{
-                        padding: '0.35rem 0.75rem',
-                        borderRadius: '20px',
-                        fontSize: '0.76rem',
-                        fontWeight: 600,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.35rem',
-                        border: '1px solid var(--color-primario)',
-                        background: 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.12)',
-                        color: 'var(--color-primario)',
-                      }}
-                    >
-                      <Check size={13} style={{ strokeWidth: 3 }} />
-                      <span>{item}</span>
-                      <button
-                        type="button"
-                        onClick={() => eliminarOtroItem(item, otrosPlanManejo, setOtrosPlanManejo)}
-                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', color: 'inherit', marginLeft: '0.2rem' }}
-                        title="Eliminar opción"
-                      >
-                        <X size={13} />
-                      </button>
-                    </span>
-                  ))}
-
-                  {/* Input compacto para ingresar Otra Indicación o Botón + Otro */}
-                  {editandoOtroPlan ? (
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <input
-                        type="text"
-                        value={textoTempOtroPlan}
-                        onChange={(e) => setTextoTempOtroPlan(e.target.value)}
-                        onBlur={() =>
-                          agregarOtroItem(
-                            textoTempOtroPlan,
-                            otrosPlanManejo,
-                            setOtrosPlanManejo,
-                            setEditandoOtroPlan,
-                            setTextoTempOtroPlan
-                          )
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
+                    {editandoOtroPlan ? (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <input
+                          type="text"
+                          value={textoTempOtroPlan}
+                          onChange={(e) => setTextoTempOtroPlan(e.target.value)}
+                          onBlur={() =>
                             agregarOtroItem(
                               textoTempOtroPlan,
                               otrosPlanManejo,
                               setOtrosPlanManejo,
                               setEditandoOtroPlan,
                               setTextoTempOtroPlan
-                            );
-                          } else if (e.key === 'Escape') {
+                            )
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              agregarOtroItem(
+                                textoTempOtroPlan,
+                                otrosPlanManejo,
+                                setOtrosPlanManejo,
+                                setEditandoOtroPlan,
+                                setTextoTempOtroPlan
+                              );
+                            } else if (e.key === 'Escape') {
+                              setEditandoOtroPlan(false);
+                              setTextoTempOtroPlan('');
+                            }
+                          }}
+                          placeholder="Otra indicación..."
+                          className="modal-input"
+                          style={{
+                            width: '135px',
+                            height: '28px',
+                            fontSize: '0.74rem',
+                            padding: '0 0.5rem',
+                            borderRadius: '16px',
+                            borderColor: 'var(--color-primario)',
+                          }}
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
                             setEditandoOtroPlan(false);
                             setTextoTempOtroPlan('');
-                          }
-                        }}
-                        placeholder="Otra indicación..."
-                        className="modal-input"
-                        style={{
-                          width: '135px',
-                          height: '28px',
-                          fontSize: '0.74rem',
-                          padding: '0 0.5rem',
-                          borderRadius: '16px',
-                          borderColor: 'var(--color-primario)',
-                        }}
-                        autoFocus
-                      />
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: 'var(--texto-atenuado)',
+                            padding: '2px',
+                            display: 'inline-flex',
+                          }}
+                          title="Cancelar"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ) : (
                       <button
                         type="button"
                         onClick={() => {
-                          setEditandoOtroPlan(false);
+                          setEditandoOtroPlan(true);
                           setTextoTempOtroPlan('');
                         }}
                         style={{
                           background: 'none',
-                          border: 'none',
+                          border: '1px dashed var(--borde-tarjeta)',
+                          color: 'var(--color-primario)',
+                          fontSize: '0.72rem',
+                          fontWeight: 600,
+                          padding: '0.24rem 0.65rem',
+                          borderRadius: '16px',
                           cursor: 'pointer',
-                          color: 'var(--texto-atenuado)',
-                          padding: '2px',
                           display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
                         }}
-                        title="Cancelar"
                       >
-                        <X size={12} />
+                        <Plus size={11} />
+                        <span>Otro</span>
                       </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditandoOtroPlan(true);
-                        setTextoTempOtroPlan('');
-                      }}
-                      style={{
-                        background: 'none',
-                        border: '1px dashed var(--borde-tarjeta)',
-                        color: 'var(--color-primario)',
-                        fontSize: '0.72rem',
-                        fontWeight: 600,
-                        padding: '0.24rem 0.65rem',
-                        borderRadius: '16px',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.25rem',
-                      }}
-                    >
-                      <Plus size={11} />
-                      <span>Otro</span>
-                    </button>
-                  )}
+                    )}
 
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', marginLeft: '0.2rem' }}>
-                    <span style={{ fontSize: '0.74rem', color: 'var(--texto-secundario)' }}>Control en:</span>
-                    <input
-                      type="text"
-                      value={planControlMeses}
-                      onChange={(e) => setPlanControlMeses(e.target.value.replace(/[^\d]/g, ''))}
-                      placeholder="12"
-                      className="modal-input"
-                      style={{ width: '48px', height: '28px', textAlign: 'center', padding: '0 0.2rem', fontSize: '0.74rem' }}
-                    />
-                    <span style={{ fontSize: '0.74rem', color: 'var(--texto-secundario)' }}>meses</span>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', marginLeft: '0.2rem' }}>
+                      <span style={{ fontSize: '0.74rem', color: 'var(--texto-secundario)' }}>Control en:</span>
+                      <input
+                        type="text"
+                        value={planControlMeses}
+                        onChange={(e) => setPlanControlMeses(e.target.value.replace(/[^\d]/g, ''))}
+                        placeholder="12"
+                        className="modal-input"
+                        style={{ width: '48px', height: '28px', textAlign: 'center', padding: '0 0.2rem', fontSize: '0.74rem' }}
+                      />
+                      <span style={{ fontSize: '0.74rem', color: 'var(--texto-secundario)' }}>meses</span>
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* SECCIÓN 6: OBSERVACIONES Y ESPECIALISTA TRATANTE (Recuadro blanco uniforme) */}
+              <div
+                style={{
+                  border: '1px solid var(--borde-tarjeta)',
+                  borderRadius: '8px',
+                  padding: '0.85rem',
+                  background: 'var(--fondo-tarjeta)',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                  gap: '0.85rem',
+                }}
+              >
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label className="modal-label" style={{ fontWeight: 700, marginBottom: '0.35rem' }}>Observaciones</label>
+                  <textarea
+                    value={observaciones}
+                    onChange={(e) => setObservaciones(e.target.value)}
+                    className="modal-textarea"
+                    rows={2}
+                    placeholder="Comentarios adicionales o notas específicas del examen..."
+                    style={{ minHeight: '48px', fontSize: '0.78rem' }}
+                  />
+                </div>
+
+                <div>
+                  <label className="modal-label" style={{ fontWeight: 600 }}>Optómetra / Especialista *</label>
+                  <input
+                    type="text"
+                    value={optometra}
+                    onChange={(e) => setOptometra(e.target.value)}
+                    onBlur={() => setOptometra(formatearNombreEspecialista(optometra))}
+                    placeholder="Nombre y apellido del especialista"
+                    className="modal-input"
+                    style={{ height: '34px' }}
+                  />
+                </div>
+
+                <div>
+                  <label className="modal-label" style={{ fontWeight: 600 }}>Tarjeta Profesional (T.P.)</label>
+                  <input
+                    type="text"
+                    value={tarjetaProfesional}
+                    onChange={(e) => setTarjetaProfesional(e.target.value)}
+                    placeholder="Ej: OPT-84920"
+                    className="modal-input"
+                    style={{ height: '34px' }}
+                  />
+                </div>
+              </div>
             </div>
-
-            {/* SECCIÓN 6: OBSERVACIONES Y ESPECIALISTA TRATANTE */}
-            <div
-              style={{
-                border: '1px solid var(--borde-tarjeta)',
-                borderRadius: '10px',
-                padding: '0.9rem',
-                background: 'var(--fondo-elevado)',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                gap: '0.85rem',
-              }}
-            >
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label className="modal-label">Observaciones</label>
-                <textarea
-                  value={observaciones}
-                  onChange={(e) => setObservaciones(e.target.value)}
-                  className="modal-textarea"
-                  rows={2}
-                  placeholder="Comentarios adicionales o notas específicas del examen..."
-                  style={{ minHeight: '48px', fontSize: '0.78rem' }}
-                />
-              </div>
-
-              <div>
-                <label className="modal-label">Optómetra / Especialista *</label>
-                <input
-                  type="text"
-                  value={optometra}
-                  onChange={(e) => setOptometra(e.target.value)}
-                  onBlur={() => setOptometra(formatearNombreEspecialista(optometra))}
-                  placeholder="Nombre y apellido del especialista"
-                  className="modal-input"
-                  style={{ height: '34px' }}
-                />
-              </div>
-
-              <div>
-                <label className="modal-label">Tarjeta Profesional (T.P.)</label>
-                <input
-                  type="text"
-                  value={tarjetaProfesional}
-                  onChange={(e) => setTarjetaProfesional(e.target.value)}
-                  placeholder="Ej: OPT-84920"
-                  className="modal-input"
-                  style={{ height: '34px' }}
-                />
-              </div>
-            </div>
-          </div>
         )}
 
         {/* ========================================================= */}
@@ -2165,6 +2256,7 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
 
             {/* Parámetros Técnicos de la Prescripción */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+              {/* Fila 1 Columna 1: Distancia Pupilar */}
               <div className="modal-campo-grupo">
                 <label className="modal-label">Distancia Pupilar (DP / DNP):</label>
                 <input
@@ -2182,20 +2274,169 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
                 />
               </div>
 
+              {/* Fila 1 Columna 2: Tipo de Lente (Junto a DP) */}
               <div className="modal-campo-grupo">
-                <label className="modal-label">Tipo de Lente Recomendado:</label>
-                <SelectorDesplegable
-                  valor={formularioFormula.tipo_lente}
-                  alCambiar={(val) => setFormularioFormula((prev) => ({ ...prev, tipo_lente: String(val) }))}
-                  placeholder="Seleccionar tipo de lente..."
-                  anchoMinimo="100%"
-                  conBuscador={true}
-                  placeholderBuscador="Buscar o escribir nuevo tipo de lente..."
-                  permitirCrearNuevo={true}
-                  textoCrearNuevo="Agregar nuevo tipo de lente"
-                  alCrearNuevo={manejarCrearNuevoTipoLente}
-                  opciones={opcionesTiposLentes}
-                />
+                <label className="modal-label">Tipo de Lente:</label>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', height: '38px', alignItems: 'center' }}>
+                  {['Monofocal', 'Bifocal', 'Progresivo'].map((t) => {
+                    const seleccionado = disenoBaseFormula === t;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => cambiarDisenoBaseFormula(t)}
+                        style={{
+                          padding: '0.35rem 0.75rem',
+                          borderRadius: '6px',
+                          fontSize: '0.74rem',
+                          fontWeight: seleccionado ? 700 : 500,
+                          border: seleccionado ? '1px solid var(--color-primario)' : '1px solid var(--borde-tarjeta)',
+                          background: seleccionado ? 'var(--color-primario)' : 'var(--fondo-elevado)',
+                          color: seleccionado ? '#ffffff' : 'var(--texto-principal)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          flex: '1 1 auto',
+                          textAlign: 'center',
+                        }}
+                      >
+                        {seleccionado && '✓ '}{t}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Fila 2 (Ancho Completo): Tratamientos y Lente Prescrito */}
+              <div className="modal-campo-grupo col-span-2" style={{ gridColumn: '1 / -1' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.65rem',
+                    background: 'var(--fondo-tarjeta)',
+                    border: '1px solid var(--borde-tarjeta)',
+                    padding: '0.85rem',
+                    borderRadius: '8px',
+                  }}
+                >
+                  <div>
+                    <label className="modal-label" style={{ marginBottom: '0.35rem', display: 'block', fontSize: '0.74rem' }}>
+                      Tratamiento:
+                    </label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center' }}>
+                      {tiposLentes.map((trat) => {
+                        const seleccionado = tratamientosSeleccionadosFormula.includes(trat.nombre);
+                        return (
+                          <button
+                            key={trat.id}
+                            type="button"
+                            onClick={() => alternarTratamientoFormula(trat.nombre)}
+                            style={{
+                              padding: '0.22rem 0.6rem',
+                              borderRadius: '16px',
+                              fontSize: '0.72rem',
+                              fontWeight: seleccionado ? 600 : 500,
+                              border: seleccionado
+                                ? '1px solid var(--color-primario)'
+                                : '1px solid var(--borde-tarjeta)',
+                              background: seleccionado
+                                ? 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.12)'
+                                : 'var(--fondo-elevado)',
+                              color: seleccionado
+                                ? 'var(--color-primario)'
+                                : 'var(--texto-secundario)',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                            }}
+                          >
+                            {seleccionado ? '✓ ' : '+ '}{trat.nombre}
+                          </button>
+                        );
+                      })}
+
+                      {editandoOtroTratamientoFormula ? (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <input
+                            type="text"
+                            autoFocus
+                            value={textoTempOtroTratamientoFormula}
+                            onChange={(e) => setTextoTempOtroTratamientoFormula(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                manejarCrearOtroTratamientoFormula();
+                              } else if (e.key === 'Escape') {
+                                setEditandoOtroTratamientoFormula(false);
+                                setTextoTempOtroTratamientoFormula('');
+                              }
+                            }}
+                            placeholder="Nuevo..."
+                            className="modal-input"
+                            style={{ height: '26px', fontSize: '0.72rem', width: '120px', padding: '0.1rem 0.4rem' }}
+                          />
+                          <button
+                            type="button"
+                            onClick={manejarCrearOtroTratamientoFormula}
+                            className="modal-btn-guardar"
+                            style={{ height: '26px', padding: '0 0.45rem', fontSize: '0.7rem' }}
+                          >
+                            OK
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditandoOtroTratamientoFormula(false);
+                              setTextoTempOtroTratamientoFormula('');
+                            }}
+                            className="modal-btn-cancelar"
+                            style={{ height: '26px', padding: '0 0.35rem', fontSize: '0.7rem' }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setEditandoOtroTratamientoFormula(true)}
+                          style={{
+                            padding: '0.22rem 0.55rem',
+                            borderRadius: '16px',
+                            fontSize: '0.72rem',
+                            border: '1px dashed var(--color-primario)',
+                            background: 'transparent',
+                            color: 'var(--color-primario)',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                          }}
+                        >
+                          + Otro Tratamiento
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Lente Prescrito Resultante */}
+                  <div
+                    style={{
+                      marginTop: '0.2rem',
+                      padding: '0.45rem 0.75rem',
+                      borderRadius: '6px',
+                      background: 'var(--fondo-elevado)',
+                      border: '1px solid var(--borde-tarjeta)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <span style={{ fontSize: '0.71rem', color: 'var(--texto-atenuado)', fontWeight: 600 }}>Lente a Prescribir:</span>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-primario)' }}>
+                      {formularioFormula.tipo_lente || disenoBaseFormula}
+                    </span>
+                  </div>
+                </div>
               </div>
 
               <div className="modal-campo-grupo">

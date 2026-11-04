@@ -285,7 +285,7 @@ export default function PaginaPrincipal() {
         const activa = Boolean(resIA.configuracion.ia_activa);
         setOpticaActual((prev) => (prev ? { ...prev, ia_activa: activa } : prev));
       }
-    }).catch(() => {});
+    }).catch(() => { });
 
     obtenerPerfilUsuario().then(async (res) => {
       if (res.exito) {
@@ -528,10 +528,10 @@ export default function PaginaPrincipal() {
     const idActiva = vistaActiva === 'mensajeria' ? conversacionActivaRef.current : null;
     const listaNormalizada = Array.isArray(lista)
       ? lista.map((c) =>
-          c.id === idActiva
-            ? { ...c, no_leido: false, mensajes_no_leidos: 0 }
-            : c
-        )
+        c.id === idActiva
+          ? { ...c, no_leido: false, mensajes_no_leidos: 0 }
+          : c
+      )
       : [];
 
     setConversaciones(listaNormalizada);
@@ -589,7 +589,7 @@ export default function PaginaPrincipal() {
             if (msgs && Array.isArray(msgs)) {
               cacheMensajes.current[c.id] = msgs;
             }
-          }).catch(() => {});
+          }).catch(() => { });
         }
       });
     }
@@ -700,12 +700,12 @@ export default function PaginaPrincipal() {
       if (typeof document !== 'undefined' && !document.hidden) {
         recargarConversaciones();
         if (typeof navigator !== 'undefined' && 'clearAppBadge' in navigator) {
-          (navigator as any).clearAppBadge().catch(() => {});
+          (navigator as any).clearAppBadge().catch(() => { });
         }
       }
     };
     if (typeof navigator !== 'undefined' && 'clearAppBadge' in navigator) {
-      (navigator as any).clearAppBadge().catch(() => {});
+      (navigator as any).clearAppBadge().catch(() => { });
     }
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', alCambiarVisibilidad);
@@ -867,16 +867,16 @@ export default function PaginaPrincipal() {
               listaFresca.find((c) => Number(c.contacto_id) === Number(contactoId)) ||
               (paciente.telefono
                 ? listaFresca.find(
-                    (c) =>
-                      String(c.contacto_telefono || '').replace(/\D/g, '') ===
-                      String(paciente.telefono).replace(/\D/g, '')
-                  )
+                  (c) =>
+                    String(c.contacto_telefono || '').replace(/\D/g, '') ===
+                    String(paciente.telefono).replace(/\D/g, '')
+                )
                 : null);
             if (coincidencia) {
               manejarSeleccionarConversacion(coincidencia);
             }
           }
-        }).catch(() => {});
+        }).catch(() => { });
       }
     },
     [conversaciones, pacientes, usuarioActual?.rol]
@@ -1087,14 +1087,14 @@ export default function PaginaPrincipal() {
     setConversacionActiva((prev) =>
       prev && Number(prev.id) === idConv
         ? {
-            ...prev,
-            requiere_asesor_humano: false,
-            ia_pausada_por_humano: true,
-            sin_contestar: false,
-            ultimo_mensaje_direccion: 'saliente',
-            ultimo_mensaje_texto: texto,
-            ultimo_mensaje_fecha: new Date().toISOString(),
-          }
+          ...prev,
+          requiere_asesor_humano: false,
+          ia_pausada_por_humano: true,
+          sin_contestar: false,
+          ultimo_mensaje_direccion: 'saliente',
+          ultimo_mensaje_texto: texto,
+          ultimo_mensaje_fecha: new Date().toISOString(),
+        }
         : prev
     );
 
@@ -1102,14 +1102,14 @@ export default function PaginaPrincipal() {
       prev.map((c) =>
         Number(c.id) === idConv
           ? {
-              ...c,
-              requiere_asesor_humano: false,
-              ia_pausada_por_humano: true,
-              sin_contestar: false,
-              ultimo_mensaje_direccion: 'saliente',
-              ultimo_mensaje_texto: texto,
-              ultimo_mensaje_fecha: new Date().toISOString(),
-            }
+            ...c,
+            requiere_asesor_humano: false,
+            ia_pausada_por_humano: true,
+            sin_contestar: false,
+            ultimo_mensaje_direccion: 'saliente',
+            ultimo_mensaje_texto: texto,
+            ultimo_mensaje_fecha: new Date().toISOString(),
+          }
           : c
       )
     );
@@ -1140,7 +1140,21 @@ export default function PaginaPrincipal() {
       setConversacionActiva((prev) =>
         prev && Number(prev.id) === idConv
           ? {
-              ...prev,
+            ...prev,
+            requiere_asesor_humano: false,
+            ia_pausada_por_humano: true,
+            sin_contestar: false,
+            ultimo_mensaje_direccion: 'saliente',
+            ultimo_mensaje_texto: texto,
+            ultimo_mensaje_fecha: new Date().toISOString(),
+          }
+          : prev
+      );
+      setConversaciones((prev) =>
+        prev.map((c) =>
+          Number(c.id) === idConv
+            ? {
+              ...c,
               requiere_asesor_humano: false,
               ia_pausada_por_humano: true,
               sin_contestar: false,
@@ -1148,20 +1162,6 @@ export default function PaginaPrincipal() {
               ultimo_mensaje_texto: texto,
               ultimo_mensaje_fecha: new Date().toISOString(),
             }
-          : prev
-      );
-      setConversaciones((prev) =>
-        prev.map((c) =>
-          Number(c.id) === idConv
-            ? {
-                ...c,
-                requiere_asesor_humano: false,
-                ia_pausada_por_humano: true,
-                sin_contestar: false,
-                ultimo_mensaje_direccion: 'saliente',
-                ultimo_mensaje_texto: texto,
-                ultimo_mensaje_fecha: new Date().toISOString(),
-              }
             : c
         )
       );
@@ -1193,7 +1193,21 @@ export default function PaginaPrincipal() {
       setConversacionActiva((prev) =>
         prev && Number(prev.id) === Number(conversacionActiva.id)
           ? {
-              ...prev,
+            ...prev,
+            requiere_asesor_humano: false,
+            ia_pausada_por_humano: true,
+            sin_contestar: false,
+            ultimo_mensaje_direccion: 'saliente',
+            ultimo_mensaje_texto: `[Template: ${nombreMostrar}]`,
+            ultimo_mensaje_fecha: new Date().toISOString(),
+          }
+          : prev
+      );
+      setConversaciones((prev) =>
+        prev.map((c) =>
+          c.id === conversacionActiva.id
+            ? {
+              ...c,
               requiere_asesor_humano: false,
               ia_pausada_por_humano: true,
               sin_contestar: false,
@@ -1201,20 +1215,6 @@ export default function PaginaPrincipal() {
               ultimo_mensaje_texto: `[Template: ${nombreMostrar}]`,
               ultimo_mensaje_fecha: new Date().toISOString(),
             }
-          : prev
-      );
-      setConversaciones((prev) =>
-        prev.map((c) =>
-          c.id === conversacionActiva.id
-            ? {
-                ...c,
-                requiere_asesor_humano: false,
-                ia_pausada_por_humano: true,
-                sin_contestar: false,
-                ultimo_mensaje_direccion: 'saliente',
-                ultimo_mensaje_texto: `[Template: ${nombreMostrar}]`,
-                ultimo_mensaje_fecha: new Date().toISOString(),
-              }
             : c
         )
       );
@@ -1572,8 +1572,8 @@ export default function PaginaPrincipal() {
                 conversacionActiva
                   ? estaEnVentana24Horas(conversacionActiva.ultimo_mensaje_entrante_en)
                   : (pacienteActivo
-                      ? estaEnVentana24Horas(conversaciones.find((c) => Number(c.contacto_id) === Number(pacienteActivo.id))?.ultimo_mensaje_entrante_en)
-                      : false)
+                    ? estaEnVentana24Horas(conversaciones.find((c) => Number(c.contacto_id) === Number(pacienteActivo.id))?.ultimo_mensaje_entrante_en)
+                    : false)
               }
               alAlternarFicha={() => {
                 setFichaAbierta(!fichaAbierta);
@@ -1720,6 +1720,7 @@ export default function PaginaPrincipal() {
       <ModalRegistroClinicoCompleto
         abierto={modalHistoriaAbierto}
         contacto={contactoParaHistoria}
+        opticaActual={opticaActual}
         alCerrar={() => {
           setModalHistoriaAbierto(false);
           setContactoParaHistoria(null);
@@ -1761,11 +1762,11 @@ export default function PaginaPrincipal() {
             prev.map((c) =>
               Number(c.contacto_id) === idActualizado
                 ? {
-                    ...c,
-                    contacto_nombre: pacienteActualizado.nombre_completo || pacienteActualizado.nombre || c.contacto_nombre,
-                    contacto_telefono: pacienteActualizado.telefono || c.contacto_telefono,
-                    contacto_correo: pacienteActualizado.correo || c.contacto_correo,
-                  }
+                  ...c,
+                  contacto_nombre: pacienteActualizado.nombre_completo || pacienteActualizado.nombre || c.contacto_nombre,
+                  contacto_telefono: pacienteActualizado.telefono || c.contacto_telefono,
+                  contacto_correo: pacienteActualizado.correo || c.contacto_correo,
+                }
                 : c
             )
           );

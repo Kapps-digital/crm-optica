@@ -38,7 +38,7 @@ export interface TipologiaPaciente {
   total_pacientes?: number;
 }
 
-export interface TipoLente {
+export interface TratamientoLente {
   id: number;
   optica_id: number | null;
   reemplaza_predeterminado_id?: number | null;
@@ -47,6 +47,8 @@ export interface TipoLente {
   activo?: boolean;
   creado_en?: string;
 }
+
+export type TipoLente = TratamientoLente;
 
 export interface Conversacion {
   id: number;

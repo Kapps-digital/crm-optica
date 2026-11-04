@@ -68,6 +68,7 @@ export const ModalLanzarLote: React.FC<PropiedadesModalLanzarLote> = ({
   const [errorOperacion, setErrorOperacion] = useState<string | null>(null);
 
   const inputArchivoRef = useRef<HTMLInputElement>(null);
+  const refCuerpoModal = useRef<HTMLDivElement>(null);
 
   // Sincronizar plantilla inicial cuando cambia prop o cambian las disponibles
   useEffect(() => {
@@ -291,6 +292,7 @@ export const ModalLanzarLote: React.FC<PropiedadesModalLanzarLote> = ({
       alCerrar();
     } catch (err: any) {
       setErrorOperacion(err.message || 'Error al procesar el envío del lote');
+      refCuerpoModal.current?.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setEnviando(false);
     }
@@ -379,7 +381,10 @@ export const ModalLanzarLote: React.FC<PropiedadesModalLanzarLote> = ({
         </div>
 
         {/* Cuerpo */}
-        <div style={{ padding: '1.25rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div
+          ref={refCuerpoModal}
+          style={{ padding: '1.25rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}
+        >
           {errorOperacion && (
             <div
               style={{
@@ -1051,61 +1056,89 @@ export const ModalLanzarLote: React.FC<PropiedadesModalLanzarLote> = ({
         {/* Pie con botones */}
         <div
           style={{
-            padding: '1rem 1.4rem',
+            padding: '0.85rem 1.4rem',
             borderTop: '1px solid var(--borde-tarjeta)',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
+            flexDirection: 'column',
             gap: '0.65rem',
             backgroundColor: 'var(--fondo-base)',
           }}
         >
-          <button
-            type="button"
-            onClick={alCerrar}
-            disabled={enviando}
-            style={{
-              padding: '0.55rem 1rem',
-              backgroundColor: 'transparent',
-              border: '1px solid var(--borde-tarjeta)',
-              borderRadius: 'var(--radio-md)',
-              color: 'var(--texto-principal)',
-              fontSize: '0.82rem',
-              cursor: 'pointer',
-            }}
-          >
-            Cancelar
-          </button>
+          {errorOperacion && (
+            <div
+              style={{
+                padding: '0.55rem 0.85rem',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid #ef4444',
+                borderRadius: 'var(--radio-sm)',
+                color: '#ef4444',
+                fontSize: '0.78rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                animation: 'aparecerSuave 0.15s ease-out',
+              }}
+            >
+              <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+              <span>{errorOperacion}</span>
+            </div>
+          )}
 
-          <button
-            type="button"
-            onClick={manejarLanzarLote}
-            disabled={!resultadoCalculo || resultadoCalculo.cantidad_a_enviar_hoy <= 0 || enviando}
+          <div
             style={{
-              padding: '0.55rem 1.35rem',
-              backgroundColor: 'var(--color-primario, #0284c7)',
-              border: 'none',
-              borderRadius: 'var(--radio-md)',
-              color: '#ffffff',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              cursor: !resultadoCalculo || resultadoCalculo.cantidad_a_enviar_hoy <= 0 || enviando ? 'not-allowed' : 'pointer',
-              opacity: !resultadoCalculo || resultadoCalculo.cantidad_a_enviar_hoy <= 0 || enviando ? 0.6 : 1,
               display: 'flex',
               alignItems: 'center',
-              gap: '0.45rem',
-              boxShadow: 'var(--sombra-sm)',
+              justifyContent: 'flex-end',
+              gap: '0.65rem',
             }}
           >
-            <Send size={15} />
-            <span>
-              {enviando
-                ? 'Enviando Lote...'
-                : resultadoCalculo && resultadoCalculo.cantidad_a_enviar_hoy > 0
-                ? `Lanzar Lote #${resultadoCalculo.lote_numero} (${resultadoCalculo.cantidad_a_enviar_hoy} msgs)`
-                : 'Lanzar Lote'}
-            </span>
-          </button>
+            <button
+              type="button"
+              onClick={alCerrar}
+              disabled={enviando}
+              style={{
+                padding: '0.55rem 1rem',
+                backgroundColor: 'transparent',
+                border: '1px solid var(--borde-tarjeta)',
+                borderRadius: 'var(--radio-md)',
+                color: 'var(--texto-principal)',
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+              }}
+            >
+              Cancelar
+            </button>
+
+            <button
+              type="button"
+              onClick={manejarLanzarLote}
+              disabled={!resultadoCalculo || resultadoCalculo.cantidad_a_enviar_hoy <= 0 || enviando}
+              style={{
+                padding: '0.55rem 1.35rem',
+                backgroundColor: 'var(--color-primario, #0284c7)',
+                border: 'none',
+                borderRadius: 'var(--radio-md)',
+                color: '#ffffff',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                cursor: !resultadoCalculo || resultadoCalculo.cantidad_a_enviar_hoy <= 0 || enviando ? 'not-allowed' : 'pointer',
+                opacity: !resultadoCalculo || resultadoCalculo.cantidad_a_enviar_hoy <= 0 || enviando ? 0.6 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                boxShadow: 'var(--sombra-sm)',
+              }}
+            >
+              <Send size={15} />
+              <span>
+                {enviando
+                  ? 'Enviando Lote...'
+                  : resultadoCalculo && resultadoCalculo.cantidad_a_enviar_hoy > 0
+                  ? `Lanzar Lote #${resultadoCalculo.lote_numero} (${resultadoCalculo.cantidad_a_enviar_hoy} msgs)`
+                  : 'Lanzar Lote'}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

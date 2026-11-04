@@ -75,6 +75,7 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
   const [errorFormulario, setErrorFormulario] = useState<string | null>(null);
 
   const refInputArchivo = useRef<HTMLInputElement>(null);
+  const refFormulario = useRef<HTMLFormElement>(null);
 
   const limpiarFormulario = () => {
     setEtiqueta('');
@@ -191,7 +192,10 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
   };
 
   const insertarVariable = (variable: string) => {
-    setCuerpo((prev) => `${prev} ${variable}`);
+    setCuerpo((prev) => {
+      const limpio = prev.trimEnd();
+      return limpio ? `${limpio} ${variable} ` : `${variable} `;
+    });
   };
 
   // Contenido de encabezado a enviar al backend
@@ -218,11 +222,28 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
     e.preventDefault();
     if (subiendoArchivo) {
       setErrorFormulario('Por favor espera un momento mientras termina de procesarse el archivo multimedia...');
+      refFormulario.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
     if (!formularioValido) {
       setErrorFormulario('Por favor completa todos los campos requeridos y valida los botones.');
+      refFormulario.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return;
+    }
+
+    // Validar orden y formato de variables {{1}}, {{2}}... exigido por Meta
+    const varsCoincidencias = Array.from(cuerpo.matchAll(/\{\{(\d+)\}\}/g)).map((m) => Number(m[1]));
+    if (varsCoincidencias.length > 0) {
+      const varsUnicas = Array.from(new Set(varsCoincidencias)).sort((a, b) => a - b);
+      for (let i = 0; i < varsUnicas.length; i++) {
+        if (varsUnicas[i] !== i + 1) {
+          setErrorFormulario(
+            `Meta exige que las variables sean secuenciales y comiencen en {{1}}. Falta {{${i + 1}}} antes de {{${varsUnicas[i]}}}.`
+          );
+          refFormulario.current?.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+      }
     }
 
     setGuardando(true);
@@ -249,6 +270,7 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
       manejarCerrar();
     } catch (err: any) {
       setErrorFormulario(err.message || 'Error de conexión');
+      refFormulario.current?.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setGuardando(false);
     }
@@ -343,6 +365,7 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', flex: 1, minHeight: 0, overflow: 'hidden' }}>
           {/* Lado izquierdo: Formulario de edición */}
           <form
+            ref={refFormulario}
             onSubmit={manejarGuardar}
             style={{
               padding: '1.1rem 1.25rem',
@@ -712,6 +735,7 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
                   <button
                     type="button"
                     onClick={() => insertarVariable('{{1}}')}
+                    title="Inserta {{1}} para el nombre registrado del paciente (o nombre en WhatsApp)"
                     style={{
                       padding: '0.15rem 0.45rem',
                       fontSize: '0.68rem',
@@ -728,6 +752,7 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
                   <button
                     type="button"
                     onClick={() => insertarVariable('{{2}}')}
+                    title="Inserta {{2}} para la fecha de control visual o datos de la óptica (requiere {{1}} antes)"
                     style={{
                       padding: '0.15rem 0.45rem',
                       fontSize: '0.68rem',
@@ -759,7 +784,10 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
                   resize: 'vertical',
                 }}
               />
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.15rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.2rem' }}>
+                <span style={{ fontSize: '0.66rem', color: 'var(--texto-atenuado)' }}>
+                  Variables: <strong>{'{'}{'{'}1{'}'}{'}'}</strong> = Nombre paciente | <strong>{'{'}{'{'}2{'}'}{'}'}</strong> = Control / Fecha
+                </span>
                 <span style={{ fontSize: '0.68rem', color: 'var(--texto-atenuado)' }}>
                   {cuerpo.length} / 1024 caracteres
                 </span>
@@ -990,6 +1018,27 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
               </span>
             </div>
 
+            {/* Alerta de error visible en la parte inferior junto a los botones */}
+            {errorFormulario && (
+              <div
+                style={{
+                  padding: '0.55rem 0.75rem',
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid #ef4444',
+                  borderRadius: 'var(--radio-sm)',
+                  color: '#ef4444',
+                  fontSize: '0.78rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  animation: 'aparecerSuave 0.15s ease-out',
+                }}
+              >
+                <AlertCircle size={15} style={{ flexShrink: 0 }} />
+                <span>{errorFormulario}</span>
+              </div>
+            )}
+
             {/* Botones de acción inferior */}
             <div
               style={{
@@ -1021,7 +1070,8 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
                 disabled={!formularioValido || guardando}
                 style={{
                   padding: '0.5rem 1.25rem',
-                  backgroundColor: '#25D366',
+                  backgroundColor: 'var(--color-primario, #0284c7)',
+                  boxShadow: '0 2px 6px rgba(var(--color-primario-rgb, 2, 132, 199), 0.35)',
                   border: 'none',
                   borderRadius: 'var(--radio-md)',
                   color: '#ffffff',

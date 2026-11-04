@@ -266,14 +266,6 @@ export function EtiquetaTooltip({
             role="tooltip"
           >
             <span>{typeof texto === 'string' ? texto.replace(/\$\s*/g, '$') : texto}</span>
-            <div
-              className="etiqueta-tooltip-flecha"
-              style={
-                posicionEfectiva === 'arriba' || posicionEfectiva === 'abajo'
-                  ? { left: coordenadas.flechaOffset }
-                  : {}
-              }
-            />
           </div>,
           document.body
         )}
