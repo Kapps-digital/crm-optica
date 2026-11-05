@@ -523,12 +523,100 @@ export async function actualizarContactoPaciente(
   return { exito: false, error: 'Error de conexión al actualizar paciente' };
 }
 
+/**
+ * Obtiene el estado actual de uso del almacenamiento en Supabase Storage
+ */
+export async function obtenerEstadisticasAlmacenamiento(): Promise<{
+  exito: boolean;
+  total_archivos_bucket?: number;
+  total_archivos_optica?: number;
+  mb_usados_global?: number;
+  mb_usados_optica?: number;
+  mb_limite_gratis?: number;
+  mb_disponibles?: number;
+  porcentaje_usado?: number;
+  archivos_antiguos_purgables?: number;
+  mb_antiguos_purgables?: number;
+  error?: string;
+}> {
+  try {
+    const res = await fetch('/api/almacenamiento/estadisticas', {
+      headers: crearEncabezados(),
+    });
+    return await res.json();
+  } catch (err: any) {
+    return { exito: false, error: err.message || 'Error al consultar almacenamiento' };
+  }
+}
+
+/**
+ * Purga de Storage los archivos de chat con más de X días de antigüedad (protegiendo plantillas)
+ */
+export async function purgarArchivosAlmacenamientoAntiguos(dias: number = 30): Promise<{
+  exito: boolean;
+  archivos_eliminados?: number;
+  mb_liberados?: number;
+  error?: string;
+}> {
+  try {
+    const res = await fetch('/api/almacenamiento/purgar', {
+      method: 'POST',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ dias }),
+    });
+    return await res.json();
+  } catch (err: any) {
+    return { exito: false, error: err.message || 'Error al ejecutar purga' };
+  }
+}
+
+/**
+ * Sube un archivo adjunto local (imagen o documento) a Supabase Storage y retorna su URL pública
+ */
+export async function subirAdjuntoMensaje(
+  archivo: File,
+  opticaId: number = 1
+): Promise<{ exito: boolean; url?: string; error?: string }> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64 = reader.result as string;
+        const res = await fetch('/api/chat/subir-adjunto', {
+          method: 'POST',
+          headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({
+            nombre: archivo.name,
+            mimeType: archivo.type || 'application/octet-stream',
+            base64,
+            optica_id: opticaId,
+          }),
+        });
+        const datos = await res.json();
+        resolve(datos);
+      } catch (err: any) {
+        resolve({ exito: false, error: err.message || 'Error de conexión al subir archivo' });
+      }
+    };
+    reader.onerror = () => {
+      resolve({ exito: false, error: 'No se pudo leer el archivo seleccionado' });
+    };
+    reader.readAsDataURL(archivo);
+  });
+}
+
 export async function enviarMensajeChat(
   conversacionId: number,
   texto: string,
   usarPlantilla: boolean = false,
   nombrePlantilla?: string,
-  idiomaPlantilla?: string
+  idiomaPlantilla?: string,
+  opcionesAdjunto?: {
+    url_adjunto?: string;
+    tipo_adjunto?: string;
+    nombre_archivo?: string;
+    mime_tipo?: string;
+  }
 ): Promise<{ exito: boolean; mensaje_id?: number; id_mensaje_zernio?: string; mensaje?: Mensaje; error?: string }> {
   const idLimpio = Number(conversacionId);
   if (isNaN(idLimpio) || idLimpio <= 0) {
@@ -546,6 +634,10 @@ export async function enviarMensajeChat(
           usar_plantilla: usarPlantilla,
           nombre_plantilla: nombrePlantilla,
           idioma_plantilla: idiomaPlantilla,
+          url_adjunto: opcionesAdjunto?.url_adjunto || undefined,
+          tipo_adjunto: opcionesAdjunto?.tipo_adjunto || undefined,
+          nombre_archivo: opcionesAdjunto?.nombre_archivo || undefined,
+          mime_tipo: opcionesAdjunto?.mime_tipo || undefined,
         }),
       });
 

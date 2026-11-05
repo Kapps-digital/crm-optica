@@ -38,6 +38,9 @@ import {
   obtenerDestinatariosFallidosCampana,
   obtenerMapaPlantillasPorNombre,
   subirMultimediaStorage,
+  obtenerEstadisticasAlmacenamiento,
+  purgarAdjuntosAntiguosStorage,
+  ejecutarPurgaAutomaticaSiAplica,
 } from '@/backend/servicios/gestor_plantillas.mjs';
 import {
   obtener_canales_optica,
@@ -1709,6 +1712,19 @@ async function procesarPeticion(
         base64,
         mimeType,
         nombre,
+        bucket: 'plantillas-multimedia',
+      });
+      return NextResponse.json(resultadoSubida);
+    }
+
+    if (metodo === 'POST' && rutaStr === 'chat/subir-adjunto') {
+      const { nombre, base64, mimeType, optica_id: optId } = body;
+      const idOpticaDestino = optId ? Number(optId) : optica_id;
+      const resultadoSubida = await (subirMultimediaStorage as any)(idOpticaDestino, {
+        base64,
+        mimeType,
+        nombre,
+        bucket: 'archivos-multimedia',
       });
       return NextResponse.json(resultadoSubida);
     }
@@ -1742,6 +1758,20 @@ async function procesarPeticion(
       const idCampana = Number(segmentosRuta[2]);
       const resultado = await obtenerDestinatariosFallidosCampana(optica_id, idCampana);
       return NextResponse.json(resultado);
+    }
+
+    // 8.1. ALMACENAMIENTO (Supabase Storage: Bucket 'plantillas-multimedia')
+    if (metodo === 'GET' && rutaStr === 'almacenamiento/estadisticas') {
+      // Disparar purga automática pasiva en segundo plano una vez al día
+      (ejecutarPurgaAutomaticaSiAplica as any)(optica_id).catch(() => {});
+      const estadisticas = await (obtenerEstadisticasAlmacenamiento as any)(optica_id);
+      return NextResponse.json(estadisticas);
+    }
+
+    if (metodo === 'POST' && rutaStr === 'almacenamiento/purgar') {
+      const dias = body?.dias ? Number(body.dias) : 30;
+      const resultadoPurga = await (purgarAdjuntosAntiguosStorage as any)(optica_id, dias);
+      return NextResponse.json(resultadoPurga);
     }
 
     // 9. CANALES Y CONFIGURACIÓN

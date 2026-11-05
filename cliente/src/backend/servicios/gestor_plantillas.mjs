@@ -6,14 +6,17 @@ const SUPABASE_URL = process.env.SUPABASE_URL || 'https://jwctsfnkyfokrgtcjtxs.s
 const SUPABASE_ANON_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3Y3RzZm5reWZva3JndGNqdHhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA3OTE2NjgsImV4cCI6MjEwNjM2NzY2OH0.I5jL8UKofVyZCFqt2FxxqnTCxgmRNypoB3AsESKYNNo';
 
 /**
- * Sube un archivo multimedia de plantilla (imagen o video) a Supabase Storage con URL pública
+ * Sube un archivo multimedia a Supabase Storage con URL pública
+ * Por defecto guarda en el bucket 'archivos-multimedia' (separado por optica_{idOptica})
+ * Las plantillas oficiales especifican bucket: 'plantillas-multimedia'
  * @param {number} [opticaId]
- * @param {{ buffer?: any, base64?: string | null, mimeType?: string, nombre?: string }} [opciones]
+ * @param {{ buffer?: any, base64?: string | null, mimeType?: string, nombre?: string, bucket?: string }} [opciones]
  * @returns {Promise<{exito: boolean, url?: string, error?: string}>}
  */
-export async function subirMultimediaStorage(opticaId = 1, { buffer = null, base64 = null, mimeType = 'image/jpeg', nombre = 'multimedia' } = {}) {
+export async function subirMultimediaStorage(opticaId = 1, { buffer = null, base64 = null, mimeType = 'image/jpeg', nombre = 'multimedia', bucket = 'archivos-multimedia' } = {}) {
   try {
     const idOpticaSeguro = Number(opticaId) > 0 ? Number(opticaId) : 1;
+    const bucketFinal = String(bucket || 'archivos-multimedia').trim();
     let bufferFinal = buffer;
     let tipoMimeReal = mimeType;
 
@@ -21,27 +24,65 @@ export async function subirMultimediaStorage(opticaId = 1, { buffer = null, base
       const partes = base64.split(',');
       const datosBase64 = partes.length > 1 ? partes[1] : partes[0];
       bufferFinal = Buffer.from(datosBase64, 'base64');
-      if (partes.length > 1 && partes[0].includes('image/png')) tipoMimeReal = 'image/png';
-      else if (partes.length > 1 && partes[0].includes('image/webp')) tipoMimeReal = 'image/webp';
-      else if (partes.length > 1 && partes[0].includes('video/mp4')) tipoMimeReal = 'video/mp4';
-      else if (partes.length > 1 && partes[0].includes('application/pdf')) tipoMimeReal = 'application/pdf';
+      if (partes.length > 1) {
+        const mimeMatch = partes[0].match(/data:([^;]+);base64/i);
+        if (mimeMatch && mimeMatch[1]) {
+          tipoMimeReal = mimeMatch[1].trim();
+        }
+      }
     }
 
     if (!bufferFinal || bufferFinal.length === 0) {
       return { exito: false, error: 'No se recibió archivo para subir' };
     }
 
-    let extension = 'jpg';
-    if (tipoMimeReal.includes('png')) extension = 'png';
-    else if (tipoMimeReal.includes('webp')) extension = 'webp';
-    else if (tipoMimeReal.includes('mp4')) extension = 'mp4';
-    else if (tipoMimeReal.includes('pdf')) extension = 'pdf';
+    // Validación defensiva en servidor: máximo 10 MB
+    if (bufferFinal.length > 10 * 1024 * 1024) {
+      return { exito: false, error: 'El archivo supera el tamaño máximo permitido de 10 MB' };
+    }
 
-    const nombreLimpio = String(nombre || 'multimedia').replace(/[^a-zA-Z0-9_-]/g, '_');
+    let extension = 'jpg';
+    if (nombre && String(nombre).includes('.')) {
+      const extExtraida = String(nombre).split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (extExtraida && extExtraida.length <= 5) extension = extExtraida;
+    } else {
+      if (tipoMimeReal.includes('png')) extension = 'png';
+      else if (tipoMimeReal.includes('webp')) extension = 'webp';
+      else if (tipoMimeReal.includes('mp4')) extension = 'mp4';
+      else if (tipoMimeReal.includes('pdf')) extension = 'pdf';
+      else if (tipoMimeReal.includes('word') || tipoMimeReal.includes('officedocument.wordprocessingml')) extension = 'docx';
+      else if (tipoMimeReal.includes('sheet') || tipoMimeReal.includes('excel') || tipoMimeReal.includes('csv')) extension = 'xlsx';
+      else if (tipoMimeReal.includes('presentation') || tipoMimeReal.includes('powerpoint')) extension = 'pptx';
+      else if (tipoMimeReal.includes('text/plain')) extension = 'txt';
+    }
+
+    const MAPA_MIME_POR_EXTENSION = {
+      pdf: 'application/pdf',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      doc: 'application/msword',
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      xls: 'application/vnd.ms-excel',
+      csv: 'text/csv',
+      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      ppt: 'application/vnd.ms-powerpoint',
+      txt: 'text/plain',
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      webp: 'image/webp',
+    };
+    if (MAPA_MIME_POR_EXTENSION[extension] && (!tipoMimeReal || tipoMimeReal === 'application/octet-stream')) {
+      tipoMimeReal = MAPA_MIME_POR_EXTENSION[extension];
+    }
+
+    const baseNombre = nombre && String(nombre).includes('.')
+      ? String(nombre).substring(0, String(nombre).lastIndexOf('.'))
+      : (nombre || 'multimedia');
+    const nombreLimpio = String(baseNombre).replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 50) || 'multimedia';
     const nombreArchivo = `${nombreLimpio}_${Date.now()}.${extension}`;
     const rutaBucket = `optica_${idOpticaSeguro}/${nombreArchivo}`;
 
-    const urlSubida = `${SUPABASE_URL}/storage/v1/object/plantillas-multimedia/${rutaBucket}`;
+    const urlSubida = `${SUPABASE_URL}/storage/v1/object/${bucketFinal}/${rutaBucket}`;
     const resStorage = await fetch(urlSubida, {
       method: 'POST',
       headers: {
@@ -59,11 +100,191 @@ export async function subirMultimediaStorage(opticaId = 1, { buffer = null, base
       return { exito: false, error: 'Error al almacenar archivo en servidor' };
     }
 
-    const urlPublica = `${SUPABASE_URL}/storage/v1/object/public/plantillas-multimedia/${rutaBucket}`;
+    const urlPublica = `${SUPABASE_URL}/storage/v1/object/public/${bucketFinal}/${rutaBucket}`;
     return { exito: true, url: urlPublica };
   } catch (error) {
     console.error('Error en subirMultimediaStorage:', error);
     return { exito: false, error: error.message };
+  }
+}
+
+/**
+ * Obtiene las métricas y uso actual del almacenamiento en Supabase Storage (Bucket principal 'archivos-multimedia')
+ * @param {number} [opticaId]
+ */
+export async function obtenerEstadisticasAlmacenamiento(opticaId = 1) {
+  try {
+    const idOpticaSeguro = Number(opticaId) > 0 ? Number(opticaId) : 1;
+
+    // Métricas del bucket de chat 'archivos-multimedia'
+    const resChat = await pool.query(`
+      SELECT 
+        COUNT(*)::int as total_archivos,
+        COALESCE(SUM((metadata->>'size')::bigint), 0)::bigint as total_bytes
+      FROM storage.objects
+      WHERE bucket_id = 'archivos-multimedia'
+    `);
+
+    // Métricas por óptica en 'archivos-multimedia'
+    const prefijoOptica = `optica_${idOpticaSeguro}/%`;
+    const resOptica = await pool.query(`
+      SELECT 
+        COUNT(*)::int as total_archivos,
+        COALESCE(SUM((metadata->>'size')::bigint), 0)::bigint as total_bytes
+      FROM storage.objects
+      WHERE bucket_id = 'archivos-multimedia'
+        AND name LIKE $1
+    `, [prefijoOptica]);
+
+    // Métricas globales de todos los buckets combinados (archivos-multimedia + plantillas-multimedia + logos-opticas)
+    const resGlobal = await pool.query(`
+      SELECT 
+        COUNT(*)::int as total_archivos,
+        COALESCE(SUM((metadata->>'size')::bigint), 0)::bigint as total_bytes
+      FROM storage.objects
+    `);
+
+    // Archivos purgables en archivos-multimedia (> 30 días)
+    const resPurgables = await pool.query(`
+      SELECT 
+        COUNT(*)::int as total_purgables,
+        COALESCE(SUM((metadata->>'size')::bigint), 0)::bigint as bytes_purgables
+      FROM storage.objects o
+      WHERE o.bucket_id = 'archivos-multimedia'
+        AND o.created_at < NOW() - INTERVAL '30 days'
+    `);
+
+    const LIMITE_GRATIS_BYTES = 1024 * 1024 * 1024; // 1 GB (1024 MB)
+    const bytesGlobales = Number(resGlobal.rows[0]?.total_bytes || 0);
+    const mbGlobales = Number((bytesGlobales / (1024 * 1024)).toFixed(2));
+    const porcentajeGlobal = Number(((bytesGlobales / LIMITE_GRATIS_BYTES) * 100).toFixed(2));
+
+    const bytesChat = Number(resChat.rows[0]?.total_bytes || 0);
+    const mbChat = Number((bytesChat / (1024 * 1024)).toFixed(2));
+
+    const bytesOptica = Number(resOptica.rows[0]?.total_bytes || 0);
+    const mbOptica = Number((bytesOptica / (1024 * 1024)).toFixed(2));
+
+    const archivosPurgables = Number(resPurgables.rows[0]?.total_purgables || 0);
+    const mbPurgables = Number((Number(resPurgables.rows[0]?.bytes_purgables || 0) / (1024 * 1024)).toFixed(2));
+
+    return {
+      exito: true,
+      bucket: 'archivos-multimedia',
+      total_archivos_bucket: Number(resChat.rows[0]?.total_archivos || 0),
+      total_archivos_optica: Number(resOptica.rows[0]?.total_archivos || 0),
+      mb_usados_global: mbGlobales,
+      mb_usados_chat: mbChat,
+      mb_usados_optica: mbOptica,
+      mb_limite_gratis: 1024,
+      mb_disponibles: Number((1024 - mbGlobales).toFixed(2)),
+      porcentaje_usado: porcentajeGlobal,
+      archivos_antiguos_purgables: archivosPurgables,
+      mb_antiguos_purgables: mbPurgables,
+    };
+  } catch (error) {
+    console.error('Error al obtener estadísticas de almacenamiento:', error);
+    return {
+      exito: false,
+      error: error.message,
+      mb_usados_global: 0,
+      mb_limite_gratis: 1024,
+      porcentaje_usado: 0,
+    };
+  }
+}
+
+let ultimaPurgaAutomaticaTimestamp = 0;
+
+/**
+ * Purga del bucket 'archivos-multimedia' los adjuntos de chats con antigüedad superior a X días (por defecto 30 días)
+ * El bucket 'plantillas-multimedia' queda 100% aislado y protegido para no tocar plantillas de Meta
+ * @param {number} [opticaId]
+ * @param {number} [diasAntiguedad=30]
+ */
+export async function purgarAdjuntosAntiguosStorage(opticaId = 1, diasAntiguedad = 30) {
+  try {
+    const diasSeguros = Math.max(1, Number(diasAntiguedad) || 30);
+
+    // Buscar archivos candidatos a purga con más de X días exclusivamente en archivos-multimedia
+    const resCandidatos = await pool.query(`
+      SELECT id, name, metadata, created_at
+      FROM storage.objects
+      WHERE bucket_id = 'archivos-multimedia'
+        AND created_at < NOW() - ($1 || ' days')::interval
+      ORDER BY created_at ASC
+    `, [diasSeguros]);
+
+    const objetosAPurgar = resCandidatos.rows;
+
+    if (objetosAPurgar.length === 0) {
+      return {
+        exito: true,
+        archivos_eliminados: 0,
+        bytes_liberados: 0,
+        mb_liberados: 0,
+        mensaje: `No hay archivos con más de ${diasSeguros} días en archivos-multimedia para purgar.`,
+      };
+    }
+
+    const nombresObjetos = objetosAPurgar.map((o) => o.name);
+    const bytesLiberados = objetosAPurgar.reduce((acc, o) => acc + Number(o.metadata?.size || 0), 0);
+    const mbLiberados = Number((bytesLiberados / (1024 * 1024)).toFixed(2));
+
+    // Invocar API REST oficial de Supabase Storage para eliminar físicamente de 'archivos-multimedia'
+    const urlDelete = `${SUPABASE_URL}/storage/v1/object/archivos-multimedia`;
+    const resDelete = await fetch(urlDelete, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        apiKey: SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ prefixes: nombresObjetos }),
+    });
+
+    if (!resDelete.ok) {
+      const errTexto = await resDelete.text();
+      console.error('Error al purgar archivos via Supabase Storage API:', resDelete.status, errTexto);
+      return {
+        exito: false,
+        error: `Error al purgar en Supabase Storage: ${resDelete.statusText}`,
+        archivos_eliminados: 0,
+        mb_liberados: 0,
+      };
+    }
+
+    console.info(`🧹 Purga de almacenamiento completada en archivos-multimedia: ${objetosAPurgar.length} archivos eliminados (${mbLiberados} MB liberados con antigüedad > ${diasSeguros} días).`);
+
+    return {
+      exito: true,
+      bucket: 'archivos-multimedia',
+      archivos_eliminados: objetosAPurgar.length,
+      bytes_liberados: bytesLiberados,
+      mb_liberados: mbLiberados,
+      dias_antiguedad: diasSeguros,
+    };
+  } catch (error) {
+    console.error('Error al purgar adjuntos antiguos de Storage:', error);
+    return {
+      exito: false,
+      error: error.message,
+      archivos_eliminados: 0,
+      mb_liberados: 0,
+    };
+  }
+}
+
+/**
+ * Ejecuta purga automática en segundo plano una vez cada 24 horas
+ */
+export async function ejecutarPurgaAutomaticaSiAplica(opticaId = 1) {
+  const ahora = Date.now();
+  if (ahora - ultimaPurgaAutomaticaTimestamp > 24 * 60 * 60 * 1000) {
+    ultimaPurgaAutomaticaTimestamp = ahora;
+    purgarAdjuntosAntiguosStorage(opticaId, 30).catch((err) => {
+      console.warn('Aviso: Purga automática de adjuntos omitida:', err.message);
+    });
   }
 }
 
@@ -412,6 +633,7 @@ export async function crearPlantilla(opticaId, datos) {
             const subidaStorage = await subirMultimediaStorage(idOpticaNumerico, {
               base64: contenidoLimpio,
               nombre: `plantilla_${nombreNormalizado}`,
+              bucket: 'plantillas-multimedia',
             });
             if (subidaStorage.exito && subidaStorage.url) {
               urlEjemplo = subidaStorage.url;
@@ -446,6 +668,7 @@ export async function crearPlantilla(opticaId, datos) {
               base64: contenidoLimpio,
               mimeType: 'video/mp4',
               nombre: `plantilla_${nombreNormalizado}`,
+              bucket: 'plantillas-multimedia',
             });
             if (subidaStorage.exito && subidaStorage.url) {
               urlEjemplo = subidaStorage.url;

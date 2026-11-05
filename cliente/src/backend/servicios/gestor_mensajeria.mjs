@@ -38,6 +38,10 @@ export async function enviar_mensaje({
   parametros_plantilla = [],
   componentes_plantilla = [],
   enviado_por_ia = false,
+  url_adjunto = null,
+  tipo_adjunto = null,
+  nombre_archivo = null,
+  mime_tipo = null,
 }) {
   try {
     let conv = null;
@@ -90,7 +94,19 @@ export async function enviar_mensaje({
       };
 
       if (dentro_de_ventana || !es_whatsapp) {
-        cuerpo_peticion.message = texto;
+        cuerpo_peticion.message = texto || '';
+        if (url_adjunto) {
+          cuerpo_peticion.attachmentUrl = url_adjunto;
+          const tipoFinal = tipo_adjunto || (
+            url_adjunto.match(/\.(jpe?g|png|webp|gif|svg)/i) ? 'image' :
+            url_adjunto.match(/\.(mp4|webm|mov|m4v)/i) ? 'video' :
+            url_adjunto.match(/\.(ogg|mp3|wav|m4a)/i) ? 'audio' : 'file'
+          );
+          cuerpo_peticion.attachmentType = tipoFinal;
+          if (nombre_archivo) {
+            cuerpo_peticion.attachmentName = nombre_archivo;
+          }
+        }
         if (!dentro_de_ventana && (canal === 'instagram' || canal === 'messenger')) {
           cuerpo_peticion.messageTag = 'HUMAN_AGENT';
           cuerpo_peticion.messagingType = 'MESSAGE_TAG';
@@ -145,7 +161,19 @@ export async function enviar_mensaje({
         cuerpo_peticion.templateLanguage = idioma_plantilla;
         cuerpo_peticion.templateParams = parametros_plantilla;
       } else {
-        cuerpo_peticion.message = texto;
+        cuerpo_peticion.message = texto || '';
+        if (url_adjunto) {
+          cuerpo_peticion.attachmentUrl = url_adjunto;
+          const tipoFinal = tipo_adjunto || (
+            url_adjunto.match(/\.(jpe?g|png|webp|gif|svg)/i) ? 'image' :
+            url_adjunto.match(/\.(mp4|webm|mov|m4v)/i) ? 'video' :
+            url_adjunto.match(/\.(ogg|mp3|wav|m4a)/i) ? 'audio' : 'file'
+          );
+          cuerpo_peticion.attachmentType = tipoFinal;
+          if (nombre_archivo) {
+            cuerpo_peticion.attachmentName = nombre_archivo;
+          }
+        }
       }
 
       resultado_envio = await cliente_zernio.solicitar(ruta, {
@@ -174,21 +202,37 @@ export async function enviar_mensaje({
     }
 
     if (conv_final_id) {
+      let tipoContenidoBD = 'texto';
+      if (url_adjunto) {
+        const esImg = (tipo_adjunto === 'image') || Boolean(url_adjunto.match(/\.(jpe?g|png|webp|gif|svg)/i));
+        const esVid = (tipo_adjunto === 'video') || Boolean(url_adjunto.match(/\.(mp4|webm|mov)/i));
+        const esAud = (tipo_adjunto === 'audio') || Boolean(url_adjunto.match(/\.(ogg|mp3|wav)/i));
+        tipoContenidoBD = esImg ? 'imagen' : (esVid ? 'video' : (esAud ? 'audio' : 'documento'));
+      } else if (nombre_plantilla) {
+        tipoContenidoBD = 'plantilla';
+      }
+
       const insercion = await base_datos.prepare(`
         INSERT INTO mensajes (
-          conversacion_id, id_mensaje_plataforma, id_mensaje_zernio, direccion, texto, tipo_contenido, estado_entrega, enviado_por_ia, creado_en
-        ) VALUES (?, ?, ?, 'saliente', ?, ?, 'enviado', ?, now())
+          conversacion_id, id_mensaje_plataforma, id_mensaje_zernio, direccion, texto, tipo_contenido, url_adjunto, nombre_archivo, mime_tipo, estado_entrega, enviado_por_ia, creado_en
+        ) VALUES (?, ?, ?, 'saliente', ?, ?, ?, ?, ?, 'enviado', ?, now())
         ON CONFLICT (id_mensaje_plataforma) DO UPDATE SET
           estado_entrega = EXCLUDED.estado_entrega,
           texto = EXCLUDED.texto,
           tipo_contenido = EXCLUDED.tipo_contenido,
+          url_adjunto = COALESCE(EXCLUDED.url_adjunto, mensajes.url_adjunto),
+          nombre_archivo = COALESCE(EXCLUDED.nombre_archivo, mensajes.nombre_archivo),
+          mime_tipo = COALESCE(EXCLUDED.mime_tipo, mensajes.mime_tipo),
           enviado_por_ia = EXCLUDED.enviado_por_ia
       `).run(
         conv_final_id,
         id_mensaje_zernio,
         id_mensaje_zernio,
-        texto || `[Plantilla: ${nombre_plantilla}]`,
-        nombre_plantilla ? 'plantilla' : 'texto',
+        texto || (url_adjunto ? '' : (nombre_plantilla ? `[Plantilla: ${nombre_plantilla}]` : '')),
+        tipoContenidoBD,
+        url_adjunto || null,
+        nombre_archivo || null,
+        mime_tipo || null,
         Boolean(enviado_por_ia)
       );
 

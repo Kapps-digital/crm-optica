@@ -18,6 +18,7 @@ import {
   CornerDownLeft,
   ExternalLink,
   Copy,
+  Paperclip,
   Image as IconoImagen,
   Play,
   FileText,
@@ -36,12 +37,13 @@ import { formatearTelefono } from '@/utilidades/formato';
 import { formatearTextoWhatsApp } from '@/utilidades/formato_whatsapp';
 import { obtenerPlantillasYCuota, alternarIAChatApi, resolverUrgenciaAsesorHumano } from '@/servicios/api_crm';
 import { ModalAlertaVentana24h } from '../comunes/ModalAlertaVentana24h';
+import { optimizarImagenNavegador, LIMITE_MAXIMO_ARCHIVO_BYTES } from '@/utilidades/compresionImagen';
 
 interface PropiedadesVentanaChat {
   conversacion: Conversacion | null;
   mensajes: Mensaje[];
   cargandoMensajes?: boolean;
-  alEnviarMensaje: (texto: string) => Promise<void>;
+  alEnviarMensaje: (texto: string, adjuntoLocal?: { file?: File; url: string; nombre: string; tipo: string }) => Promise<void>;
   alReactivarConPlantilla: (nombrePlantilla?: string, idiomaPlantilla?: string) => Promise<void> | void;
   fichaAbierta: boolean;
   alAbrirFicha: () => void;
@@ -246,8 +248,8 @@ function ElementoImagenChat({
   const urlResuelta = resolverUrlMediaProxy(url);
   const imgRef = useRef<HTMLImageElement>(null);
 
-  // Si la imagen ya fue cargada exitosamente en esta sesión, inicia inmediatamente como no cargando
-  const yaCargadaPreviamente = cacheImagenesValidadas.has(urlResuelta);
+  // Si la imagen ya fue cargada exitosamente en esta sesión o es un blob local, inicia inmediatamente como no cargando
+  const yaCargadaPreviamente = cacheImagenesValidadas.has(urlResuelta) || urlResuelta.startsWith('blob:');
   const [cargando, setCargando] = useState(() => !yaCargadaPreviamente);
   const [error, setError] = useState(false);
   const [expirado, setExpirado] = useState(false);
@@ -488,6 +490,133 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
   const [urgenciaAtendidaId, setUrgenciaAtendidaId] = useState<number | null>(null);
   const [menuOpcionesMovilAbierto, setMenuOpcionesMovilAbierto] = useState(false);
   const refMenuOpcionesMovil = useRef<HTMLDivElement>(null);
+
+  // Estado para gestión de archivos adjuntos (imágenes, documentos, etc.)
+  const [archivoAdjunto, setArchivoAdjunto] = useState<{
+    file: File;
+    url: string;
+    nombre: string;
+    tipo: string;
+    tamanoFormateado: string;
+  } | null>(null);
+  const inputArchivoRef = useRef<HTMLInputElement>(null);
+
+  // Estado para Drag & Drop (arrastrar y soltar archivo en la ventana de chat)
+  const [arrastrandoArchivo, setArrastrandoArchivo] = useState(false);
+  const contadorDragRef = useRef(0);
+
+  const procesarArchivoParaAdjuntar = async (file: File) => {
+    if (!file) return;
+
+    // 1. Límite máximo estricto de 10 MB
+    if (file.size > LIMITE_MAXIMO_ARCHIVO_BYTES) {
+      const pesoMB = (file.size / (1024 * 1024)).toFixed(1);
+      alert(`El archivo seleccionado pesa ${pesoMB} MB y supera el límite máximo permitido de 10 MB. Por favor selecciona un archivo más liviano.`);
+      return;
+    }
+
+    const extensionesPermitidas = [
+      'jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'bmp',
+      'pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'ppt', 'pptx', 'txt'
+    ];
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    const esValido = extensionesPermitidas.includes(ext) || file.type.startsWith('image/');
+
+    if (!esValido) {
+      alert(`El formato de archivo ".${ext}" no está admitido. Formatos válidos: imágenes, PDF, Word, Excel, PowerPoint y texto plano.`);
+      return;
+    }
+
+    // 2. Compresión automática de imágenes en el navegador antes de subir
+    let archivoFinal = file;
+    if (file.type.startsWith('image/')) {
+      try {
+        archivoFinal = await optimizarImagenNavegador(file, 1600, 0.82);
+      } catch (err) {
+        console.warn('Aviso: no se pudo comprimir imagen en cliente, se usará original:', err);
+      }
+    }
+
+    if (archivoAdjunto?.url) {
+      URL.revokeObjectURL(archivoAdjunto.url);
+    }
+
+    const tamanoKB = archivoFinal.size / 1024;
+    const tamanoFormateado =
+      tamanoKB > 1024 ? `${(tamanoKB / 1024).toFixed(1)} MB` : `${Math.round(tamanoKB)} KB`;
+
+    const url = URL.createObjectURL(archivoFinal);
+    setArchivoAdjunto({
+      file: archivoFinal,
+      url,
+      nombre: archivoFinal.name,
+      tipo: archivoFinal.type || 'application/octet-stream',
+      tamanoFormateado,
+    });
+  };
+
+  const manejarSeleccionarArchivo = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      procesarArchivoParaAdjuntar(file);
+    }
+  };
+
+  const manejarDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!enVentana24h) return;
+    contadorDragRef.current += 1;
+    if (e.dataTransfer?.items && e.dataTransfer.items.length > 0) {
+      setArrastrandoArchivo(true);
+    }
+  };
+
+  const manejarDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    contadorDragRef.current -= 1;
+    if (contadorDragRef.current <= 0) {
+      contadorDragRef.current = 0;
+      setArrastrandoArchivo(false);
+    }
+  };
+
+  const manejarDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const manejarDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    contadorDragRef.current = 0;
+    setArrastrandoArchivo(false);
+    if (!enVentana24h) return;
+
+    const file = e.dataTransfer?.files?.[0];
+    if (file) {
+      procesarArchivoParaAdjuntar(file);
+    }
+  };
+
+  const quitarAdjunto = () => {
+    if (archivoAdjunto?.url) {
+      URL.revokeObjectURL(archivoAdjunto.url);
+    }
+    setArchivoAdjunto(null);
+    if (inputArchivoRef.current) {
+      inputArchivoRef.current.value = '';
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (archivoAdjunto?.url) {
+        URL.revokeObjectURL(archivoAdjunto.url);
+      }
+    };
+  }, [archivoAdjunto?.url]);
 
   // Cerrar menú móvil de 3 puntos al hacer clic afuera
   useEffect(() => {
@@ -749,12 +878,22 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
   const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
     const texto = textoMensaje.trim();
-    if (!texto) return;
+    if (!texto && !archivoAdjunto) return;
     if (conversacion?.id && conversacion.requiere_asesor_humano) {
       setUrgenciaAtendidaId(conversacion.id);
     }
+    const adjuntoActual = archivoAdjunto;
     setTextoMensaje('');
-    await alEnviarMensaje(texto);
+    setArchivoAdjunto(null);
+    if (inputArchivoRef.current) {
+      inputArchivoRef.current.value = '';
+    }
+    await alEnviarMensaje(texto, adjuntoActual ? {
+      file: adjuntoActual.file,
+      url: adjuntoActual.url,
+      nombre: adjuntoActual.nombre,
+      tipo: adjuntoActual.tipo,
+    } : undefined);
   };
 
   // Si no hay conversación seleccionada, renderizar un estado vacío limpio y corporativo
@@ -775,7 +914,59 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
   }
 
   return (
-    <div className="columna-chat-conversacion">
+    <div
+      className="columna-chat-conversacion"
+      style={{ position: 'relative' }}
+      onDragEnter={manejarDragEnter}
+      onDragLeave={manejarDragLeave}
+      onDragOver={manejarDragOver}
+      onDrop={manejarDrop}
+    >
+      {/* Overlay interactivo para soltar archivos (Drag & Drop) */}
+      {arrastrandoArchivo && enVentana24h && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 60,
+            background: 'rgba(2, 132, 199, 0.16)',
+            backdropFilter: 'blur(4px)',
+            border: '2px dashed var(--color-primario, #0284c7)',
+            borderRadius: '12px',
+            margin: '0.6rem',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.85rem',
+            pointerEvents: 'none',
+          }}
+        >
+          <div
+            style={{
+              width: '58px',
+              height: '58px',
+              borderRadius: '50%',
+              background: 'var(--color-primario, #0284c7)',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 8px 24px rgba(2, 132, 199, 0.35)',
+            }}
+          >
+            <Paperclip size={28} />
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <span style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-primario, #0284c7)', display: 'block' }}>
+              Suelta tu archivo aquí para adjuntarlo
+            </span>
+            <span style={{ fontSize: '0.82rem', color: 'var(--texto-secundario, #64748b)', marginTop: '3px', display: 'block' }}>
+              Imágenes, PDF, Word, Excel, PowerPoint o texto
+            </span>
+          </div>
+        </div>
+      )}
       {/* Cabecera del chat activa */}
       <div className="cabecera-chat-activa">
         <div className="chat-paciente-detalle">
@@ -1326,22 +1517,28 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
 
                   const tieneAdjunto = Boolean(m.url_adjunto);
                   const tipoAdj = (m.tipo_contenido || '').toLowerCase();
-                  const nombreArchivo = m.nombre_archivo || null;
+                  const textoLimpio = (m.texto || '').trim();
+
+                  // Extraer nombre de archivo si viene en m.nombre_archivo, en el texto o en la URL
+                  const nombreDesdeTexto = textoLimpio.match(/\.(jpe?g|png|webp|gif|svg|bmp|pdf|docx?|xlsx?|csv|pptx?|txt)$/i)
+                    ? textoLimpio
+                    : null;
+                  const nombreDesdeUrl = m.url_adjunto ? decodeURIComponent(m.url_adjunto.split('/').pop()?.split('?')[0] || '') : null;
+                  const nombreArchivo = m.nombre_archivo || nombreDesdeTexto || (nombreDesdeUrl && nombreDesdeUrl.includes('.') ? nombreDesdeUrl : null);
+
                   const mimeTipo = (m.mime_tipo || '').toLowerCase();
                   const urlAdj = resolverUrlMediaProxy(m.url_adjunto, nombreArchivo);
 
-                  const esVideo = tieneAdjunto && (tipoAdj.includes('video') || urlAdj.match(/\.(mp4|webm|mov|m4v)/i));
-                  const esAudio = tieneAdjunto && (tipoAdj.includes('audio') || urlAdj.match(/\.(ogg|mp3|wav|m4a)/i));
-                  const esDoc = tieneAdjunto && !esVideo && !esAudio && (
-                    tipoAdj.includes('document') ||
-                    tipoAdj.includes('documento') ||
-                    tipoAdj.includes('file') ||
-                    tipoAdj.includes('archivo') ||
-                    tipoAdj.includes('pdf') ||
-                    Boolean(nombreArchivo) ||
-                    urlAdj.match(/\.(pdf|docx?|xlsx?|pptx?|csv|zip|rar|txt|xml)/i)
+                  const esVideo = tieneAdjunto && (tipoAdj.includes('video') || mimeTipo.startsWith('video/') || Boolean(urlAdj.match(/\.(mp4|webm|mov|m4v)(\?.*)?$/i)));
+                  const esAudio = tieneAdjunto && (tipoAdj.includes('audio') || mimeTipo.startsWith('audio/') || Boolean(urlAdj.match(/\.(ogg|mp3|wav|m4a)(\?.*)?$/i)));
+                  const esImagen = tieneAdjunto && !esVideo && !esAudio && (
+                    tipoAdj.includes('image') ||
+                    tipoAdj.includes('imagen') ||
+                    mimeTipo.startsWith('image/') ||
+                    Boolean(urlAdj.match(/\.(jpe?g|png|webp|gif|svg|bmp)(\?.*)?$/i)) ||
+                    Boolean(nombreArchivo?.match(/\.(jpe?g|png|webp|gif|svg|bmp)$/i))
                   );
-                  const esImagen = tieneAdjunto && !esVideo && !esAudio && !esDoc;
+                  const esDoc = tieneAdjunto && !esVideo && !esAudio && !esImagen;
 
                   // Determinación de estilo e icono para documentos (estilo WhatsApp)
                   let iconoDoc = <File size={22} style={{ color: esSaliente ? '#ffffff' : 'var(--color-primario, #0284c7)' }} />;
@@ -1372,7 +1569,23 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
                     }
                   }
 
-                  const tieneTexto = Boolean(m.texto && m.texto.trim() !== '' && m.texto !== '[Unsupported message]');
+                  const textoEsNombreOPlaceholder =
+                    tieneAdjunto &&
+                    (Boolean(textoLimpio.match(/\.(jpe?g|png|webp|gif|svg|bmp|pdf|docx?|xlsx?|csv|pptx?|txt)$/i)) ||
+                      (Boolean(nombreArchivo) && textoLimpio.toLowerCase() === nombreArchivo!.toLowerCase().trim()) ||
+                      (Boolean(nombreDesdeUrl) && textoLimpio.toLowerCase() === nombreDesdeUrl!.toLowerCase().trim()) ||
+                      (Boolean(urlAdj) && textoLimpio === urlAdj.trim()) ||
+                      textoLimpio === 'Archivo adjunto' ||
+                      textoLimpio === '[Archivo adjunto]' ||
+                      textoLimpio === '[Documento]' ||
+                      textoLimpio === '[Imagen]' ||
+                      textoLimpio === '[Video]' ||
+                      textoLimpio === '[Audio]' ||
+                      textoLimpio === 'Documento' ||
+                      textoLimpio === 'Imagen' ||
+                      textoLimpio === 'Video');
+
+                  const tieneTexto = Boolean(textoLimpio !== '' && textoLimpio !== '[Unsupported message]' && !textoEsNombreOPlaceholder);
 
                   return (
                     <div
@@ -1585,43 +1798,207 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
         )}
       </div>
 
-      {/* Input para enviar mensaje */}
-      <form
-        className={`area-envio-mensaje ${!enVentana24h ? 'bloqueada-24h' : ''}`}
-        onSubmit={manejarEnvio}
-      >
-        <input
-          type="text"
-          id="input-mensaje-texto"
-          placeholder={
-            enVentana24h
-              ? "Escribe un mensaje al paciente..."
-              : "🔒 Ventana de 24h cerrada. Utiliza 'Reactivar con Plantilla' arriba..."
-          }
-          autoComplete="off"
-          value={textoMensaje}
-          disabled={!enVentana24h}
-          onChange={(e) => setTextoMensaje(e.target.value)}
-        />
-        <EtiquetaTooltip
-          texto={
-            !enVentana24h
-              ? 'Ventana de 24h cerrada. Reanuda arriba con una plantilla.'
-              : !textoMensaje.trim()
-              ? 'Escribe un mensaje para enviar'
-              : 'Enviar mensaje (Enter)'
-          }
-          posicion="arriba"
-        >
-          <button
-            type="submit"
-            className="btn-enviar-accion"
-            disabled={!enVentana24h || !textoMensaje.trim()}
+      {/* Contenedor Inferior: Previsualización de Adjunto + Barra de Envío */}
+      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', background: 'var(--fondo-tarjeta)' }}>
+        {/* Previsualización del archivo adjunto antes de enviar */}
+        {archivoAdjunto && (
+          <div
+            style={{
+              padding: '0.5rem 0.85rem',
+              background: 'var(--fondo-elevado, rgba(0, 0, 0, 0.03))',
+              borderTop: '1px solid var(--borde-tarjeta, #e2e8f0)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.75rem',
+            }}
           >
-            <Send style={{ width: '15px', height: '15px' }} />
-          </button>
-        </EtiquetaTooltip>
-      </form>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0, overflow: 'hidden' }}>
+              {archivoAdjunto.tipo.startsWith('image/') ? (
+                <img
+                  src={archivoAdjunto.url}
+                  alt={archivoAdjunto.nombre}
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '6px',
+                    objectFit: 'cover',
+                    border: '1px solid var(--borde-tarjeta, #e2e8f0)',
+                    flexShrink: 0,
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: archivoAdjunto.nombre.match(/\.(xlsx?|csv)$/i)
+                      ? 'rgba(16, 185, 129, 0.14)'
+                      : archivoAdjunto.nombre.match(/\.(docx?)$/i)
+                      ? 'rgba(37, 99, 235, 0.14)'
+                      : archivoAdjunto.nombre.match(/\.(pptx?)$/i)
+                      ? 'rgba(249, 115, 22, 0.14)'
+                      : 'rgba(239, 68, 68, 0.14)',
+                    flexShrink: 0,
+                  }}
+                >
+                  {archivoAdjunto.nombre.match(/\.(xlsx?|csv)$/i) ? (
+                    <FileSpreadsheet size={20} color="#10b981" />
+                  ) : archivoAdjunto.nombre.match(/\.(docx?)$/i) ? (
+                    <FileText size={20} color="#2563eb" />
+                  ) : archivoAdjunto.nombre.match(/\.(pptx?)$/i) ? (
+                    <Presentation size={20} color="#f97316" />
+                  ) : (
+                    <FileText size={20} color="#ef4444" />
+                  )}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <span
+                  style={{
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    color: 'var(--texto-principal)',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {archivoAdjunto.nombre}
+                </span>
+                <span style={{ fontSize: '0.68rem', color: 'var(--texto-secundario)' }}>
+                  {archivoAdjunto.tamanoFormateado} • Adjunto local
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={quitarAdjunto}
+              aria-label="Quitar archivo adjunto"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--texto-secundario)',
+                cursor: 'pointer',
+                padding: '0.3rem',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = '#ef4444';
+                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = 'var(--texto-secundario)';
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* Input para enviar mensaje */}
+        <form
+          className={`area-envio-mensaje ${!enVentana24h ? 'bloqueada-24h' : ''}`}
+          onSubmit={manejarEnvio}
+        >
+          {/* Input de archivo oculto */}
+          <input
+            ref={inputArchivoRef}
+            type="file"
+            style={{ display: 'none' }}
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+            onChange={manejarSeleccionarArchivo}
+            disabled={!enVentana24h}
+          />
+
+          {/* Botón Adjuntar Archivo (Opción A: A la izquierda del input de texto) */}
+          <EtiquetaTooltip
+            texto={
+              !enVentana24h
+                ? 'Ventana de 24h cerrada'
+                : 'Adjuntar imagen o documento (Word, Excel, PowerPoint, PDF)'
+            }
+            posicion="arriba"
+          >
+            <button
+              type="button"
+              className="btn-adjuntar-archivo"
+              onClick={() => inputArchivoRef.current?.click()}
+              disabled={!enVentana24h}
+              aria-label="Adjuntar archivo"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--texto-secundario, #64748b)',
+                cursor: enVentana24h ? 'pointer' : 'not-allowed',
+                padding: '0.4rem',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.15s ease',
+                flexShrink: 0,
+                opacity: enVentana24h ? 1 : 0.5,
+              }}
+              onMouseEnter={(e) => {
+                if (enVentana24h) {
+                  e.currentTarget.style.color = 'var(--color-primario, #0284c7)';
+                  e.currentTarget.style.background = 'rgba(2, 132, 199, 0.1)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = 'var(--texto-secundario, #64748b)';
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              <Paperclip size={18} />
+            </button>
+          </EtiquetaTooltip>
+
+          <input
+            type="text"
+            id="input-mensaje-texto"
+            placeholder={
+              enVentana24h
+                ? (archivoAdjunto ? "Escribe un comentario o pulsa Enviar..." : "Escribe un mensaje al paciente...")
+                : "🔒 Ventana de 24h cerrada. Utiliza 'Reactivar con Plantilla' arriba..."
+            }
+            autoComplete="off"
+            value={textoMensaje}
+            disabled={!enVentana24h}
+            onChange={(e) => setTextoMensaje(e.target.value)}
+          />
+          <EtiquetaTooltip
+            texto={
+              !enVentana24h
+                ? 'Ventana de 24h cerrada. Reanuda arriba con una plantilla.'
+                : (!textoMensaje.trim() && !archivoAdjunto)
+                ? 'Escribe un mensaje o adjunta un archivo para enviar'
+                : 'Enviar mensaje (Enter)'
+            }
+            posicion="arriba"
+          >
+            <button
+              type="submit"
+              className="btn-enviar-accion"
+              disabled={!enVentana24h || (!textoMensaje.trim() && !archivoAdjunto)}
+            >
+              <Send style={{ width: '15px', height: '15px' }} />
+            </button>
+          </EtiquetaTooltip>
+        </form>
+      </div>
 
       {/* Modal de Reactivación con Plantilla Aprobada */}
       <ModalAlertaVentana24h

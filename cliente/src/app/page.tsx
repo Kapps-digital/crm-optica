@@ -43,6 +43,7 @@ import {
   obtenerDetalleContacto,
   obtenerPacientes,
   enviarMensajeChat,
+  subirAdjuntoMensaje,
   marcarConversacionLeida,
   registrarFormulaOptica,
   registrarHistoriaClinica,
@@ -979,11 +980,11 @@ export default function PaginaPrincipal() {
             ? lista.filter((m) => !m.conversacion_id || Number(m.conversacion_id) === idConvActual)
             : [];
 
-          // Preservar mensajes temporales/optimistas que todavía estén en vuelo hacia Zernio
+          // Preservar mensajes temporales/optimistas que todavía estén en vuelo hacia Zernio o adjuntos locales
           const temporalesEnVuelo = prev.filter(
             (m) =>
               Number(m.conversacion_id) === idConvActual &&
-              m.id_mensaje_plataforma?.startsWith('temp_') &&
+              (m.id_mensaje_plataforma?.startsWith('temp_') || m.id_mensaje_plataforma?.startsWith('local_')) &&
               !listaFiltrada.some(
                 (real) =>
                   real.direccion === 'saliente' &&
@@ -1058,8 +1059,16 @@ export default function PaginaPrincipal() {
     };
   }, [conversacionActiva?.id]);
 
-  const manejarEnviarMensaje = async (texto: string, convExplicita?: Conversacion) => {
-    const conv = convExplicita || conversacionActiva;
+  const manejarEnviarMensaje = async (
+    texto: string,
+    adjuntoOConv?: Conversacion | { file?: File; url: string; nombre: string; tipo: string },
+    convExplicita?: Conversacion
+  ) => {
+    const esAdjunto = Boolean(adjuntoOConv && !('id' in adjuntoOConv) && 'url' in adjuntoOConv);
+    const adjuntoLocal = esAdjunto
+      ? (adjuntoOConv as { file?: File; url: string; nombre: string; tipo: string })
+      : undefined;
+    const conv = (esAdjunto ? convExplicita : (adjuntoOConv as Conversacion)) || conversacionActiva;
     if (!conv || !conv.id) {
       alert('Por favor selecciona una conversación para enviar el mensaje.');
       return;
@@ -1067,14 +1076,26 @@ export default function PaginaPrincipal() {
 
     const idConv = Number(conv.id);
     const idTemp = Date.now();
+    const tipoContenido = adjuntoLocal
+      ? (adjuntoLocal.tipo.startsWith('image/') ? 'image' : 'document')
+      : 'texto';
+    const textoDefinitivo = texto ? texto.trim() : '';
+    const textoParaHistorial =
+      textoDefinitivo ||
+      (adjuntoLocal ? (adjuntoLocal.tipo.startsWith('image/') ? '📷 Foto' : `📄 ${adjuntoLocal.nombre}`) : '');
+
     const mensajeOptimista: Mensaje = {
       id: idTemp,
       conversacion_id: idConv,
       id_mensaje_plataforma: `temp_${idTemp}`,
       id_mensaje_zernio: null,
       direccion: 'saliente',
-      tipo_mensaje: 'texto',
-      texto,
+      tipo_mensaje: tipoContenido,
+      texto: textoDefinitivo,
+      url_adjunto: adjuntoLocal?.url || null,
+      nombre_archivo: adjuntoLocal?.nombre || null,
+      mime_tipo: adjuntoLocal?.tipo || null,
+      tipo_contenido: tipoContenido,
       payload_json: null,
       estado_entrega: 'enviado',
       creado_en: new Date().toISOString().replace('T', ' ').substring(0, 19),
@@ -1092,7 +1113,7 @@ export default function PaginaPrincipal() {
           ia_pausada_por_humano: true,
           sin_contestar: false,
           ultimo_mensaje_direccion: 'saliente',
-          ultimo_mensaje_texto: texto,
+          ultimo_mensaje_texto: textoParaHistorial,
           ultimo_mensaje_fecha: new Date().toISOString(),
         }
         : prev
@@ -1107,7 +1128,7 @@ export default function PaginaPrincipal() {
             ia_pausada_por_humano: true,
             sin_contestar: false,
             ultimo_mensaje_direccion: 'saliente',
-            ultimo_mensaje_texto: texto,
+            ultimo_mensaje_texto: textoParaHistorial,
             ultimo_mensaje_fecha: new Date().toISOString(),
           }
           : c
@@ -1119,8 +1140,51 @@ export default function PaginaPrincipal() {
       window.dispatchEvent(new CustomEvent('crm_recargar_notificaciones'));
     }
 
-    // 2. Envío a través de la API
-    const res = await enviarMensajeChat(idConv, texto, false);
+    let urlAdjuntoFinal: string | undefined = undefined;
+
+    // Si viene un archivo real adjunto, subirlo primero a Supabase Storage con URL pública
+    if (adjuntoLocal?.file) {
+      try {
+        const idOptica = idOpticaActiva || 1;
+        const resSubida = await subirAdjuntoMensaje(adjuntoLocal.file, idOptica);
+        if (resSubida.exito && resSubida.url) {
+          urlAdjuntoFinal = resSubida.url;
+        } else {
+          const errTxt = resSubida.error || 'No se pudo subir el archivo al servidor';
+          console.error('Error en subida de adjunto:', errTxt);
+          setMensajes((prev) =>
+            prev.map((m) => (m.id === idTemp ? { ...m, estado_entrega: 'fallido' } : m))
+          );
+          alert(`No se pudo enviar el archivo: ${errTxt}`);
+          return;
+        }
+      } catch (errSubida: any) {
+        console.error('Error al subir archivo adjunto:', errSubida);
+        setMensajes((prev) =>
+          prev.map((m) => (m.id === idTemp ? { ...m, estado_entrega: 'fallido' } : m))
+        );
+        alert(`Error al procesar el archivo adjunto: ${errSubida.message || 'Error de red'}`);
+        return;
+      }
+    }
+
+    const opcionesAdjunto = adjuntoLocal
+      ? {
+        url_adjunto: urlAdjuntoFinal || adjuntoLocal.url,
+        tipo_adjunto: adjuntoLocal.tipo.startsWith('image/')
+          ? 'image'
+          : adjuntoLocal.tipo.startsWith('video/')
+          ? 'video'
+          : adjuntoLocal.tipo.startsWith('audio/')
+          ? 'audio'
+          : 'file',
+        nombre_archivo: adjuntoLocal.nombre,
+        mime_tipo: adjuntoLocal.tipo,
+      }
+      : undefined;
+
+    // 2. Envío real a través de la API (Zernio -> Meta WhatsApp Cloud API)
+    const res = await enviarMensajeChat(idConv, textoDefinitivo, false, undefined, undefined, opcionesAdjunto);
     if (res.exito) {
       // 3. Si el backend nos devolvió el registro persistido, reconciliar inmediatamente en memoria
       if (res.mensaje) {
@@ -1132,7 +1196,9 @@ export default function PaginaPrincipal() {
         const lista = await obtenerMensajes(idConv);
         setMensajes((prev) => {
           const otrosTemporales = prev.filter(
-            (m) => m.id !== idTemp && m.id_mensaje_plataforma?.startsWith('temp_')
+            (m) =>
+              m.id !== idTemp &&
+              (m.id_mensaje_plataforma?.startsWith('temp_') || m.id_mensaje_plataforma?.startsWith('local_'))
           );
           return [...lista, ...otrosTemporales];
         });
@@ -1145,7 +1211,7 @@ export default function PaginaPrincipal() {
             ia_pausada_por_humano: true,
             sin_contestar: false,
             ultimo_mensaje_direccion: 'saliente',
-            ultimo_mensaje_texto: texto,
+            ultimo_mensaje_texto: textoParaHistorial,
             ultimo_mensaje_fecha: new Date().toISOString(),
           }
           : prev
@@ -1159,7 +1225,7 @@ export default function PaginaPrincipal() {
               ia_pausada_por_humano: true,
               sin_contestar: false,
               ultimo_mensaje_direccion: 'saliente',
-              ultimo_mensaje_texto: texto,
+              ultimo_mensaje_texto: textoParaHistorial,
               ultimo_mensaje_fecha: new Date().toISOString(),
             }
             : c
