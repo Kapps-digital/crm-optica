@@ -374,6 +374,7 @@ export const ModalRegistrarVenta: React.FC<PropiedadesModalRegistrarVenta> = ({
 
   return (
     <div
+      className="modal-backdrop-premium"
       style={{
         position: 'fixed',
         inset: 0,
@@ -387,6 +388,7 @@ export const ModalRegistrarVenta: React.FC<PropiedadesModalRegistrarVenta> = ({
       }}
     >
       <div
+        className="modal-tarjeta-premium"
         style={{
           background: 'var(--fondo-tarjeta)',
           border: '1px solid var(--borde-tarjeta)',
@@ -500,7 +502,7 @@ export const ModalRegistrarVenta: React.FC<PropiedadesModalRegistrarVenta> = ({
           )}
 
           {/* Fila 1: No. Factura (Bloqueado) y Fecha/Hora Premium Uniformes */}
-          <div style={{ display: 'grid', gridTemplateColumns: '120px 1.15fr 1fr', gap: '0.65rem', alignItems: 'flex-start' }}>
+          <div className="modal-venta-fila-factura-fecha" style={{ display: 'grid', gridTemplateColumns: '120px 1.15fr 1fr', gap: '0.65rem', alignItems: 'flex-start' }}>
             {/* Factura */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
               <label style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--texto-principal)', height: '17px', display: 'flex', alignItems: 'center' }}>
@@ -624,9 +626,9 @@ export const ModalRegistrarVenta: React.FC<PropiedadesModalRegistrarVenta> = ({
           <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '0.75rem', alignItems: 'flex-start' }}>
             {/* Paciente con Validación Estricta */}
             <div ref={refClienteContenedor} style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', position: 'relative' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <label style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--texto-principal)' }}>
-                  Nombre del Paciente <span className="asterisco-obligatorio">*</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '17px' }}>
+                <label style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--texto-principal)', height: '17px', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
+                  <span className="texto-largo-modal-escritorio">Nombre del </span>Paciente <span className="asterisco-obligatorio">*</span>
                 </label>
                 {!pacienteSeleccionado && (
                   <button
@@ -643,10 +645,11 @@ export const ModalRegistrarVenta: React.FC<PropiedadesModalRegistrarVenta> = ({
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.2rem',
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     <Plus size={11} />
-                    <span>Nuevo Paciente</span>
+                    <span>Nuevo<span className="texto-largo-modal-escritorio"> Paciente</span></span>
                   </button>
                 )}
               </div>
@@ -879,7 +882,7 @@ export const ModalRegistrarVenta: React.FC<PropiedadesModalRegistrarVenta> = ({
 
             {/* Celular */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-              <label style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--texto-principal)' }}>
+              <label style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--texto-principal)', height: '17px', display: 'flex', alignItems: 'center' }}>
                 Celular
               </label>
               <div style={{ position: 'relative' }}>

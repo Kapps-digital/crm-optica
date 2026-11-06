@@ -139,12 +139,12 @@ export const ModalReprogramarCita: React.FC<PropiedadesModalReprogramarCita> = (
 
   const contenidoModal = (
     <div
-      className="modal-overlay"
+      className="modal-overlay modal-backdrop-premium"
       onClick={(e) => {
         if (e.target === e.currentTarget) manejarCierre();
       }}
     >
-      <div className="modal-tarjeta-clinica" style={{ maxWidth: '490px' }} role="dialog" aria-modal="true">
+      <div className="modal-tarjeta-clinica modal-tarjeta-premium" style={{ maxWidth: '490px' }} role="dialog" aria-modal="true">
         {/* Cabecera Corporativa */}
         <div className="modal-cabecera-clinica" style={{ padding: '0.85rem 1.15rem' }}>
           <div className="modal-cabecera-izq">

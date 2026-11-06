@@ -84,6 +84,7 @@ export const ModalVerPacientesSegmento: React.FC<PropiedadesModalVerPacientesSeg
 
   return (
     <div
+      className="modal-backdrop-premium"
       style={{
         position: 'fixed',
         inset: 0,
@@ -97,6 +98,7 @@ export const ModalVerPacientesSegmento: React.FC<PropiedadesModalVerPacientesSeg
       }}
     >
       <div
+        className="modal-tarjeta-premium"
         style={{
           backgroundColor: 'var(--fondo-tarjeta)',
           border: '1px solid var(--borde-tarjeta)',
@@ -278,34 +280,155 @@ export const ModalVerPacientesSegmento: React.FC<PropiedadesModalVerPacientesSeg
               </p>
             </div>
           ) : (
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                fontSize: '0.8rem',
-                textAlign: 'left',
-                marginTop: '0.5rem',
-              }}
-            >
-              <thead>
-                <tr
-                  style={{
-                    borderBottom: '1px solid var(--borde-tarjeta)',
-                    color: 'var(--texto-atenuado)',
-                    fontSize: '0.72rem',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  <th style={{ padding: '0.65rem 0.5rem' }}>Paciente</th>
-                  <th style={{ padding: '0.65rem 0.5rem' }}>Contacto</th>
-                  <th style={{ padding: '0.65rem 0.5rem' }}>Edad</th>
-                  <th style={{ padding: '0.65rem 0.5rem' }}>Última Fórmula / Lente</th>
-                  <th style={{ padding: '0.65rem 0.5rem' }}>Graduación (OD / OI)</th>
-                  <th style={{ padding: '0.65rem 0.5rem', textAlign: 'right' }}>Acción</th>
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              {/* Tabla para Escritorio */}
+              <table
+                className="ver-pacientes-tabla-escritorio"
+                style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  fontSize: '0.8rem',
+                  textAlign: 'left',
+                  marginTop: '0.5rem',
+                }}
+              >
+                <thead>
+                  <tr
+                    style={{
+                      borderBottom: '1px solid var(--borde-tarjeta)',
+                      color: 'var(--texto-atenuado)',
+                      fontSize: '0.72rem',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                    }}
+                  >
+                    <th style={{ padding: '0.65rem 0.5rem' }}>Paciente</th>
+                    <th style={{ padding: '0.65rem 0.5rem' }}>Contacto</th>
+                    <th style={{ padding: '0.65rem 0.5rem' }}>Edad</th>
+                    <th style={{ padding: '0.65rem 0.5rem' }}>Última Fórmula / Lente</th>
+                    <th style={{ padding: '0.65rem 0.5rem' }}>Graduación (OD / OI)</th>
+                    <th style={{ padding: '0.65rem 0.5rem', textAlign: 'right' }}>Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pacientesFiltrados.map((p) => {
+                    const nombre = obtenerNombrePaciente(p);
+                    const doc = p.cedula || p.documento || '-';
+                    const od = [p.od_esfera, p.od_cilindro].filter(Boolean).join(' / ') || '-';
+                    const oi = [p.oi_esfera, p.oi_cilindro].filter(Boolean).join(' / ') || '-';
+                    const tieneAdicion = p.od_adicion || p.oi_adicion;
+
+                    return (
+                      <tr
+                        key={p.id}
+                        style={{
+                          borderBottom: '1px solid var(--borde-tarjeta)',
+                          transition: 'background-color 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--fondo-hover)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                      >
+                        <td style={{ padding: '0.65rem 0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: 600, color: 'var(--texto-principal)' }}>{nombre}</span>
+                            {p.tipologia_nombre && (
+                              <span
+                                style={{
+                                  fontSize: '0.65rem',
+                                  padding: '1px 6px',
+                                  borderRadius: '10px',
+                                  backgroundColor: `${p.tipologia_color || '#0284c7'}18`,
+                                  color: p.tipologia_color || 'var(--color-primario)',
+                                  border: `1px solid ${p.tipologia_color || '#0284c7'}40`,
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {p.tipologia_nombre}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--texto-atenuado)' }}>Doc: {doc}</div>
+                        </td>
+
+                        <td style={{ padding: '0.65rem 0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--texto-principal)' }}>
+                            <Phone size={12} style={{ color: 'var(--color-exito)' }} />
+                            <span>{p.telefono ? formatearTelefono(p.telefono) : 'Sin teléfono'}</span>
+                          </div>
+                          {p.correo && (
+                            <div style={{ fontSize: '0.7rem', color: 'var(--texto-atenuado)' }}>{p.correo}</div>
+                          )}
+                        </td>
+
+                        <td style={{ padding: '0.65rem 0.5rem' }}>
+                          <div style={{ color: 'var(--texto-principal)', fontWeight: 500 }}>
+                            {p.edad ? `${p.edad} años` : 'N/D'}
+                          </div>
+                          {p.sexo && (
+                            <div style={{ fontSize: '0.7rem', color: 'var(--texto-atenuado)', textTransform: 'capitalize' }}>
+                              {p.sexo}
+                            </div>
+                          )}
+                        </td>
+
+                        <td style={{ padding: '0.65rem 0.5rem' }}>
+                          <div style={{ fontWeight: 500, color: 'var(--texto-principal)' }}>
+                            {p.tipo_lente || 'Sin lente especificado'}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--texto-atenuado)' }}>
+                            Examen: {p.fecha_examen || 'Sin registro'}
+                          </div>
+                        </td>
+
+                        <td style={{ padding: '0.65rem 0.5rem' }}>
+                          <div style={{ fontSize: '0.73rem', color: 'var(--texto-secundario)' }}>
+                            <span>OD: {od}</span>
+                          </div>
+                          <div style={{ fontSize: '0.73rem', color: 'var(--texto-secundario)' }}>
+                            <span>OI: {oi}</span>
+                            {tieneAdicion && (
+                              <span style={{ marginLeft: '4px', color: 'var(--color-primario-claro)', fontWeight: 600 }}>
+                                (Add {p.od_adicion || p.oi_adicion})
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        <td style={{ padding: '0.65rem 0.5rem', textAlign: 'right' }}>
+                          {alSeleccionarContactoChat && (
+                            <button
+                              onClick={() => {
+                                alSeleccionarContactoChat(p.id);
+                                alCerrar();
+                              }}
+                              title="Abrir conversación en WhatsApp"
+                              style={{
+                                padding: '0.35rem 0.65rem',
+                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                border: '1px solid rgba(16, 185, 129, 0.25)',
+                                borderRadius: '6px',
+                                color: 'var(--color-exito)',
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.35rem',
+                              }}
+                            >
+                              <MessageSquare size={13} />
+                              <span>Chat</span>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {/* Lista de Tarjetas para Móvil */}
+              <div className="ver-pacientes-tarjetas-movil">
                 {pacientesFiltrados.map((p) => {
                   const nombre = obtenerNombrePaciente(p);
                   const doc = p.cedula || p.documento || '-';
@@ -314,89 +437,39 @@ export const ModalVerPacientesSegmento: React.FC<PropiedadesModalVerPacientesSeg
                   const tieneAdicion = p.od_adicion || p.oi_adicion;
 
                   return (
-                    <tr
-                      key={p.id}
-                      style={{
-                        borderBottom: '1px solid var(--borde-tarjeta)',
-                        transition: 'background-color 0.15s ease',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--fondo-hover)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                    >
-                      <td style={{ padding: '0.65rem 0.5rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                          <span style={{ fontWeight: 600, color: 'var(--texto-principal)' }}>{nombre}</span>
-                          {p.tipologia_nombre && (
-                            <span
-                              style={{
-                                fontSize: '0.65rem',
-                                padding: '1px 6px',
-                                borderRadius: '10px',
-                                backgroundColor: `${p.tipologia_color || '#0284c7'}18`,
-                                color: p.tipologia_color || 'var(--color-primario)',
-                                border: `1px solid ${p.tipologia_color || '#0284c7'}40`,
-                                fontWeight: 700,
-                              }}
-                            >
-                              {p.tipologia_nombre}
-                            </span>
-                          )}
-                        </div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--texto-atenuado)' }}>Doc: {doc}</div>
-                      </td>
-
-                      <td style={{ padding: '0.65rem 0.5rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--texto-principal)' }}>
-                          <Phone size={12} style={{ color: 'var(--color-exito)' }} />
-                          <span>{p.telefono ? formatearTelefono(p.telefono) : 'Sin teléfono'}</span>
-                        </div>
-                        {p.correo && (
-                          <div style={{ fontSize: '0.7rem', color: 'var(--texto-atenuado)' }}>{p.correo}</div>
-                        )}
-                      </td>
-
-                      <td style={{ padding: '0.65rem 0.5rem' }}>
-                        <div style={{ color: 'var(--texto-principal)', fontWeight: 500 }}>
-                          {p.edad ? `${p.edad} años` : 'N/D'}
-                        </div>
-                        {p.sexo && (
-                          <div style={{ fontSize: '0.7rem', color: 'var(--texto-atenuado)', textTransform: 'capitalize' }}>
-                            {p.sexo}
+                    <div key={p.id} className="ver-pacientes-card-movil">
+                      <div className="ver-pacientes-card-cabecera">
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--texto-principal)' }}>{nombre}</span>
+                            {p.tipologia_nombre && (
+                              <span
+                                style={{
+                                  fontSize: '0.65rem',
+                                  padding: '1px 6px',
+                                  borderRadius: '10px',
+                                  backgroundColor: `${p.tipologia_color || '#0284c7'}18`,
+                                  color: p.tipologia_color || 'var(--color-primario)',
+                                  border: `1px solid ${p.tipologia_color || '#0284c7'}40`,
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {p.tipologia_nombre}
+                              </span>
+                            )}
                           </div>
-                        )}
-                      </td>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--texto-atenuado)' }}>Doc: {doc}</span>
+                        </div>
 
-                      <td style={{ padding: '0.65rem 0.5rem' }}>
-                        <div style={{ fontWeight: 500, color: 'var(--texto-principal)' }}>
-                          {p.tipo_lente || 'Sin lente especificado'}
-                        </div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--texto-atenuado)' }}>
-                          Examen: {p.fecha_examen || 'Sin registro'}
-                        </div>
-                      </td>
-
-                      <td style={{ padding: '0.65rem 0.5rem' }}>
-                        <div style={{ fontSize: '0.73rem', color: 'var(--texto-secundario)' }}>
-                          <span>OD: {od}</span>
-                        </div>
-                        <div style={{ fontSize: '0.73rem', color: 'var(--texto-secundario)' }}>
-                          <span>OI: {oi}</span>
-                          {tieneAdicion && (
-                            <span style={{ marginLeft: '4px', color: 'var(--color-primario-claro)', fontWeight: 600 }}>
-                              (Add {p.od_adicion || p.oi_adicion})
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      <td style={{ padding: '0.65rem 0.5rem', textAlign: 'right' }}>
                         {alSeleccionarContactoChat && (
                           <button
+                            type="button"
                             onClick={() => {
                               alSeleccionarContactoChat(p.id);
                               alCerrar();
                             }}
                             title="Abrir conversación en WhatsApp"
+                            className="btn-chat-paciente-movil"
                             style={{
                               padding: '0.35rem 0.65rem',
                               backgroundColor: 'rgba(16, 185, 129, 0.1)',
@@ -409,18 +482,44 @@ export const ModalVerPacientesSegmento: React.FC<PropiedadesModalVerPacientesSeg
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: '0.35rem',
+                              flexShrink: 0,
                             }}
                           >
                             <MessageSquare size={13} />
                             <span>Chat</span>
                           </button>
                         )}
-                      </td>
-                    </tr>
+                      </div>
+
+                      <div className="ver-pacientes-card-fila-info">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem' }}>
+                          <Phone size={12} style={{ color: 'var(--color-exito)', flexShrink: 0 }} />
+                          <span style={{ fontWeight: 600, color: 'var(--texto-principal)' }}>{p.telefono ? formatearTelefono(p.telefono) : 'Sin teléfono'}</span>
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--texto-secundario)' }}>
+                          {p.edad ? `${p.edad} años` : ''}{p.sexo ? ` • ${p.sexo}` : ''}
+                        </div>
+                      </div>
+
+                      <div className="ver-pacientes-card-formula">
+                        <div style={{ fontSize: '0.75rem', color: 'var(--texto-principal)', fontWeight: 600 }}>
+                          {p.tipo_lente || 'Sin lente especificado'}
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--texto-secundario)', display: 'flex', gap: '0.6rem', marginTop: '2px' }}>
+                          <span>OD: {od}</span>
+                          <span>OI: {oi}</span>
+                          {tieneAdicion && (
+                            <span style={{ color: 'var(--color-primario-claro)', fontWeight: 600 }}>
+                              (Add {p.od_adicion || p.oi_adicion})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
+              </div>
+            </>
           )}
         </div>
       </div>

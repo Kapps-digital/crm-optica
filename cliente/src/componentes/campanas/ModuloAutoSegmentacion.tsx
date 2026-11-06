@@ -198,6 +198,7 @@ export const ModuloAutoSegmentacion: React.FC<PropiedadesModuloAutoSegmentacion>
 
   return (
     <div
+      className="campanas-pagina-contenedor"
       style={{
         flex: 1,
         height: 'calc(100vh - 48px)',
@@ -212,6 +213,7 @@ export const ModuloAutoSegmentacion: React.FC<PropiedadesModuloAutoSegmentacion>
 
       {/* 3. Filtros y Búsqueda */}
       <div
+        className="campanas-barra-filtros"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -225,21 +227,25 @@ export const ModuloAutoSegmentacion: React.FC<PropiedadesModuloAutoSegmentacion>
         }}
       >
         {/* Pestañas de Filtrado con componente estandarizado BarraPestanas */}
-        <BarraPestanas<'todos' | 'sistema' | 'personalizados'>
-          pestanas={pestanasSegmentacion}
-          pestanaActiva={filtroTipo}
-          alCambiarPestana={setFiltroTipo}
-        />
+        <div className="campanas-filtros-fila-tabs">
+          <BarraPestanas<'todos' | 'sistema' | 'personalizados'>
+            pestanas={pestanasSegmentacion}
+            pestanaActiva={filtroTipo}
+            alCambiarPestana={setFiltroTipo}
+          />
+        </div>
 
         {/* Búsqueda, Actualizar y Crear Segmento */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="campanas-filtros-fila-busqueda" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           {/* Buscador de Segmentos */}
-          <FiltroBusqueda
-            valor={busqueda}
-            alCambiar={setBusqueda}
-            placeholder="Buscar segmento..."
-            ancho="250px"
-          />
+          <div className="campanas-buscador-wrap">
+            <FiltroBusqueda
+              valor={busqueda}
+              alCambiar={setBusqueda}
+              placeholder="Buscar segmento..."
+              ancho="250px"
+            />
+          </div>
 
           {/* Botón Actualizar (Solo ícono con EtiquetaTooltip) */}
           <EtiquetaTooltip texto="Actualizar segmentos" posicion="abajo">
@@ -281,6 +287,7 @@ export const ModuloAutoSegmentacion: React.FC<PropiedadesModuloAutoSegmentacion>
           {/* Botón Crear Segmento */}
           <button
             type="button"
+            className="campanas-btn-crear-escritorio"
             onClick={() => {
               setSegmentoParaEditar(null);
               setModalCrearAbierto(true);
@@ -378,6 +385,7 @@ export const ModuloAutoSegmentacion: React.FC<PropiedadesModuloAutoSegmentacion>
         </div>
       ) : (
         <div
+          className="campanas-grid-segmentos"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
@@ -392,6 +400,7 @@ export const ModuloAutoSegmentacion: React.FC<PropiedadesModuloAutoSegmentacion>
             return (
               <div
                 key={seg.id}
+                className="campana-tarjeta-segmento"
                 style={{
                   backgroundColor: 'var(--fondo-tarjeta)',
                   border: '1px solid var(--borde-tarjeta)',
@@ -706,7 +715,7 @@ export const ModuloAutoSegmentacion: React.FC<PropiedadesModuloAutoSegmentacion>
                     </span>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '0.5rem' }}>
+                  <div className="campana-tarjeta-botones-fila" style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '0.5rem' }}>
                     <button
                       onClick={() => setSegmentoParaVer(seg)}
                       style={{
@@ -914,6 +923,20 @@ export const ModuloAutoSegmentacion: React.FC<PropiedadesModuloAutoSegmentacion>
           );
         }}
       />
+
+      {/* Botón Flotante (FAB) para Móvil: Crear Segmento */}
+      <button
+        type="button"
+        className="campanas-fab-crear"
+        onClick={() => {
+          setSegmentoParaEditar(null);
+          setModalCrearAbierto(true);
+        }}
+        aria-label="Crear nuevo segmento"
+      >
+        <Plus size={20} />
+        <span>Crear Segmento</span>
+      </button>
 
       {/* Notificación flotante de confirmación */}
       {mensajeNotificacion && (

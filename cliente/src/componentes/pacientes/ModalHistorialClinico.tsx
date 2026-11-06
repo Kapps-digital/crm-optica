@@ -539,7 +539,7 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
 
         {/* 3. Contenedor de Contenido Scrolleable (Scroll Suave Garantizado) */}
         <div
-          className="scroll-suave-optica"
+          className="scroll-suave-optica modal-historial-contenido"
           style={{
             flex: '1 1 0%',
             minHeight: 0,
@@ -706,6 +706,7 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                     >
                       {/* Cabecera del Acordeón de Historia Clínica */}
                       <div
+                        className="acordeon-historia-cabecera"
                         onClick={() => alternarHistoriaExpandida(historia.id)}
                         style={{
                           padding: '0.85rem 1.1rem',
@@ -716,6 +717,7 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                           justifyContent: 'space-between',
                           userSelect: 'none',
                           borderBottom: expandida ? '1px solid var(--borde-tarjeta)' : 'none',
+                          gap: '0.5rem',
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
@@ -735,8 +737,8 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                             <FileText size={16} />
                           </div>
                           <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <span style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--texto-principal)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                              <span style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--texto-principal)', whiteSpace: 'nowrap' }}>
                                 Atención: {fechaFormateada}
                               </span>
                               <span
@@ -747,6 +749,10 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                                   background: 'var(--fondo-hover)',
                                   color: 'var(--texto-atenuado)',
                                   fontWeight: 600,
+                                  whiteSpace: 'nowrap',
+                                  flexShrink: 0,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
                                 }}
                               >
                                 {historia.hora_atencion}
@@ -764,58 +770,60 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                             {historia.optometra}
                           </span>
                           {alAbrirNuevaHistoria && (
-                            esEditable ? (
-                              <EtiquetaTooltip texto="Editar historia clínica" posicion="arriba">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    alCerrar();
-                                    alAbrirNuevaHistoria(contacto, historia);
-                                  }}
-                                  style={{
-                                    width: '28px',
-                                    height: '28px',
-                                    borderRadius: '6px',
-                                    border: '1px solid var(--borde-tarjeta)',
-                                    background: 'var(--fondo-elevado)',
-                                    color: 'var(--texto-secundario)',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.15s ease',
-                                  }}
-                                  aria-label="Editar historia clínica"
-                                >
-                                  <Edit size={13} />
-                                </button>
-                              </EtiquetaTooltip>
-                            ) : (
-                              <EtiquetaTooltip texto="No editable: plazo de 24 horas expirado" posicion="arriba">
-                                <button
-                                  type="button"
-                                  disabled
-                                  onClick={(e) => e.stopPropagation()}
-                                  style={{
-                                    width: '28px',
-                                    height: '28px',
-                                    borderRadius: '6px',
-                                    border: '1px solid var(--borde-tarjeta)',
-                                    background: 'var(--fondo-hover)',
-                                    color: 'var(--texto-atenuado)',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    cursor: 'not-allowed',
-                                    opacity: 0.45,
-                                  }}
-                                  aria-label="No editable: plazo de 24 horas expirado"
-                                >
-                                  <Edit size={13} />
-                                </button>
-                              </EtiquetaTooltip>
-                            )
+                            <div className="btn-editar-historia-movil-oculto">
+                              {esEditable ? (
+                                <EtiquetaTooltip texto="Editar historia clínica" posicion="arriba">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      alCerrar();
+                                      alAbrirNuevaHistoria(contacto, historia);
+                                    }}
+                                    style={{
+                                      width: '28px',
+                                      height: '28px',
+                                      borderRadius: '6px',
+                                      border: '1px solid var(--borde-tarjeta)',
+                                      background: 'var(--fondo-elevado)',
+                                      color: 'var(--texto-secundario)',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.15s ease',
+                                    }}
+                                    aria-label="Editar historia clínica"
+                                  >
+                                    <Edit size={13} />
+                                  </button>
+                                </EtiquetaTooltip>
+                              ) : (
+                                <EtiquetaTooltip texto="No editable: plazo de 24 horas expirado" posicion="arriba">
+                                  <button
+                                    type="button"
+                                    disabled
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                      width: '28px',
+                                      height: '28px',
+                                      borderRadius: '6px',
+                                      border: '1px solid var(--borde-tarjeta)',
+                                      background: 'var(--fondo-hover)',
+                                      color: 'var(--texto-atenuado)',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      cursor: 'not-allowed',
+                                      opacity: 0.45,
+                                    }}
+                                    aria-label="No editable: plazo de 24 horas expirado"
+                                  >
+                                    <Edit size={13} />
+                                  </button>
+                                </EtiquetaTooltip>
+                              )}
+                            </div>
                           )}
                           <div style={{ color: 'var(--texto-atenuado)' }}>
                             {expandida ? <ChevronUp size={16} /> : <ChevronDown size={16} />}

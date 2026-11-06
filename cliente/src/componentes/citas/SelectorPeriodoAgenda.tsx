@@ -311,13 +311,21 @@ export const SelectorPeriodoAgenda: React.FC<PropiedadesSelectorPeriodoAgenda> =
   const actualizarPosicion = () => {
     if (!botonRef.current) return;
     const rect = botonRef.current.getBoundingClientRect();
+    const esMovil = typeof window !== 'undefined' && window.innerWidth <= 768;
+
+    // En celular siempre abre hacia abajo para evitar que se corte la cabecera por arriba
     const alturaAprox = 360;
     const espacioAbajo = window.innerHeight - rect.bottom;
-    const mostrarArriba = espacioAbajo < alturaAprox && rect.top > espacioAbajo;
+    const mostrarArriba = esMovil ? false : (espacioAbajo < alturaAprox && rect.top > espacioAbajo);
+
+    const anchoAprox = esMovil ? Math.min(window.innerWidth - 16, 485) : 505;
+    const leftCalculado = esMovil
+      ? Math.max(8, Math.min(rect.left, window.innerWidth - anchoAprox - 8))
+      : Math.max(12, Math.min(rect.left, window.innerWidth - 505));
 
     setPosicionPopover({
-      top: mostrarArriba ? rect.top - alturaAprox - 6 : rect.bottom + 6,
-      left: Math.max(12, Math.min(rect.left, window.innerWidth - 505)),
+      top: mostrarArriba ? Math.max(10, rect.top - alturaAprox - 6) : rect.bottom + 6,
+      left: leftCalculado,
       arriba: mostrarArriba,
     });
   };

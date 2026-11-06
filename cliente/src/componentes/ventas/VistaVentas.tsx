@@ -203,6 +203,7 @@ export const VistaVentas: React.FC<PropiedadesVistaVentas> = ({
 
   return (
     <div
+      className="ventas-pagina-contenedor"
       style={{
         flex: 1,
         padding: '1.25rem 1.75rem',
@@ -214,6 +215,7 @@ export const VistaVentas: React.FC<PropiedadesVistaVentas> = ({
     >
       {/* Contenedor Principal */}
       <div
+        className="ventas-tarjeta-principal"
         style={{
           background: 'var(--fondo-tarjeta)',
           border: '1px solid var(--borde-tarjeta)',
@@ -227,6 +229,7 @@ export const VistaVentas: React.FC<PropiedadesVistaVentas> = ({
       >
         {/* 1. Tarjetas de Métricas KPI Corporativas */}
         <div
+          className="ventas-kpis-grid"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
@@ -235,6 +238,7 @@ export const VistaVentas: React.FC<PropiedadesVistaVentas> = ({
         >
           {/* KPI 1: Ventas Totales */}
           <div
+            className="ventas-kpi-tarjeta"
             style={{
               background: 'var(--fondo-elevado)',
               borderRadius: 'var(--radio-md, 10px)',
@@ -277,6 +281,7 @@ export const VistaVentas: React.FC<PropiedadesVistaVentas> = ({
 
           {/* KPI 2: Total Recaudado */}
           <div
+            className="ventas-kpi-tarjeta"
             style={{
               background: 'var(--fondo-elevado)',
               borderRadius: 'var(--radio-md, 10px)',
@@ -321,6 +326,7 @@ export const VistaVentas: React.FC<PropiedadesVistaVentas> = ({
 
           {/* KPI 3: Saldo Pendiente */}
           <div
+            className="ventas-kpi-tarjeta"
             style={{
               background: 'var(--fondo-elevado)',
               borderRadius: 'var(--radio-md, 10px)',
@@ -363,6 +369,7 @@ export const VistaVentas: React.FC<PropiedadesVistaVentas> = ({
 
           {/* KPI 4: Facturas Emitidas */}
           <div
+            className="ventas-kpi-tarjeta"
             style={{
               background: 'var(--fondo-elevado)',
               borderRadius: 'var(--radio-md, 10px)',
@@ -406,6 +413,7 @@ export const VistaVentas: React.FC<PropiedadesVistaVentas> = ({
 
         {/* 2. Barra Superior de la Tabla: Filtros Compactos + Botón Nueva Venta en la Misma Fila */}
         <div
+          className="ventas-filtros-barra"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -415,75 +423,84 @@ export const VistaVentas: React.FC<PropiedadesVistaVentas> = ({
           }}
         >
           {/* Grupo de Filtros Izquierdo */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap', flex: 1 }}>
-            {/* Selector Período Tipo Calendario (Meses, Semanas, Días, Rango) - Primero */}
-            <SelectorPeriodoAgenda
-              filtro={filtroPeriodo}
-              alCambiarFiltro={(nuevo) => setFiltroPeriodo(nuevo)}
-              fechasConRegistros={fechasVentas}
-              estiloBoton={{
-                height: '34px',
-                borderRadius: 'var(--radio-md, 8px)',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                padding: '0 0.65rem',
-              }}
-            />
+          <div className="ventas-filtros-grupo" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap', flex: 1 }}>
+            {/* Fila 1: Histórico + Buscador al lado */}
+            <div className="ventas-filtros-fila-1">
+              {/* Selector Período Tipo Calendario (Meses, Semanas, Días, Rango) - Primero */}
+              <div className="ventas-filtro-periodo-wrap">
+                <SelectorPeriodoAgenda
+                  filtro={filtroPeriodo}
+                  alCambiarFiltro={(nuevo) => setFiltroPeriodo(nuevo)}
+                  fechasConRegistros={fechasVentas}
+                  estiloBoton={{
+                    height: '34px',
+                    borderRadius: 'var(--radio-md, 8px)',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    padding: '0 0.65rem',
+                  }}
+                />
+              </div>
 
-            {/* Buscador al Lado del Calendario */}
-            <div style={{ width: '220px', minWidth: '180px' }}>
-              <FiltroBusqueda
-                valor={busqueda}
-                alCambiar={setBusqueda}
-                placeholder="Buscar factura, cliente..."
-                ancho="100%"
-                alto="34px"
-              />
+              {/* Buscador al Lado del Calendario */}
+              <div className="ventas-filtro-buscador-wrap" style={{ width: '220px', minWidth: '180px' }}>
+                <FiltroBusqueda
+                  valor={busqueda}
+                  alCambiar={setBusqueda}
+                  placeholder="Buscar factura, cliente..."
+                  ancho="100%"
+                  alto="34px"
+                />
+              </div>
             </div>
 
-            {/* Selector Vendedor */}
-            <div style={{ width: '175px' }}>
-              <SelectorDesplegable
-                valor={filtroVendedor}
-                alCambiar={setFiltroVendedor}
-                opciones={opcionesVendedores}
-                icono={Users}
-                placeholder="Vendedor..."
-                tamano="compacto"
-                anchoMinimo="175px"
-                estiloBoton={{
-                  height: '34px',
-                  borderRadius: 'var(--radio-md, 8px)',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  padding: '0 0.55rem',
-                }}
-              />
-            </div>
+            {/* Fila 2: Vendedor + Estado al lado */}
+            <div className="ventas-filtros-fila-2">
+              {/* Selector Vendedor */}
+              <div className="ventas-filtro-vendedor-wrap" style={{ width: '175px' }}>
+                <SelectorDesplegable
+                  valor={filtroVendedor}
+                  alCambiar={setFiltroVendedor}
+                  opciones={opcionesVendedores}
+                  icono={Users}
+                  placeholder="Vendedor..."
+                  tamano="compacto"
+                  anchoMinimo="175px"
+                  estiloBoton={{
+                    height: '34px',
+                    borderRadius: 'var(--radio-md, 8px)',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    padding: '0 0.55rem',
+                  }}
+                />
+              </div>
 
-            {/* Selector Estado de Pago */}
-            <div style={{ width: '160px' }}>
-              <SelectorDesplegable
-                valor={filtroEstado}
-                alCambiar={setFiltroEstado}
-                opciones={OPCIONES_FILTRO_ESTADOS}
-                icono={Tag}
-                placeholder="Estado..."
-                tamano="compacto"
-                anchoMinimo="160px"
-                estiloBoton={{
-                  height: '34px',
-                  borderRadius: 'var(--radio-md, 8px)',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  padding: '0 0.55rem',
-                }}
-              />
+              {/* Selector Estado de Pago */}
+              <div className="ventas-filtro-estado-wrap" style={{ width: '160px' }}>
+                <SelectorDesplegable
+                  valor={filtroEstado}
+                  alCambiar={setFiltroEstado}
+                  opciones={OPCIONES_FILTRO_ESTADOS}
+                  icono={Tag}
+                  placeholder="Estado..."
+                  tamano="compacto"
+                  anchoMinimo="160px"
+                  estiloBoton={{
+                    height: '34px',
+                    borderRadius: 'var(--radio-md, 8px)',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    padding: '0 0.55rem',
+                  }}
+                />
+              </div>
             </div>
 
             {hayFiltrosActivos && (
               <button
                 type="button"
+                className="ventas-btn-limpiar"
                 onClick={limpiarFiltros}
                 style={{
                   height: '34px',
@@ -507,6 +524,7 @@ export const VistaVentas: React.FC<PropiedadesVistaVentas> = ({
           <button
             type="button"
             id="btn-nueva-venta"
+            className="ventas-btn-nueva-escritorio"
             onClick={() => setModalNuevaVentaAbierto(true)}
             style={{
               height: '34px',
@@ -532,8 +550,8 @@ export const VistaVentas: React.FC<PropiedadesVistaVentas> = ({
           </button>
         </div>
 
-        {/* 3. Tabla de Ventas Premium */}
-        <div style={{ overflowX: 'auto', border: '1px solid var(--borde-tarjeta)', borderRadius: 'var(--radio-md, 8px)' }}>
+        {/* 3. Tabla de Ventas Premium (Escritorio) */}
+        <div className="ventas-tabla-contenedor" style={{ overflowX: 'auto', border: '1px solid var(--borde-tarjeta)', borderRadius: 'var(--radio-md, 8px)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
             <thead>
               <tr
@@ -773,6 +791,229 @@ export const VistaVentas: React.FC<PropiedadesVistaVentas> = ({
           </table>
         </div>
 
+        {/* Vista Móvil: Tarjetas de Ventas Corporativas */}
+        <div className="ventas-tarjetas-movil">
+          {cargando ? (
+            <div style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--texto-atenuado)' }}>
+              Cargando ventas...
+            </div>
+          ) : ventasPaginadas.length === 0 ? (
+            <div
+              style={{
+                padding: '2.5rem 1rem',
+                textAlign: 'center',
+                color: 'var(--texto-atenuado)',
+                background: 'var(--fondo-elevado)',
+                borderRadius: 'var(--radio-md, 8px)',
+                border: '1px dashed var(--borde-tarjeta)',
+              }}
+            >
+              {hayFiltrosActivos
+                ? 'No se encontraron ventas que coincidan con los filtros aplicados.'
+                : 'No hay ventas registradas aún. Presiona "+ Nueva Venta" para comenzar.'}
+            </div>
+          ) : (
+            ventasPaginadas.map((v) => {
+              const saldo = Number(v.saldo_pendiente || 0);
+
+              const estadoConfig =
+                v.estado_pago === 'pagado'
+                  ? { etiqueta: 'Pagado', bg: 'rgba(16, 185, 129, 0.12)', color: '#10b981', border: 'rgba(16, 185, 129, 0.25)' }
+                  : v.estado_pago === 'parcial'
+                  ? { etiqueta: 'Abonado', bg: 'rgba(245, 158, 11, 0.12)', color: '#d97706', border: 'rgba(245, 158, 11, 0.25)' }
+                  : { etiqueta: 'Pendiente', bg: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', border: 'rgba(239, 68, 68, 0.25)' };
+
+              return (
+                <div
+                  key={v.id}
+                  style={{
+                    background: 'var(--fondo-tarjeta)',
+                    border: '1px solid var(--borde-tarjeta)',
+                    borderRadius: 'var(--radio-md, 10px)',
+                    padding: '0.85rem 0.95rem',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.6rem',
+                  }}
+                >
+                  {/* Fila 1: Factura, Fecha y Estado */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          fontFamily: 'monospace',
+                          fontSize: '0.80rem',
+                          color: 'var(--color-primario)',
+                          background: 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.1)',
+                          padding: '0.12rem 0.45rem',
+                          borderRadius: '4px',
+                        }}
+                      >
+                        {v.numero_factura}
+                      </span>
+                      <span style={{ fontSize: '0.70rem', color: 'var(--texto-atenuado)' }}>
+                        {formatearFechaHoraColombia(v.fecha)}
+                      </span>
+                    </div>
+
+                    <span
+                      style={{
+                        fontSize: '0.70rem',
+                        fontWeight: 700,
+                        padding: '0.12rem 0.55rem',
+                        borderRadius: '12px',
+                        background: estadoConfig.bg,
+                        color: estadoConfig.color,
+                        border: `1px solid ${estadoConfig.border}`,
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {estadoConfig.etiqueta}
+                    </span>
+                  </div>
+
+                  {/* Fila 2: Cliente y Vendedor */}
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--texto-principal)' }}>
+                      {v.nombre_cliente}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.2rem' }}>
+                      <span
+                        style={{
+                          fontSize: '0.68rem',
+                          color: 'var(--texto-secundario)',
+                          background: 'var(--fondo-elevado)',
+                          padding: '0.08rem 0.4rem',
+                          borderRadius: '4px',
+                          border: '1px solid var(--borde-tarjeta)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                        }}
+                      >
+                        <User size={11} style={{ opacity: 0.7 }} />
+                        <span>{v.nombre_vendedor || 'Sin vendedor'}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Fila 3: Producto Vendido */}
+                  <div
+                    style={{
+                      background: 'var(--fondo-elevado)',
+                      padding: '0.55rem 0.75rem',
+                      borderRadius: '6px',
+                      fontSize: '0.76rem',
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, color: 'var(--texto-principal)' }}>
+                      {v.producto}
+                    </div>
+                    {v.notas && (
+                      <div style={{ fontSize: '0.70rem', color: 'var(--texto-atenuado)', marginTop: '0.15rem' }}>
+                        {v.notas}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Fila 4: Bloque Financiero en 3 columnas */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(3, 1fr)',
+                      gap: '0.35rem',
+                      background: 'var(--fondo-tarjeta)',
+                      border: '1px solid var(--borde-tarjeta)',
+                      borderRadius: '8px',
+                      padding: '0.55rem 0.5rem',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: '0.64rem', color: 'var(--texto-atenuado)', textTransform: 'uppercase', fontWeight: 600 }}>
+                        Total
+                      </div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--texto-principal)', marginTop: '2px' }}>
+                        {formatearMonedaCop(v.valor_producto)}
+                      </div>
+                    </div>
+
+                    <div style={{ borderLeft: '1px solid var(--borde-tarjeta)', borderRight: '1px solid var(--borde-tarjeta)' }}>
+                      <div style={{ fontSize: '0.64rem', color: 'var(--texto-atenuado)', textTransform: 'uppercase', fontWeight: 600 }}>
+                        Abonos
+                      </div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#10b981', marginTop: '2px' }}>
+                        {formatearMonedaCop(v.total_abonos)}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: '0.64rem', color: 'var(--texto-atenuado)', textTransform: 'uppercase', fontWeight: 600 }}>
+                        Saldo
+                      </div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 700, color: saldo > 0 ? '#ef4444' : 'var(--texto-atenuado)', marginTop: '2px' }}>
+                        {saldo > 0 ? formatearMonedaCop(saldo) : '$ 0'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Fila 5: Botones de Acción */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.15rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => setVentaParaEditarAbonos(v)}
+                      style={{
+                        flex: 1,
+                        height: '32px',
+                        borderRadius: '6px',
+                        border: '1px solid var(--borde-tarjeta)',
+                        background: saldo > 0 ? 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.1)' : 'var(--fondo-elevado)',
+                        color: saldo > 0 ? 'var(--color-primario)' : 'var(--texto-secundario)',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.4rem',
+                        fontSize: '0.76rem',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {saldo > 0 ? <Coins size={14} /> : <Eye size={14} />}
+                      <span>{saldo > 0 ? 'Gestionar Abonos' : 'Ver Abonos'}</span>
+                    </button>
+
+                    {puedeEliminarFactura && (
+                      <button
+                        type="button"
+                        onClick={() => manejarEliminarVenta(v)}
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(239, 68, 68, 0.25)',
+                          background: 'rgba(239, 68, 68, 0.08)',
+                          color: '#ef4444',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                        aria-label="Eliminar venta"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
         {/* 4. Barra de Paginación */}
         {totalRegistros > 0 && (
           <BarraPaginacionTabla
@@ -787,6 +1028,17 @@ export const VistaVentas: React.FC<PropiedadesVistaVentas> = ({
           />
         )}
       </div>
+
+      {/* Botón Flotante (FAB) para Celulares: Nueva Venta */}
+      <button
+        type="button"
+        className="ventas-fab-nueva-venta"
+        onClick={() => setModalNuevaVentaAbierto(true)}
+        aria-label="Registrar nueva venta"
+      >
+        <Plus size={18} />
+        <span>Nueva Venta</span>
+      </button>
 
       {/* Modal Registrar Nueva Venta */}
       <ModalRegistrarVenta

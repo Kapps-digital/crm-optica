@@ -8008,6 +8008,10 @@ button.kpi-chip:hover {
     display: none !important;
   }
 
+  .texto-corto-cabecera-movil {
+    display: inline !important;
+  }
+
   /* Ocultar botón hamburguesa (reemplazado por barra inferior de hojas) */
   .btn-hamburguesa-movil {
     display: none !important;
@@ -8987,19 +8991,28 @@ button.kpi-chip:hover {
     font-size: 0.82rem !important;
   }
 
-  /* Modales en Móvil estilo Hoja Inferior (Bottom Sheet) */
+  /* Modales en Móvil con alto fijo consistente y bordes redondeados completos */
   .modal-backdrop-premium {
-    padding: 0 !important;
-    align-items: flex-end !important;
+    padding: 0.75rem 0.65rem 0.85rem 0.65rem !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
   .modal-tarjeta-premium {
     width: 100% !important;
     max-width: 100% !important;
-    max-height: 94vh !important;
-    border-bottom-left-radius: 0 !important;
-    border-bottom-right-radius: 0 !important;
-    margin: 0 !important;
+    height: calc(100vh - 1.8rem) !important;
+    height: calc(100dvh - 1.8rem) !important;
+    max-height: calc(100vh - 1.8rem) !important;
+    max-height: calc(100dvh - 1.8rem) !important;
+    border-radius: var(--radio-xl, 14px) !important;
+    border: 1px solid var(--borde-tarjeta) !important;
+    margin: 0 auto !important;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45) !important;
+  }
+
+  .modal-historial-contenido {
+    padding: 0.85rem 0.85rem 1rem 0.85rem !important;
   }
 
   .modal-historial-cabecera {
@@ -9041,9 +9054,886 @@ button.kpi-chip:hover {
   .texto-corto-btn-consulta {
     display: inline !important;
   }
+
+  .texto-largo-modal-escritorio {
+    display: none !important;
+  }
+
+  /* Ocultar botón editar historia clínica en celular para liberar espacio */
+  .btn-editar-historia-movil-oculto {
+    display: none !important;
+  }
+
+  .acordeon-historia-cabecera {
+    padding: 0.75rem 0.65rem !important;
+    gap: 0.45rem !important;
+  }
+
+  /* ==========================================
+     Vistas de Ventas en Móvil
+     ========================================== */
+  .ventas-pagina-contenedor {
+    padding: 0.65rem 0.5rem 5.5rem 0.5rem !important;
+    height: calc(100vh - 48px) !important;
+  }
+
+  .ventas-tarjeta-principal {
+    padding: 0.75rem 0.65rem !important;
+    gap: 0.75rem !important;
+    border-radius: 10px !important;
+  }
+
+  /* KPIs en Matriz 2x2 Compacta */
+  .ventas-kpis-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.45rem !important;
+  }
+
+  .ventas-kpi-tarjeta {
+    padding: 0.65rem 0.75rem !important;
+  }
+
+  /* Filtros en Móvil */
+  .ventas-filtros-barra {
+    gap: 0.45rem !important;
+  }
+
+  .ventas-filtros-grupo {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 0.45rem !important;
+  }
+
+  /* Fila 1: Histórico + Buscador al lado */
+  .ventas-filtros-fila-1 {
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    gap: 0.45rem !important;
+  }
+
+  .ventas-filtro-periodo-wrap {
+    flex: 0 0 135px !important;
+    width: 135px !important;
+    max-width: 140px !important;
+  }
+
+  .ventas-filtro-periodo-wrap .filtro-cal-agenda-contenedor {
+    width: 100% !important;
+  }
+
+  .ventas-filtro-periodo-wrap button {
+    width: 100% !important;
+    justify-content: space-between !important;
+    padding: 0 0.45rem !important;
+    font-size: 0.74rem !important;
+    gap: 0.25rem !important;
+  }
+
+  .ventas-filtro-periodo-wrap .filtro-cal-agenda-texto {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    font-size: 0.72rem !important;
+  }
+
+  .ventas-filtro-buscador-wrap {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .ventas-filtro-buscador-wrap .filtro-busqueda-contenedor {
+    width: 100% !important;
+  }
+
+  .ventas-filtro-buscador-wrap input {
+    width: 100% !important;
+    font-size: 0.76rem !important;
+  }
+
+  /* Fila 2: Vendedor + Estado siempre juntos en la misma fila */
+  .ventas-filtros-fila-2 {
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    gap: 0.45rem !important;
+  }
+
+  .ventas-filtro-vendedor-wrap {
+    flex: 1 1 50% !important;
+    width: 50% !important;
+    min-width: 0 !important;
+  }
+
+  .ventas-filtro-vendedor-wrap .selector-desplegable-contenedor,
+  .ventas-filtro-vendedor-wrap button {
+    width: 100% !important;
+    min-width: 0 !important;
+    font-size: 0.75rem !important;
+  }
+
+  .ventas-filtro-estado-wrap {
+    flex: 1 1 50% !important;
+    width: 50% !important;
+    min-width: 0 !important;
+  }
+
+  .ventas-filtro-estado-wrap .selector-desplegable-contenedor,
+  .ventas-filtro-estado-wrap button {
+    width: 100% !important;
+    min-width: 0 !important;
+    font-size: 0.75rem !important;
+  }
+
+  .ventas-btn-limpiar {
+    width: 100% !important;
+  }
+
+  /* Popover de calendario en móvil: ajuste de altura y scroll suave */
+  .filtro-cal-agenda-popover {
+    max-height: calc(100vh - 120px) !important;
+    overflow-y: auto !important;
+  }
+
+  /* Ocultar botón escritorio y tabla en celular */
+  .ventas-btn-nueva-escritorio {
+    display: none !important;
+  }
+
+  .ventas-tabla-contenedor {
+    display: none !important;
+  }
+
+  /* Mostrar Tarjetas de Ventas en Celular */
+  .ventas-tarjetas-movil {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.65rem !important;
+  }
+
+  /* Botón Flotante Nueva Venta Móvil (FAB) */
+  .ventas-fab-nueva-venta {
+    display: inline-flex !important;
+    position: fixed !important;
+    bottom: 5.2rem !important;
+    right: 1.15rem !important;
+    height: 44px !important;
+    padding: 0 1.15rem !important;
+    border-radius: 24px !important;
+    background: var(--color-primario) !important;
+    color: #ffffff !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+    box-shadow: 0 8px 20px rgba(var(--color-primario-rgb, 2, 132, 199), 0.4) !important;
+    border: none !important;
+    z-index: 99 !important;
+    cursor: pointer !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+  }
+
+  .ventas-fab-nueva-venta:active {
+    transform: scale(0.96) !important;
+  }
+
+  .modal-venta-fila-factura-fecha {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ==========================================================================
+     MÓDULO DE CITAS / AGENDA EN MÓVIL
+     ========================================================================== */
+  .calendario-contenedor-principal {
+    height: calc(100vh - 48px) !important;
+    height: calc(100dvh - 48px) !important;
+    padding: 0.75rem 0.65rem 6rem 0.65rem !important;
+    gap: 0.65rem !important;
+  }
+
+  /* 1. KPIs en Móvil: Grilla 2x2 compacta */
+  .calendario-kpis-fila {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+
+  .calendario-kpi-tarjeta {
+    padding: 0.5rem 0.65rem !important;
+    gap: 0.5rem !important;
+    border-radius: var(--radio-md) !important;
+  }
+
+  .calendario-kpi-tarjeta .kpi-icono-caja {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  .calendario-kpi-tarjeta .kpi-etiqueta {
+    font-size: 0.65rem !important;
+  }
+
+  .calendario-kpi-tarjeta .kpi-valor {
+    font-size: 1.05rem !important;
+  }
+
+  .calendario-kpi-tarjeta .kpi-subtexto {
+    font-size: 0.65rem !important;
+  }
+
+  /* 2. Barra de Herramientas Móvil */
+  .calendario-barra-herramientas {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    flex-shrink: 0 !important;
+    height: auto !important;
+    min-height: unset !important;
+    padding: 0.65rem 0.75rem !important;
+    gap: 0.5rem !important;
+    background: var(--fondo-tarjeta) !important;
+    border: 1px solid var(--borde-tarjeta) !important;
+    border-radius: var(--radio-lg) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+    overflow: visible !important;
+  }
+
+  .calendario-cuerpo-vista {
+    flex-shrink: 0 !important;
+  }
+
+  /* Fila 1: Selector fecha + Conmutador vistas */
+  .calendario-herramientas-fila-1 {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    gap: 0.45rem !important;
+  }
+
+  .calendario-controles-fecha {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.4rem !important;
+    min-width: 0 !important;
+  }
+
+  .calendario-titulo-mes {
+    font-size: 0.90rem !important;
+  }
+
+  .calendario-conmutador-vistas {
+    flex-shrink: 0 !important;
+  }
+
+  .conmutador-btn {
+    padding: 0.22rem 0.5rem !important;
+    font-size: 0.72rem !important;
+  }
+
+  /* Fila 2: Buscador ancho completo */
+  .calendario-herramientas-fila-2 {
+    display: flex !important;
+    width: 100% !important;
+  }
+
+  .calendario-buscador-wrap {
+    width: 100% !important;
+    flex: 1 1 100% !important;
+  }
+
+  .calendario-buscador-wrap .filtro-busqueda-contenedor {
+    width: 100% !important;
+  }
+
+  .calendario-buscador-wrap input {
+    font-size: 0.76rem !important;
+  }
+
+  /* Fila 3: Especialista (50%) + Estado (50%) */
+  .calendario-herramientas-fila-3 {
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    gap: 0.45rem !important;
+  }
+
+  .calendario-filtro-especialista-wrap,
+  .calendario-filtro-estado-wrap {
+    flex: 1 1 50% !important;
+    width: 50% !important;
+    min-width: 0 !important;
+  }
+
+  .calendario-filtro-especialista-wrap .selector-desplegable-contenedor,
+  .calendario-filtro-especialista-wrap button,
+  .calendario-filtro-estado-wrap .selector-desplegable-contenedor,
+  .calendario-filtro-estado-wrap button {
+    width: 100% !important;
+    min-width: 0 !important;
+    font-size: 0.74rem !important;
+  }
+
+  .citas-btn-nueva-escritorio {
+    display: none !important;
+  }
+
+  /* FAB Flotante de Citas */
+  .citas-fab-nueva-cita {
+    display: inline-flex !important;
+    position: fixed !important;
+    bottom: 5.2rem !important;
+    right: 1.15rem !important;
+    height: 44px !important;
+    padding: 0 1.15rem !important;
+    border-radius: 24px !important;
+    background: var(--color-primario) !important;
+    color: #ffffff !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+    box-shadow: 0 8px 20px rgba(var(--color-primario-rgb, 2, 132, 199), 0.4) !important;
+    border: none !important;
+    z-index: 99 !important;
+    cursor: pointer !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+  }
+
+  .citas-fab-nueva-cita:active {
+    transform: scale(0.96) !important;
+  }
+
+  /* 3. Grilla Mensual Móvil */
+  .calendario-semana-dias-cabecera {
+    font-size: 0.68rem !important;
+  }
+
+  .calendario-dia-nombre-col {
+    padding: 0.35rem 0.15rem !important;
+    font-size: 0.68rem !important;
+  }
+
+  .calendario-dias-celdas {
+    grid-auto-rows: minmax(52px, 1fr) !important;
+    min-height: 280px !important;
+  }
+
+  .calendario-dia-celda {
+    min-height: 52px !important;
+    padding: 0.2rem 0.25rem !important;
+    gap: 0.15rem !important;
+  }
+
+  .dia-numero {
+    font-size: 0.72rem !important;
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  .dia-etiqueta-hoy {
+    display: none !important;
+  }
+
+  .dia-citas-lista-escritorio {
+    display: none !important;
+  }
+
+  .dia-citas-dots-movil {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+    gap: 3px !important;
+    margin-top: 2px !important;
+  }
+
+  .dia-dot-cita {
+    width: 6px !important;
+    height: 6px !important;
+    border-radius: 50% !important;
+    display: inline-block !important;
+  }
+
+  .dia-dot-cita.pendiente {
+    background: #f59e0b !important;
+  }
+
+  .dia-dot-cita.confirmada {
+    background: #0284c7 !important;
+  }
+
+  .dia-dot-cita.completada {
+    background: #10b981 !important;
+  }
+
+  .dia-dot-cita.cancelada {
+    background: #ef4444 !important;
+  }
+
+  .dia-dot-cita-mas {
+    font-size: 0.60rem !important;
+    font-weight: 700 !important;
+    color: var(--texto-secundario) !important;
+    line-height: 1 !important;
+  }
+
+  /* 4. Zoom Diario en Móvil */
+  .zoom-dia-cabecera {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.65rem !important;
+  }
+
+  .zoom-dia-cabecera-izq {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.4rem !important;
+  }
+
+  .zoom-dia-fecha-texto {
+    font-size: 0.95rem !important;
+  }
+
+  .zoom-dia-tarjetas-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.65rem !important;
+  }
+
+  .tarjeta-cita-detalle {
+    padding: 0.75rem !important;
+  }
+
+  .tarjeta-cita-cabecera {
+    flex-wrap: wrap !important;
+    gap: 0.4rem !important;
+  }
+
+  .tarjeta-cita-pie-acciones {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.55rem !important;
+  }
+
+  .tarjeta-cita-pie-acciones .botones-acciones-derecha {
+    width: 100% !important;
+    justify-content: flex-end !important;
+  }
+
+  /* 5. Vista Agenda en Móvil: Ocultar tabla y mostrar tarjetas */
+  .tabla-agenda-escritorio {
+    display: none !important;
+  }
+
+  .agenda-tarjetas-movil {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.65rem !important;
+  }
+
+  .agenda-card-movil {
+    background: var(--fondo-tarjeta) !important;
+    border: 1px solid var(--borde-tarjeta) !important;
+    border-radius: var(--radio-lg) !important;
+    padding: 0.75rem 0.85rem !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+    box-shadow: var(--sombra-sm) !important;
+  }
+
+  .agenda-card-movil.fila-cancelada {
+    opacity: 0.65 !important;
+    background: rgba(239, 68, 68, 0.04) !important;
+  }
+
+  .agenda-card-cabecera {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.5rem !important;
+  }
+
+  .agenda-card-tiempo {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+    font-size: 0.76rem !important;
+    font-weight: 700 !important;
+    color: var(--texto-principal) !important;
+    font-family: var(--fuente-mono) !important;
+  }
+
+  .agenda-card-sep {
+    color: var(--texto-atenuado) !important;
+  }
+
+  .agenda-card-paciente {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.2rem !important;
+  }
+
+  .agenda-card-nombre-fila {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+  }
+
+  .agenda-card-nombre {
+    font-size: 0.88rem !important;
+    font-weight: 700 !important;
+    color: var(--texto-principal) !important;
+  }
+
+  .agenda-card-meta-fila {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+    flex-wrap: wrap !important;
+  }
+
+  .agenda-card-tel,
+  .agenda-card-doc {
+    font-size: 0.72rem !important;
+    color: var(--texto-secundario) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.2rem !important;
+  }
+
+  .agenda-card-btn-incompleto {
+    font-size: 0.62rem !important;
+    font-weight: 700 !important;
+    padding: 0.1rem 0.4rem !important;
+    border-radius: 4px !important;
+    background: rgba(245, 158, 11, 0.15) !important;
+    color: #d97706 !important;
+    border: 1px solid rgba(245, 158, 11, 0.35) !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.2rem !important;
+  }
+
+  .agenda-card-motivo,
+  .agenda-card-doctor {
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 0.35rem !important;
+    font-size: 0.74rem !important;
+  }
+
+  .agenda-card-etiqueta {
+    font-weight: 600 !important;
+    color: var(--texto-atenuado) !important;
+    flex-shrink: 0 !important;
+  }
+
+  .agenda-card-texto-motivo {
+    color: var(--texto-secundario) !important;
+  }
+
+  .agenda-card-doctor-nombre {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.25rem !important;
+    color: var(--texto-principal) !important;
+    font-weight: 600 !important;
+  }
+
+  .agenda-card-acciones {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+    padding-top: 0.4rem !important;
+    border-top: 1px solid var(--borde-tarjeta) !important;
+    justify-content: flex-end !important;
+  }
+
+  .agenda-card-btn-accion {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.25rem !important;
+    padding: 0.28rem 0.55rem !important;
+    border-radius: var(--radio-sm) !important;
+    border: 1px solid var(--borde-tarjeta) !important;
+    background: var(--fondo-elevado) !important;
+    color: var(--texto-secundario) !important;
+    font-size: 0.70rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+  }
+
+  .agenda-card-btn-accion.chat {
+    background: rgba(37, 211, 102, 0.12) !important;
+    border-color: rgba(37, 211, 102, 0.3) !important;
+    color: #128c7e !important;
+  }
+
+  .agenda-card-btn-accion.ficha {
+    background: rgba(245, 158, 11, 0.12) !important;
+    border-color: rgba(245, 158, 11, 0.3) !important;
+    color: #d97706 !important;
+  }
+
+  .agenda-card-btn-accion.reprogramar {
+    background: rgba(2, 132, 199, 0.12) !important;
+    border-color: rgba(2, 132, 199, 0.3) !important;
+    color: var(--color-primario) !important;
+  }
+
+  .agenda-card-btn-accion.cancelar {
+    background: rgba(239, 68, 68, 0.08) !important;
+    border-color: rgba(239, 68, 68, 0.25) !important;
+    color: #ef4444 !important;
+  }
+
+  /* Paginación en móvil */
+  .tabla-agenda-paginacion-barra {
+    flex-direction: column !important;
+    gap: 0.65rem !important;
+    align-items: center !important;
+    padding: 0.75rem 0.5rem !important;
+  }
+
+  .agenda-paginacion-info-grupo {
+    flex-direction: column !important;
+    gap: 0.4rem !important;
+    align-items: center !important;
+  }
+
+  .agenda-paginacion-botones-grupo {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* ----------------------------------------------------
+     RESPONSIVE MÓVIL: MÓDULO CAMPAÑAS (AUTO-SEGMENTACIÓN)
+     ---------------------------------------------------- */
+  .campanas-pagina-contenedor {
+    padding: 0.75rem 0.85rem 5.5rem 0.85rem !important;
+    gap: 0.75rem !important;
+  }
+
+  .campanas-barra-filtros {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.65rem !important;
+    padding: 0.65rem 0.75rem !important;
+  }
+
+  .campanas-filtros-fila-tabs {
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    padding-bottom: 2px !important;
+  }
+
+  .campanas-filtros-fila-tabs::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .campanas-filtros-fila-busqueda {
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    gap: 0.5rem !important;
+  }
+
+  .campanas-buscador-wrap {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+
+  .campanas-buscador-wrap .filtro-busqueda-contenedor {
+    width: 100% !important;
+  }
+
+  .campanas-btn-crear-escritorio {
+    display: none !important;
+  }
+
+  /* Botón FAB Flotante para Campañas */
+  .campanas-fab-crear {
+    position: fixed !important;
+    bottom: 5.2rem !important;
+    right: 1.15rem !important;
+    z-index: 99 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+    background-color: var(--color-primario) !important;
+    color: #ffffff !important;
+    padding: 0.7rem 1.1rem !important;
+    border-radius: 9999px !important;
+    border: none !important;
+    font-weight: 700 !important;
+    font-size: 0.84rem !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22) !important;
+    cursor: pointer !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+  }
+
+  .campanas-fab-crear:active {
+    transform: scale(0.96) !important;
+  }
+
+  /* Grid de segmentos en columna única */
+  .campanas-grid-segmentos {
+    grid-template-columns: 1fr !important;
+    gap: 0.85rem !important;
+  }
+
+  .campana-tarjeta-segmento {
+    padding: 1rem !important;
+    gap: 0.85rem !important;
+  }
+
+  .campana-tarjeta-botones-fila {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.5rem !important;
+  }
+
+  .campana-tarjeta-botones-fila button {
+    padding: 0.55rem 0.6rem !important;
+    font-size: 0.76rem !important;
+  }
+
+  /* Modal Ver Pacientes en Móvil: Ocultar tabla y mostrar tarjetas */
+  .ver-pacientes-tabla-escritorio {
+    display: none !important;
+  }
+
+  .ver-pacientes-tarjetas-movil {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.65rem !important;
+  }
+
+  .ver-pacientes-card-movil {
+    background: var(--fondo-tarjeta) !important;
+    border: 1px solid var(--borde-tarjeta) !important;
+    border-radius: var(--radio-lg) !important;
+    padding: 0.75rem 0.85rem !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.45rem !important;
+    box-shadow: var(--sombra-sm) !important;
+  }
+
+  .ver-pacientes-card-cabecera {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.5rem !important;
+  }
+
+  .ver-pacientes-card-fila-info {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.5rem !important;
+    padding: 0.25rem 0 !important;
+    border-top: 1px dashed var(--borde-tarjeta) !important;
+    border-bottom: 1px dashed var(--borde-tarjeta) !important;
+  }
+
+  .ver-pacientes-card-formula {
+    background: var(--fondo-base) !important;
+    padding: 0.4rem 0.6rem !important;
+    border-radius: var(--radio-md) !important;
+    border: 1px solid var(--borde-tarjeta) !important;
+  }
+}
+
+/* Reglas Base para Módulo de Campañas (Desktop) */
+.campanas-fab-crear {
+  display: none;
+}
+
+.campanas-btn-crear-escritorio {
+  display: inline-flex;
+}
+
+.ver-pacientes-tabla-escritorio {
+  display: table;
+}
+
+.ver-pacientes-tarjetas-movil {
+  display: none;
+}
+
+/* Reglas Base para Módulo de Citas (Desktop) */
+@media (min-width: 769px) {
+  .calendario-herramientas-fila-1,
+  .calendario-herramientas-fila-2,
+  .calendario-herramientas-fila-3 {
+    display: contents !important;
+  }
+}
+
+.citas-btn-nueva-escritorio {
+  display: inline-flex;
+}
+
+.citas-fab-nueva-cita {
+  display: none;
+}
+
+.dia-citas-lista-escritorio {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dia-citas-dots-movil {
+  display: none;
+}
+
+.tabla-agenda-escritorio {
+  display: table;
+}
+
+.agenda-tarjetas-movil {
+  display: none;
+}
+
+/* Reglas Base para Módulo de Ventas (Desktop) */
+.ventas-filtros-fila-1,
+.ventas-filtros-fila-2 {
+  display: contents;
+}
+
+.ventas-tabla-contenedor {
+  display: block;
+}
+
+.ventas-tarjetas-movil {
+  display: none;
+}
+
+.ventas-fab-nueva-venta {
+  display: none;
+}
+
+.ventas-btn-nueva-escritorio {
+  display: inline-flex;
+}
+
+.texto-largo-modal-escritorio {
+  display: inline;
 }
 
 /* Reglas Base para Directorio de Pacientes (Desktop) */
+.btn-editar-historia-movil-oculto {
+  display: inline-flex;
+}
+
 .directorio-filtro-tipologia-wrap {
   width: 145px;
   flex-shrink: 0;
@@ -9071,6 +9961,14 @@ button.kpi-chip:hover {
 
 .texto-corto-btn-consulta {
   display: none;
+}
+
+.texto-corto-cabecera-movil {
+  display: none;
+}
+
+.texto-largo-cabecera-escritorio {
+  display: inline;
 }
 
 /* Ocultar sección de alertas en celular exclusivamente en pantallas de escritorio */

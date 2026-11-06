@@ -1454,14 +1454,21 @@ export default function PaginaPrincipal() {
               )}
               {vistaActiva === 'pacientes' && (
                 <>
-                  Pacientes <span className="ampersand-titular">&</span> Contactos
+                  Pacientes<span className="texto-largo-cabecera-escritorio"> <span className="ampersand-titular">&</span> Contactos</span>
                 </>
               )}
               {vistaActiva === 'ventas' && 'Ventas'}
-              {vistaActiva === 'citas' && 'Calendario de Citas'}
+              {vistaActiva === 'citas' && (
+                <>
+                  <span className="texto-largo-cabecera-escritorio">Calendario de </span>Citas
+                </>
+              )}
               {vistaActiva === 'campanas' && (
                 <>
-                  Auto-Segmentación <span className="ampersand-titular">&</span> Audiencias
+                  <span className="texto-largo-cabecera-escritorio">
+                    Auto-Segmentación <span className="ampersand-titular">&</span> Audiencias
+                  </span>
+                  <span className="texto-corto-cabecera-movil">Campañas</span>
                 </>
               )}
               {vistaActiva === 'plantillas' && 'Plantillas'}

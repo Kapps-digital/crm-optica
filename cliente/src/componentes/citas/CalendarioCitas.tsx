@@ -783,94 +783,130 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
         </div>
       </div>
 
-      {/* 2. Barra de Herramientas y Filtros (En una sola línea integrada) */}
+      {/* 2. Barra de Herramientas y Filtros (En una sola línea integrada en PC, dividida en filas en móvil) */}
       <div className="calendario-barra-herramientas">
-        {/* 1. Navegación de Fecha: Flechas y Mes en Calendario / Selector Tipo Calendario en Agenda */}
-        {modoVista === 'agenda' ? (
-          <div className="calendario-filtro-periodo-agenda">
-            <SelectorPeriodoAgenda
-              filtro={filtroPeriodoAgenda}
-              alCambiarFiltro={(nuevo) => setFiltroPeriodoAgenda(nuevo)}
-              citas={citas}
-            />
-          </div>
-        ) : (
-          <div className="calendario-controles-fecha">
-            <div className="calendario-flechas-grupo">
-              <EtiquetaTooltip texto="Mes anterior" posicion="abajo">
-                <button
-                  type="button"
-                  className="calendario-btn-nav"
-                  onClick={irMesAnterior}
-                  aria-label="Mes anterior"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-              </EtiquetaTooltip>
-              <EtiquetaTooltip texto="Mes siguiente" posicion="abajo">
-                <button
-                  type="button"
-                  className="calendario-btn-nav"
-                  onClick={irMesSiguiente}
-                  aria-label="Mes siguiente"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </EtiquetaTooltip>
+        {/* Fila 1 Móvil / Contents Desktop: Vistas y Navegación de Fecha */}
+        <div className="calendario-herramientas-fila-1">
+          {/* Navegación de Fecha: Flechas y Mes en Calendario / Selector Tipo Calendario en Agenda */}
+          {modoVista === 'agenda' ? (
+            <div className="calendario-filtro-periodo-agenda">
+              <SelectorPeriodoAgenda
+                filtro={filtroPeriodoAgenda}
+                alCambiarFiltro={(nuevo) => setFiltroPeriodoAgenda(nuevo)}
+                citas={citas}
+              />
             </div>
+          ) : (
+            <div className="calendario-controles-fecha">
+              <div className="calendario-flechas-grupo">
+                <EtiquetaTooltip texto="Mes anterior" posicion="abajo">
+                  <button
+                    type="button"
+                    className="calendario-btn-nav"
+                    onClick={irMesAnterior}
+                    aria-label="Mes anterior"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                </EtiquetaTooltip>
+                <EtiquetaTooltip texto="Mes siguiente" posicion="abajo">
+                  <button
+                    type="button"
+                    className="calendario-btn-nav"
+                    onClick={irMesSiguiente}
+                    aria-label="Mes siguiente"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </EtiquetaTooltip>
+              </div>
 
-            <h2 className="calendario-titulo-mes">
-              {MESES[fechaReferencia.getMonth()]} <span>{fechaReferencia.getFullYear()}</span>
-            </h2>
+              <h2 className="calendario-titulo-mes">
+                {MESES[fechaReferencia.getMonth()]} <span>{fechaReferencia.getFullYear()}</span>
+              </h2>
+            </div>
+          )}
+
+          {/* Conmutador de Vistas: Calendario / Agenda */}
+          <div className="calendario-conmutador-vistas">
+            <button
+              type="button"
+              className={`conmutador-btn ${modoVista === 'mes' || modoVista === 'dia' ? 'activo' : ''}`}
+              onClick={() => {
+                setModoVista('mes');
+                alLimpiarFoco?.();
+              }}
+            >
+              Calendario
+            </button>
+            <button
+              type="button"
+              className={`conmutador-btn ${modoVista === 'agenda' ? 'activo' : ''}`}
+              onClick={() => {
+                const ano = fechaReferencia.getFullYear();
+                const mes = fechaReferencia.getMonth();
+                setFiltroPeriodoAgenda({
+                  tipo: 'mes_especifico',
+                  ano,
+                  mes,
+                  etiqueta: `${MESES[mes]} ${ano}`,
+                });
+                setModoVista('agenda');
+                setPaginaAgenda(1);
+              }}
+            >
+              Agenda
+            </button>
           </div>
-        )}
 
-        {/* 2. Conmutador de Vistas: Calendario / Agenda */}
-        <div className="calendario-conmutador-vistas">
-          <button
-            type="button"
-            className={`conmutador-btn ${modoVista === 'mes' || modoVista === 'dia' ? 'activo' : ''}`}
-            onClick={() => {
-              setModoVista('mes');
-              alLimpiarFoco?.();
-            }}
-          >
-            Calendario
-          </button>
-          <button
-            type="button"
-            className={`conmutador-btn ${modoVista === 'agenda' ? 'activo' : ''}`}
-            onClick={() => {
-              const ano = fechaReferencia.getFullYear();
-              const mes = fechaReferencia.getMonth();
-              setFiltroPeriodoAgenda({
-                tipo: 'mes_especifico',
-                ano,
-                mes,
-                etiqueta: `${MESES[mes]} ${ano}`,
-              });
-              setModoVista('agenda');
-              setPaginaAgenda(1);
-            }}
-          >
-            Agenda
-          </button>
+          {/* Botón Temporal: Probar 25 registros en la tabla agenda (Solo Visible para Rol Admin) */}
+          {esAdmin && (
+            <EtiquetaTooltip
+              texto={simulando25Citas ? 'Quitar simulación de 25 citas' : 'Probar simulación de 25 citas'}
+              posicion="abajo"
+            >
+              <button
+                type="button"
+                onClick={alternarSimulacion25}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 'var(--radio-sm)',
+                  background: simulando25Citas ? 'rgba(16, 185, 129, 0.15)' : 'rgba(2, 132, 199, 0.1)',
+                  border: `1px solid ${simulando25Citas ? '#10b981' : 'var(--color-primario)'}`,
+                  color: simulando25Citas ? '#059669' : 'var(--color-primario)',
+                  cursor: 'pointer',
+                  transition: 'all 0.18s ease',
+                  flexShrink: 0,
+                }}
+                aria-label={simulando25Citas ? 'Quitar simulación de 25 citas' : 'Probar 25 citas'}
+              >
+                {simulando25Citas ? <CheckCircle2 size={16} /> : <CalendarClock size={16} />}
+              </button>
+            </EtiquetaTooltip>
+          )}
         </div>
 
-        {/* 3. Filtros: Buscador de Texto y Selectores Desplegables */}
-        <div className="calendario-filtros-grupo">
-          {/* Buscador de Paciente / Motivo */}
-          <FiltroBusqueda
-            valor={terminoBusqueda}
-            alCambiar={setTerminoBusqueda}
-            placeholder="Buscar paciente..."
-            flex="1 1 210px"
-            anchoMinimo="175px"
-            anchoMaximo="300px"
-          />
+        {/* Fila 2 Móvil / Contents Desktop: Buscador de Paciente / Motivo */}
+        <div className="calendario-herramientas-fila-2">
+          <div className="calendario-buscador-wrap">
+            <FiltroBusqueda
+              valor={terminoBusqueda}
+              alCambiar={setTerminoBusqueda}
+              placeholder="Buscar paciente o motivo..."
+              flex="1 1 auto"
+              anchoMinimo="175px"
+              anchoMaximo="100%"
+            />
+          </div>
+        </div>
 
-          {/* Filtro de Especialista */}
-          <div style={{ minWidth: '150px', flex: '0 0 auto' }}>
+        {/* Fila 3 Móvil / Contents Desktop: Especialista + Estado */}
+        <div className="calendario-herramientas-fila-3">
+          <div className="calendario-filtro-especialista-wrap">
             <SelectorDesplegable
               valor={filtroEspecialista}
               alCambiar={(val) => setFiltroEspecialista(val)}
@@ -881,12 +917,11 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
               ]}
               tamano="compacto"
               placeholder="Especialista..."
-              anchoMinimo="150px"
+              anchoMinimo="100%"
             />
           </div>
 
-          {/* Filtro de Estado */}
-          <div style={{ minWidth: '160px', flex: '0 0 auto' }}>
+          <div className="calendario-filtro-estado-wrap">
             <SelectorDesplegable
               valor={filtroEstado}
               alCambiar={(val) => setFiltroEstado(val)}
@@ -899,45 +934,15 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
               ]}
               tamano="compacto"
               placeholder="Estado..."
-              anchoMinimo="160px"
+              anchoMinimo="100%"
             />
           </div>
         </div>
 
-        {/* Botón Temporal: Probar 25 registros en la tabla agenda (Solo Visible para Rol Admin) */}
-        {esAdmin && (
-          <EtiquetaTooltip
-            texto={simulando25Citas ? 'Quitar simulación de 25 citas' : 'Probar simulación de 25 citas'}
-            posicion="abajo"
-          >
-            <button
-              type="button"
-              onClick={alternarSimulacion25}
-              style={{
-                width: '32px',
-                height: '32px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 'var(--radio-sm)',
-                background: simulando25Citas ? 'rgba(16, 185, 129, 0.15)' : 'rgba(2, 132, 199, 0.1)',
-                border: `1px solid ${simulando25Citas ? '#10b981' : 'var(--color-primario)'}`,
-                color: simulando25Citas ? '#059669' : 'var(--color-primario)',
-                cursor: 'pointer',
-                transition: 'all 0.18s ease',
-                flexShrink: 0,
-              }}
-              aria-label={simulando25Citas ? 'Quitar simulación de 25 citas' : 'Probar 25 citas'}
-            >
-              {simulando25Citas ? <CheckCircle2 size={16} /> : <CalendarClock size={16} />}
-            </button>
-          </EtiquetaTooltip>
-        )}
-
-        {/* 4. Botón Principal Nueva Cita (Ubicado de último a la derecha) */}
+        {/* Botón Principal Nueva Cita (Visible en Escritorio) */}
         <button
           type="button"
-          className="btn-nueva-cita-principal"
+          className="btn-nueva-cita-principal citas-btn-nueva-escritorio"
           onClick={() => {
             setFechaPreCrear(undefined);
             setModalCrearAbierto(true);
@@ -1017,80 +1022,96 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
 
                     {/* Lista de citas en el día */}
                     <div className="dia-citas-lista">
-                      {citasVisibles.map((cita) => {
-                        const esSinDoc = !cita.especialista || cita.especialista.trim() === '' || cita.especialista.toLowerCase() === 'sin especialista';
+                      {/* Vista píldoras Desktop */}
+                      <div className="dia-citas-lista-escritorio">
+                        {citasVisibles.map((cita) => {
+                          const esSinDoc = !cita.especialista || cita.especialista.trim() === '' || cita.especialista.toLowerCase() === 'sin especialista';
 
-                        return (
-                          <EtiquetaTooltip
-                            key={cita.id}
-                            posicion="arriba"
-                            texto={
-                              <div className="tooltip-cita-tarjeta">
-                                <div className="tooltip-cita-fila-titulo">
-                                  <span className="tooltip-cita-hora">{cita.hora_cita}</span>
-                                  <span className="tooltip-cita-paciente">{cita.contacto_nombre || 'Paciente'}</span>
-                                </div>
-                                {cita.motivo && <div className="tooltip-cita-motivo">{cita.motivo}</div>}
-                                {!cita.contacto_cedula && (
-                                  <div style={{ fontSize: '0.67rem', color: '#f59e0b', marginTop: '0.2rem', fontWeight: 600 }}>
-                                    ⚠️ Datos incompletos
+                          return (
+                            <EtiquetaTooltip
+                              key={cita.id}
+                              posicion="arriba"
+                              texto={
+                                <div className="tooltip-cita-tarjeta">
+                                  <div className="tooltip-cita-fila-titulo">
+                                    <span className="tooltip-cita-hora">{cita.hora_cita}</span>
+                                    <span className="tooltip-cita-paciente">{cita.contacto_nombre || 'Paciente'}</span>
                                   </div>
-                                )}
-                                <div className="tooltip-cita-pie">
-                                  <span className="tooltip-cita-especialista">
-                                    {esSinDoc ? '⚠️ Sin doctor asignado' : `👨‍⚕️ ${cita.especialista}`}
-                                  </span>
-                                  <span className={`badge-cita-mini ${cita.estado}`}>{cita.estado}</span>
+                                  {cita.motivo && <div className="tooltip-cita-motivo">{cita.motivo}</div>}
+                                  {!cita.contacto_cedula && (
+                                    <div style={{ fontSize: '0.67rem', color: '#f59e0b', marginTop: '0.2rem', fontWeight: 600 }}>
+                                      ⚠️ Datos incompletos
+                                    </div>
+                                  )}
+                                  <div className="tooltip-cita-pie">
+                                    <span className="tooltip-cita-especialista">
+                                      {esSinDoc ? '⚠️ Sin doctor asignado' : `👨‍⚕️ ${cita.especialista}`}
+                                    </span>
+                                    <span className={`badge-cita-mini ${cita.estado}`}>{cita.estado}</span>
+                                  </div>
                                 </div>
+                              }
+                            >
+                              <div
+                                className={`pildora-cita-mes ${cita.estado} ${esSinDoc ? 'alerta-doc' : ''}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  hacerZoomDia(dia.fechaIso);
+                                }}
+                              >
+                                <span className="pildora-punto-estado" />
+                                <span className="pildora-hora">{cita.hora_cita.replace(' ', '')}</span>
+                                <span className="pildora-paciente">
+                                  {formatearNombrePildoraCita(cita.contacto_nombre)}
+                                </span>
+                                {!cita.contacto_cedula && (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      color: '#d97706',
+                                      marginLeft: '0.25rem',
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <AlertTriangle size={11} strokeWidth={2.5} />
+                                  </span>
+                                )}
+                                {esSinDoc && <span className="pildora-punto-alerta">!</span>}
                               </div>
-                            }
-                          >
-                            <div
-                              className={`pildora-cita-mes ${cita.estado} ${esSinDoc ? 'alerta-doc' : ''}`}
+                            </EtiquetaTooltip>
+                          );
+                        })}
+
+                        {/* Botón interactivo "+X más" con EtiquetaTooltip Premium */}
+                        {restantes > 0 && (
+                          <EtiquetaTooltip texto={`Ver todas las ${citasDia.length} citas de este día`} posicion="arriba">
+                            <button
+                              type="button"
+                              className="dia-btn-ver-mas"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 hacerZoomDia(dia.fechaIso);
                               }}
                             >
-                              <span className="pildora-punto-estado" />
-                              <span className="pildora-hora">{cita.hora_cita.replace(' ', '')}</span>
-                              <span className="pildora-paciente">
-                                {formatearNombrePildoraCita(cita.contacto_nombre)}
-                              </span>
-                              {!cita.contacto_cedula && (
-                                <span
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    color: '#d97706',
-                                    marginLeft: '0.25rem',
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  <AlertTriangle size={11} strokeWidth={2.5} />
-                                </span>
-                              )}
-                              {esSinDoc && <span className="pildora-punto-alerta">!</span>}
-                            </div>
+                              +{restantes} más
+                            </button>
                           </EtiquetaTooltip>
-                        );
-                      })}
+                        )}
+                      </div>
 
-                      {/* Botón interactivo "+X más" con EtiquetaTooltip Premium */}
-                      {restantes > 0 && (
-                        <EtiquetaTooltip texto={`Ver todas las ${citasDia.length} citas de este día`} posicion="arriba">
-                          <button
-                            type="button"
-                            className="dia-btn-ver-mas"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              hacerZoomDia(dia.fechaIso);
-                            }}
-                          >
-                            +{restantes} más
-                          </button>
-                        </EtiquetaTooltip>
-                      )}
+                      {/* Vista puntos indicadores Móvil */}
+                      <div className="dia-citas-dots-movil">
+                        {citasDia.slice(0, 3).map((c) => (
+                          <span
+                            key={c.id}
+                            className={`dia-dot-cita ${c.estado}`}
+                          />
+                        ))}
+                        {citasDia.length > 3 && (
+                          <span className="dia-dot-cita-mas">+{citasDia.length - 3}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -1422,7 +1443,8 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
               </div>
             ) : (
               <div className="tabla-agenda-contenedor">
-                <table className="tabla-agenda-citas">
+                {/* 1. Tabla Desktop */}
+                <table className="tabla-agenda-citas tabla-agenda-escritorio">
                   <thead>
                     <tr>
                       <th>Fecha & Hora</th>
@@ -1588,6 +1610,145 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
                   </tbody>
                 </table>
 
+                {/* 2. Tarjetas Móvil (Responsive Cards sin scroll horizontal) */}
+                <div className="agenda-tarjetas-movil">
+                  {citasPaginadasAgenda.map((cita) => {
+                    const tieneDoctor =
+                      cita.especialista &&
+                      cita.especialista.trim() !== '' &&
+                      cita.especialista.toLowerCase() !== 'sin especialista';
+
+                    let fechaFormateada = cita.fecha_cita;
+                    if (cita.fecha_cita && cita.fecha_cita.includes('-')) {
+                      const partes = cita.fecha_cita.split('-');
+                      if (partes.length === 3) {
+                        fechaFormateada = `${partes[2]}/${partes[1]}/${partes[0]}`;
+                      }
+                    }
+
+                    return (
+                      <div
+                        key={cita.id}
+                        className={`agenda-card-movil ${cita.estado === 'cancelada' ? 'fila-cancelada' : ''}`}
+                      >
+                        {/* Cabecera Tarjeta: Hora/Fecha + Badge interactivo */}
+                        <div className="agenda-card-cabecera">
+                          <div className="agenda-card-tiempo">
+                            <Clock size={13} style={{ color: 'var(--color-primario)' }} />
+                            <span className="agenda-card-hora">{cita.hora_cita}</span>
+                            <span className="agenda-card-sep">•</span>
+                            <span className="agenda-card-fecha">{fechaFormateada}</span>
+                          </div>
+                          <BadgeEstadoInteractivo
+                            citaId={cita.id}
+                            estado={cita.estado}
+                            alCambiarEstado={manejarCambiarEstadoRapido}
+                          />
+                        </div>
+
+                        {/* Paciente y Teléfono / Cédula */}
+                        <div className="agenda-card-paciente">
+                          <div className="agenda-card-nombre-fila">
+                            <User size={14} style={{ color: 'var(--color-primario)', flexShrink: 0 }} />
+                            <strong className="agenda-card-nombre">{cita.contacto_nombre || 'Sin nombre'}</strong>
+                          </div>
+
+                          <div className="agenda-card-meta-fila">
+                            {cita.contacto_telefono && (
+                              <span className="agenda-card-tel">
+                                <Phone size={11} />
+                                {formatearTelefono(cita.contacto_telefono)}
+                              </span>
+                            )}
+                            {cita.contacto_cedula ? (
+                              <span className="agenda-card-doc">
+                                {(cita.contacto_tipo_documento || 'CC')}: {cita.contacto_cedula}
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => abrirModalCompletarPaciente(cita)}
+                                className="agenda-card-btn-incompleto"
+                              >
+                                <AlertTriangle size={10} />
+                                <span>Datos Incompletos</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Motivo */}
+                        <div className="agenda-card-motivo">
+                          <span className="agenda-card-etiqueta">Motivo:</span>
+                          <span className="agenda-card-texto-motivo">{cita.motivo || 'Consulta general'}</span>
+                        </div>
+
+                        {/* Especialista */}
+                        <div className="agenda-card-doctor">
+                          <span className="agenda-card-etiqueta">Doctor:</span>
+                          {tieneDoctor ? (
+                            <span className="agenda-card-doctor-nombre">
+                              <UserCheck size={12} style={{ color: '#10b981' }} />
+                              {cita.especialista}
+                            </span>
+                          ) : (
+                            <span className="badge-aviso-rojo" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
+                              ⚠️ Sin Asignar
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Acciones Rápidas */}
+                        <div className="agenda-card-acciones">
+                          {alSeleccionarContactoChat && (
+                            <button
+                              type="button"
+                              className="agenda-card-btn-accion chat"
+                              onClick={() => alSeleccionarContactoChat(cita.contacto_id)}
+                            >
+                              <MessageSquare size={13} />
+                              <span>WhatsApp</span>
+                            </button>
+                          )}
+                          {!cita.contacto_cedula && (
+                            <button
+                              type="button"
+                              className="agenda-card-btn-accion ficha"
+                              onClick={() => abrirModalCompletarPaciente(cita)}
+                            >
+                              <IdCard size={13} />
+                              <span>Ficha</span>
+                            </button>
+                          )}
+                          {cita.estado !== 'completada' && cita.estado !== 'cancelada' && (
+                            <button
+                              type="button"
+                              className="agenda-card-btn-accion reprogramar"
+                              onClick={() => {
+                                setCitaParaReprogramar(cita);
+                                setModalReprogramarAbierto(true);
+                              }}
+                            >
+                              <CalendarClock size={13} />
+                              <span>Reprogramar</span>
+                            </button>
+                          )}
+                          {cita.estado !== 'cancelada' && cita.estado !== 'completada' && (
+                            <button
+                              type="button"
+                              className="agenda-card-btn-accion cancelar"
+                              onClick={() => setCitaParaCancelar(cita)}
+                            >
+                              <XCircle size={13} />
+                              <span>Cancelar</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
                 {/* Barra de Paginación Corporativa de la Agenda */}
                 <div className="tabla-agenda-paginacion-barra">
                   <div className="agenda-paginacion-info-grupo">
@@ -1689,6 +1850,20 @@ export const CalendarioCitas: React.FC<PropiedadesCalendarioCitas> = ({
           setPacienteParaCompletar(null);
         }}
       />
+
+      {/* Botón Flotante Nueva Cita en Móvil (FAB) */}
+      <button
+        type="button"
+        className="citas-fab-nueva-cita"
+        onClick={() => {
+          setFechaPreCrear(undefined);
+          setModalCrearAbierto(true);
+        }}
+        aria-label="Nueva Cita"
+      >
+        <Plus size={18} strokeWidth={2.5} />
+        <span>Nueva Cita</span>
+      </button>
     </div>
   );
 };

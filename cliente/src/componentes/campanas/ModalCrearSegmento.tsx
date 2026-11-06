@@ -445,6 +445,7 @@ export const ModalCrearSegmento: React.FC<PropiedadesModalCrearSegmento> = ({
 
   return (
     <div
+      className="modal-backdrop-premium"
       onClick={(e) => {
         if (e.target === e.currentTarget && !modalConfirmacionAbierto) manejarCerrar();
       }}
@@ -461,6 +462,7 @@ export const ModalCrearSegmento: React.FC<PropiedadesModalCrearSegmento> = ({
       }}
     >
       <div
+        className="modal-tarjeta-premium"
         style={{
           backgroundColor: 'var(--fondo-tarjeta)',
           border: '1px solid var(--borde-tarjeta)',

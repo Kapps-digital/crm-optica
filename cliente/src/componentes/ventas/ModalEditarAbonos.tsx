@@ -97,6 +97,7 @@ export const ModalEditarAbonos: React.FC<PropiedadesModalEditarAbonos> = ({
 
   return (
     <div
+      className="modal-backdrop-premium"
       style={{
         position: 'fixed',
         inset: 0,
@@ -110,6 +111,7 @@ export const ModalEditarAbonos: React.FC<PropiedadesModalEditarAbonos> = ({
       }}
     >
       <div
+        className="modal-tarjeta-premium"
         style={{
           background: 'var(--fondo-tarjeta, #ffffff)',
           color: 'var(--texto-principal, #0f172a)',

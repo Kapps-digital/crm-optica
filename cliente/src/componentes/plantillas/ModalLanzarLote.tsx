@@ -300,6 +300,7 @@ export const ModalLanzarLote: React.FC<PropiedadesModalLanzarLote> = ({
 
   return (
     <div
+      className="modal-backdrop-premium"
       onClick={(e) => {
         if (e.target === e.currentTarget && !enviando) alCerrar();
       }}
@@ -317,6 +318,7 @@ export const ModalLanzarLote: React.FC<PropiedadesModalLanzarLote> = ({
       }}
     >
       <div
+        className="modal-tarjeta-premium"
         style={{
           backgroundColor: 'var(--fondo-tarjeta)',
           border: '1px solid var(--borde-tarjeta)',
