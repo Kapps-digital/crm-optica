@@ -427,7 +427,7 @@ export const ModalRegistrarPaciente: React.FC<PropiedadesModalRegistrarPaciente>
         </div>
 
         {/* Formulario */}
-        <form noValidate onSubmit={manejarEnvio} style={{ padding: '1.4rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <form noValidate onSubmit={manejarEnvio} style={{ padding: '1.4rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', overflowY: 'auto' }}>
           {mensajeError && (
             <div
               style={{

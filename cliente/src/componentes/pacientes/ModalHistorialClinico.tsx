@@ -159,19 +159,19 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
     () => [
       {
         id: 'historias',
-        etiqueta: 'Historia Clínica',
+        etiqueta: 'Historias',
         icono: FileText,
         conteo: totalHistorias,
       },
       {
         id: 'formulas',
-        etiqueta: 'Fórmulas Ópticas',
+        etiqueta: 'Fórmulas',
         icono: Eye,
         conteo: totalFormulas,
       },
       {
         id: 'citas',
-        etiqueta: 'Citas y Consultas',
+        etiqueta: 'Citas',
         icono: CalendarDays,
         conteo: totalCitas,
       },
@@ -271,6 +271,7 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
       >
         {/* 1. Cabecera Corporativa del Paciente (Fija en una sola fila) */}
         <div
+          className="modal-historial-cabecera"
           style={{
             flexShrink: 0,
             padding: '1rem 1.6rem',
@@ -399,29 +400,31 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                 )}
 
                 {contacto.correo && (
-                  <EtiquetaTooltip texto={contacto.correo} posicion="arriba">
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.3rem',
-                        maxWidth: '220px',
-                        cursor: 'help',
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Mail size={13} style={{ color: 'var(--texto-atenuado)', flexShrink: 0 }} />
+                  <span className="modal-historial-cabecera-correo" style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+                    <EtiquetaTooltip texto={contacto.correo} posicion="arriba">
                       <span
                         style={{
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          maxWidth: '220px',
+                          cursor: 'help',
+                          flexShrink: 0,
                         }}
                       >
-                        {contacto.correo}
+                        <Mail size={13} style={{ color: 'var(--texto-atenuado)', flexShrink: 0 }} />
+                        <span
+                          style={{
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {contacto.correo}
+                        </span>
                       </span>
-                    </span>
-                  </EtiquetaTooltip>
+                    </EtiquetaTooltip>
+                  </span>
                 )}
 
                 {contacto.edad && (
@@ -486,7 +489,8 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
                 aria-label="Consulta y fórmula óptica"
               >
                 <FileText size={15} style={{ flexShrink: 0 }} />
-                <span>Consulta y fórmula óptica</span>
+                <span className="texto-largo-btn-consulta">Consulta y fórmula óptica</span>
+                <span className="texto-corto-btn-consulta">Consulta</span>
               </button>
             )}
 
@@ -514,6 +518,7 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
 
         {/* 2. Pestañas de Navegación del Historial con componente estandarizado BarraPestanas */}
         <div
+          className="modal-historial-tabs-contenedor"
           style={{
             flexShrink: 0,
             display: 'flex',
@@ -527,7 +532,8 @@ export const ModalHistorialClinico: React.FC<PropiedadesModalHistorialClinico> =
             pestanas={pestanasHistorial}
             pestanaActiva={pestañaActiva}
             alCambiarPestana={setPestañaActiva}
-            tamano="mediano"
+            tamano="compacto"
+            style={{ flexWrap: 'nowrap', width: '100%' }}
           />
         </div>
 

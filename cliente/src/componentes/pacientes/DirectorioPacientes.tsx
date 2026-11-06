@@ -196,6 +196,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
   return (
     <section
       id="vista-pacientes"
+      className="directorio-pacientes-contenedor"
       style={{
         padding: '1.25rem 1.75rem',
         overflowY: 'auto',
@@ -206,6 +207,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
     >
       {/* Contenedor Principal */}
       <div
+        className="directorio-tarjeta-principal"
         style={{
           background: 'var(--fondo-tarjeta)',
           border: '1px solid var(--borde-tarjeta)',
@@ -219,6 +221,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
       >
         {/* Barra Superior de la Tabla: Pestañas de Segmentación + Buscador + Botón Nuevo Paciente */}
         <div
+          className="directorio-barra-superior"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -231,6 +234,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
         >
           {/* Pestañas de Segmentación (Tabs Corporativos) */}
           <div
+            className="directorio-tabs-segmentacion"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -423,9 +427,9 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
           </div>
 
           {/* Grupo Derecho: Selector Tipología + Buscador + Botón Nuevo Paciente */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexShrink: 0 }}>
+          <div className="directorio-grupo-filtros-acciones" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexShrink: 0 }}>
             {/* Selector Desplegable de Tipologías */}
-            <div style={{ width: '145px' }}>
+            <div className="directorio-filtro-tipologia-wrap">
               <SelectorDesplegable
                 valor={filtroTipologia}
                 alCambiar={setFiltroTipologia}
@@ -433,7 +437,7 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
                 icono={Tag}
                 placeholder="Tipología..."
                 tamano="compacto"
-                anchoMinimo="145px"
+                anchoMinimo="115px"
                 estiloBoton={{
                   height: '34px',
                   borderRadius: 'var(--radio-md, 8px)',
@@ -445,45 +449,48 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
             </div>
 
             {/* Buscador de Contactos y Pacientes */}
-            <FiltroBusqueda
-              valor={busqueda}
-              alCambiar={setBusqueda}
-              placeholder={
-                pestañaActiva === 'pacientes'
-                  ? 'Buscar por nombre, cédula o teléfono...'
-                  : 'Buscar prospecto o WhatsApp...'
-              }
-              ancho="190px"
-              alto="34px"
-            />
+            <div className="directorio-buscador-wrap">
+              <FiltroBusqueda
+                valor={busqueda}
+                alCambiar={setBusqueda}
+                placeholder={
+                  pestañaActiva === 'pacientes'
+                    ? 'Buscar nombre o cédula...'
+                    : 'Buscar prospecto...'
+                }
+                alto="34px"
+              />
+            </div>
 
-            {/* Botón Principal Nuevo Paciente: Solo Icono con Tooltip */}
-            <EtiquetaTooltip texto="Crear nuevo paciente" posicion="abajo">
-              <button
-                type="button"
-                id="btn-crear-nuevo-paciente"
-                onClick={abrirModalNuevoPaciente}
-                aria-label="Crear nuevo paciente"
-                style={{
-                  width: '34px',
-                  height: '34px',
-                  padding: 0,
-                  borderRadius: 'var(--radio-md, 8px)',
-                  border: 'none',
-                  background: 'var(--color-primario)',
-                  color: '#ffffff',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)',
-                  transition: 'all 0.15s ease',
-                  flexShrink: 0,
-                }}
-              >
-                <UserPlus size={16} />
-              </button>
-            </EtiquetaTooltip>
+            {/* Botón Principal Nuevo Paciente: Solo Icono con Tooltip (Desktop) */}
+            <div className="directorio-btn-nuevo-desktop">
+              <EtiquetaTooltip texto="Crear nuevo paciente" posicion="abajo">
+                <button
+                  type="button"
+                  id="btn-crear-nuevo-paciente"
+                  onClick={abrirModalNuevoPaciente}
+                  aria-label="Crear nuevo paciente"
+                  style={{
+                    width: '34px',
+                    height: '34px',
+                    padding: 0,
+                    borderRadius: 'var(--radio-md, 8px)',
+                    border: 'none',
+                    background: 'var(--color-primario)',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)',
+                    transition: 'all 0.15s ease',
+                    flexShrink: 0,
+                  }}
+                >
+                  <UserPlus size={16} />
+                </button>
+              </EtiquetaTooltip>
+            </div>
           </div>
         </div>
 
@@ -534,8 +541,8 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
           </div>
         )}
 
-        {/* Tabla de Datos */}
-        <div style={{ overflowX: 'auto', border: '1px solid var(--borde-tarjeta)', borderRadius: 'var(--radio-md, 8px)' }}>
+        {/* Tabla de Datos (Exclusiva para Escritorio / Pantallas Grandes) */}
+        <div className="directorio-tabla-contenedor" style={{ overflowX: 'auto', border: '1px solid var(--borde-tarjeta)', borderRadius: 'var(--radio-md, 8px)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem', textAlign: 'left' }}>
             <thead>
               <tr
@@ -1055,6 +1062,261 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
           </table>
         </div>
 
+        {/* Vista Móvil: Lista de Tarjetas Táctiles (Card Feed para Móviles <= 768px) */}
+        <div className="directorio-tarjetas-movil">
+          {cargando ? (
+            <div style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--texto-atenuado)' }}>
+              Cargando directorio...
+            </div>
+          ) : listaFiltrada.length === 0 ? (
+            <div
+              style={{
+                padding: '2rem 1rem',
+                textAlign: 'center',
+                color: 'var(--texto-atenuado)',
+                background: 'var(--fondo-elevado)',
+                borderRadius: '10px',
+                border: '1px dashed var(--borde-tarjeta)',
+                fontSize: '0.84rem',
+              }}
+            >
+              {busqueda
+                ? 'No se encontraron resultados para la búsqueda.'
+                : pestañaActiva === 'contactos'
+                  ? 'No hay contactos pendientes de registrar como paciente.'
+                  : pestañaActiva === 'incompletos'
+                    ? '¡Excelente! No hay pacientes con datos incompletos pendientes.'
+                    : 'No hay pacientes registrados aún.'}
+            </div>
+          ) : (
+            listaPaginada.map((item) => {
+              const esPacienteClinico =
+                item.es_paciente === true ||
+                Number(item.total_formulas || 0) > 0 ||
+                Number(item.total_citas || 0) > 0;
+              const fichaIncompleta = esFichaIncompleta(item);
+              const tieneCitas = Number(item.total_citas || 0) > 0;
+
+              return (
+                <article
+                  key={`tarjeta-paciente-movil-${item.id}`}
+                  className="tarjeta-paciente-movil"
+                  onClick={() => abrirHistorialPaciente(item)}
+                >
+                  {/* Cabecera de la Tarjeta */}
+                  <div className="tarjeta-paciente-movil-cabecera">
+                    <div
+                      className="tarjeta-paciente-movil-avatar"
+                      style={{
+                        background: fichaIncompleta
+                          ? 'rgba(245, 158, 11, 0.14)'
+                          : esPacienteClinico
+                            ? 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.12)'
+                            : 'rgba(217, 119, 6, 0.12)',
+                        color: fichaIncompleta
+                          ? '#d97706'
+                          : esPacienteClinico
+                            ? 'var(--color-primario)'
+                            : '#d97706',
+                      }}
+                    >
+                      {(item.nombre_completo || item.nombre || 'P').substring(0, 2).toUpperCase()}
+                    </div>
+
+                    <div className="tarjeta-paciente-movil-titulos">
+                      {/* Línea 1: Nombre del paciente + Badges a la derecha */}
+                      <div className="tarjeta-paciente-movil-nombre-fila">
+                        <strong className="tarjeta-paciente-movil-nombre">
+                          {item.nombre_completo || item.nombre || 'Contacto sin nombre'}
+                        </strong>
+
+                        <div className="tarjeta-paciente-movil-badges-cabecera">
+                          {item.tipologia_nombre && (
+                            <span
+                              className="pildora-tipologia-movil"
+                              style={{
+                                color: item.tipologia_color || 'var(--texto-principal)',
+                                borderColor: item.tipologia_color ? `${item.tipologia_color}45` : 'var(--borde-tarjeta)',
+                              }}
+                            >
+                              <span
+                                className="punto-tipologia-movil"
+                                style={{ background: item.tipologia_color || '#0284c7' }}
+                              />
+                              {item.tipologia_nombre}
+                            </span>
+                          )}
+
+                          {fichaIncompleta && (
+                            <span className="pildora-alerta-movil">
+                              <AlertTriangle size={11} />
+                              <span>{tieneCitas ? 'Cita · Incompleto' : 'Incompleto'}</span>
+                            </span>
+                          )}
+
+                          {!esPacienteClinico && (
+                            <span className="pildora-prospecto-movil">
+                              <Clock size={11} />
+                              <span>Prospecto</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Línea 2 (Opción 1 fija): Cédula y Edad al lado del avatar */}
+                      <div className="tarjeta-cabecera-sublinea">
+                        <span className="tarjeta-sublinea-documento">
+                          <IdCard size={12} className="icono-primario" />
+                          {item.cedula || item.documento ? (
+                            <span>{(item.tipo_documento || 'CC').toUpperCase()}: {formatearSeparadorMiles(item.cedula || item.documento)}</span>
+                          ) : esPacienteClinico ? (
+                            <span style={{ color: '#d97706', fontWeight: 600 }}>Sin cédula</span>
+                          ) : (
+                            <span style={{ color: 'var(--texto-atenuado)' }}>ID #{item.id}</span>
+                          )}
+                        </span>
+                        {(item.edad || item.sexo) && (
+                          <span className="tarjeta-sublinea-edad">
+                            <span className="punto-separador-sublinea">·</span>
+                            <span>{item.edad ? `${item.edad} años` : ''}{item.sexo ? ` (${item.sexo === 'femenino' ? 'F' : 'M'})` : ''}</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bloque de Datos */}
+                  <div className="tarjeta-paciente-movil-cuerpo">
+                    {/* Teléfono con Llamada Directa */}
+                    {item.telefono && (
+                      <div className="tarjeta-paciente-movil-dato">
+                        <Phone size={13} className="icono-dato-movil icono-verde" />
+                        <a
+                          href={`tel:${item.telefono}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="enlace-telefono-movil"
+                          title="Llamar directamente"
+                        >
+                          {formatearTelefono(item.telefono)}
+                        </a>
+                      </div>
+                    )}
+
+                    {/* Correo Electrónico (si existe) */}
+                    {item.correo && (
+                      <div className="tarjeta-paciente-movil-dato">
+                        <Mail size={13} className="icono-dato-movil icono-atenuado" />
+                        <span className="texto-dato-movil texto-truncado">{item.correo}</span>
+                      </div>
+                    )}
+
+                    {/* Resumen Clínico / Fórmulas / Citas (Solo si es paciente clínico) */}
+                    {esPacienteClinico && (
+                      <div className="tarjeta-paciente-movil-resumen-clinico">
+                        <div className="pildora-clinica-movil">
+                          <Glasses size={12} />
+                          <span>
+                            {Number(item.total_formulas || 0) > 0
+                              ? `${item.total_formulas} ${Number(item.total_formulas) === 1 ? 'fórmula' : 'fórmulas'}`
+                              : 'Sin fórmulas'}
+                          </span>
+                        </div>
+
+                        {item.ultimo_tipo_lente && (
+                          <div className="pildora-lente-movil">
+                            {item.ultimo_tipo_lente}
+                          </div>
+                        )}
+
+                        {tieneCitas && (
+                          <div className="pildora-citas-movil">
+                            <Calendar size={12} />
+                            <span>{item.total_citas} {item.total_citas === 1 ? 'cita' : 'citas'}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Acciones Táctiles Rápidas */}
+                  <div className="tarjeta-paciente-movil-acciones" onClick={(e) => e.stopPropagation()}>
+                    {!esPacienteClinico ? (
+                      <>
+                        <button
+                          type="button"
+                          className="btn-movil-accion btn-movil-accion-convertir"
+                          onClick={() => abrirModalConvertirOEditar(item)}
+                        >
+                          <UserPlus size={15} />
+                          <span>Registrar Paciente</span>
+                        </button>
+
+                        {alSeleccionarContactoChat && (
+                          <button
+                            type="button"
+                            className="btn-movil-accion btn-movil-accion-chat-icono"
+                            onClick={() => alSeleccionarContactoChat(item.id)}
+                            aria-label="Abrir conversación en chat"
+                          >
+                            <MessageSquare size={16} />
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className="btn-movil-accion btn-movil-accion-secundario"
+                          onClick={() => abrirHistorialPaciente(item)}
+                        >
+                          <Glasses size={14} />
+                          <span>Ficha</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="btn-movil-accion btn-movil-accion-primario"
+                          onClick={() => {
+                            if (alAbrirNuevaHistoria) {
+                              alAbrirNuevaHistoria(item);
+                            } else {
+                              alAbrirNuevaFormula(item);
+                            }
+                          }}
+                        >
+                          <ClipboardList size={14} />
+                          <span>Consulta</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className={`btn-movil-accion ${fichaIncompleta ? 'btn-movil-accion-alerta' : 'btn-movil-accion-secundario'}`}
+                          onClick={() => abrirModalConvertirOEditar(item)}
+                          aria-label={fichaIncompleta ? 'Completar datos' : 'Editar paciente'}
+                        >
+                          <Edit size={13} />
+                          <span>{fichaIncompleta ? 'Completar' : 'Editar'}</span>
+                        </button>
+
+                        {alSeleccionarContactoChat && (
+                          <button
+                            type="button"
+                            className="btn-movil-accion btn-movil-accion-chat-icono"
+                            onClick={() => alSeleccionarContactoChat(item.id)}
+                            aria-label="Abrir conversación en chat"
+                          >
+                            <MessageSquare size={15} />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </article>
+              );
+            })
+          )}
+        </div>
+
         {/* Barra de Paginación Estandarizada */}
         <BarraPaginacionTabla
           totalRegistros={totalRegistros}
@@ -1085,6 +1347,18 @@ export const DirectorioPacientes: React.FC<PropiedadesDirectorioPacientes> = ({
         alAbrirNuevaFormula={alAbrirNuevaFormula}
         alAbrirNuevaHistoria={alAbrirNuevaHistoria}
       />
+
+      {/* Botón de Acción Flotante (FAB) Táctil para Celulares */}
+      <button
+        type="button"
+        id="btn-fab-nuevo-paciente-movil"
+        className="directorio-fab-nuevo-paciente"
+        onClick={abrirModalNuevoPaciente}
+        aria-label="Registrar nuevo paciente"
+      >
+        <UserPlus size={18} />
+        <span>Nuevo Paciente</span>
+      </button>
     </section>
   );
 };

@@ -37,6 +37,7 @@ import {
   ShoppingBag,
 } from 'lucide-react';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
+import { SelectorFecha } from '../comunes/SelectorFecha';
 import { SelectorColorPopover } from '../comunes/SelectorColorPopover';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import { BarraPaginacionTabla } from '../comunes/BarraPaginacionTabla';
@@ -3899,42 +3900,25 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
                 </span>
               </div>
 
-              {/* Selector de Fecha */}
+              {/* Selector de Fecha Corporativo Premium */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--texto-principal)', marginBottom: '0.35rem' }}>
-                  Nueva Fecha de Vencimiento (Horario Colombia) *
+                  Nueva Fecha de Vencimiento (Horario Colombia) <span className="asterisco-obligatorio">*</span>
                 </label>
-                <div style={{ position: 'relative' }}>
-                  <Calendar size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--texto-atenuado)', pointerEvents: 'none' }} />
-                  <input
-                    type="date"
-                    required
-                    value={fechaManualSuscripcion}
-                    onChange={(e) => setFechaManualSuscripcion(e.target.value)}
-                    style={{
-                      width: '100%',
-                      height: '38px',
-                      padding: '0 0.75rem 0 2.2rem',
-                      borderRadius: 'var(--radio-md)',
-                      border: '1px solid var(--borde-tarjeta)',
-                      background: 'var(--fondo-elevado)',
-                      color: 'var(--texto-principal)',
-                      fontSize: '0.82rem',
-                      outline: 'none',
-                      boxSizing: 'border-box',
-                      transition: 'all 0.15s ease',
-                      fontFamily: 'inherit',
-                    }}
-                    onFocus={(e) => {
-                      e.currentTarget.style.borderColor = 'var(--color-primario)';
-                      e.currentTarget.style.boxShadow = '0 0 0 2.5px rgba(2, 132, 199, 0.18)';
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.borderColor = 'var(--borde-tarjeta)';
-                      e.currentTarget.style.boxShadow = 'none';
-                    }}
-                  />
-                </div>
+                <SelectorFecha
+                  valor={fechaManualSuscripcion}
+                  alCambiar={(nueva) => setFechaManualSuscripcion(nueva)}
+                  placeholder="Seleccionar fecha de corte..."
+                  anchoMinimo="100%"
+                  estiloBoton={{
+                    height: '38px',
+                    borderRadius: 'var(--radio-md)',
+                    background: 'var(--fondo-elevado)',
+                    border: '1px solid var(--borde-tarjeta)',
+                    fontSize: '0.82rem',
+                    boxSizing: 'border-box',
+                  }}
+                />
                 <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.71rem', color: 'var(--texto-atenuado)', lineHeight: 1.4 }}>
                   El servicio vencerá exactamente a las <strong>11:59:59 PM (hora de Colombia)</strong> del día seleccionado.
                 </p>
