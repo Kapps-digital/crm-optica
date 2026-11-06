@@ -997,7 +997,7 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
-                      <label className="modal-label" style={{ margin: 0, fontWeight: 700 }}>Motivo de Consulta *</label>
+                      <label className="modal-label" style={{ margin: 0, fontWeight: 700 }}>Motivo de Consulta <span className="asterisco-obligatorio">*</span></label>
                     </div>
                     <textarea
                       value={motivoConsulta}
@@ -1839,7 +1839,7 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
               <div className="modal-campo-grupo">
                 <label className="modal-label" style={{ fontWeight: 700 }}>
-                  Diagnóstico Clínico *
+                  Diagnóstico Clínico <span className="asterisco-obligatorio">*</span>
                 </label>
                 <textarea
                   value={diagnostico}
@@ -2042,7 +2042,7 @@ export const ModalRegistroClinicoCompleto: React.FC<PropiedadesModalRegistroClin
                 </div>
 
                 <div>
-                  <label className="modal-label" style={{ fontWeight: 600 }}>Optómetra / Especialista *</label>
+                  <label className="modal-label" style={{ fontWeight: 600 }}>Optómetra / Especialista <span className="asterisco-obligatorio">*</span></label>
                   <input
                     type="text"
                     value={optometra}

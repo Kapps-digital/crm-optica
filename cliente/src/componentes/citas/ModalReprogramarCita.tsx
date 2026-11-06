@@ -213,7 +213,7 @@ export const ModalReprogramarCita: React.FC<PropiedadesModalReprogramarCita> = (
               {/* 1. Selector de Nueva Fecha */}
               <div className="modal-campo-grupo">
                 <label className="modal-label">
-                  Fecha de la Cita <span style={{ color: 'var(--texto-atenuado, #94a3b8)' }}>*</span>:
+                  Fecha de la Cita <span className="asterisco-obligatorio">*</span>:
                 </label>
                 <SelectorFecha
                   valor={fechaCita}
@@ -230,7 +230,7 @@ export const ModalReprogramarCita: React.FC<PropiedadesModalReprogramarCita> = (
               {/* 2. Selector de Hora Clínico Popover */}
               <div className="modal-campo-grupo">
                 <label className="modal-label">
-                  Hora de Consulta <span style={{ color: 'var(--texto-atenuado, #94a3b8)' }}>*</span>:
+                  Hora de Consulta <span className="asterisco-obligatorio">*</span>:
                 </label>
                 <SelectorHoraPopover
                   valor={horaCita}
@@ -245,7 +245,7 @@ export const ModalReprogramarCita: React.FC<PropiedadesModalReprogramarCita> = (
               {/* 3. Motivo de la Cita */}
               <div className="modal-campo-grupo col-span-2">
                 <label className="modal-label">
-                  Motivo de la Cita <span style={{ color: 'var(--texto-atenuado, #94a3b8)' }}>*</span>:
+                  Motivo de la Cita <span className="asterisco-obligatorio">*</span>:
                 </label>
                 <SelectorDesplegable
                   valor={motivo}
@@ -285,7 +285,7 @@ export const ModalReprogramarCita: React.FC<PropiedadesModalReprogramarCita> = (
               {/* 5. Estado de la Cita */}
               <div className="modal-campo-grupo">
                 <label className="modal-label">
-                  Estado de la Cita <span style={{ color: 'var(--texto-atenuado, #94a3b8)' }}>*</span>:
+                  Estado de la Cita <span className="asterisco-obligatorio">*</span>:
                 </label>
                 <SelectorDesplegable
                   valor={estado}

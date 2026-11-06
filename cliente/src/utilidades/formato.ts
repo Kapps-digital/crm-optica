@@ -78,6 +78,50 @@ export function formatearSeparadorMiles(valor?: string | number | null): string 
 }
 
 /**
+ * Formatea una cifra numérica a formato moneda colombiana COP (ej: $ 250.000)
+ */
+export function formatearMonedaCop(valor?: number | string | null): string {
+  if (valor === undefined || valor === null || valor === '') return '$ 0';
+  const num = typeof valor === 'number' ? valor : parseFloat(String(valor).replace(/[^\d.-]/g, '')) || 0;
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+  }).format(num);
+}
+
+/**
+ * Extrae sólo los dígitos de un texto monetario para guardarlo como número puro
+ */
+export function limpiarNumeroMoneda(texto?: string | null | number): number {
+  if (texto === undefined || texto === null || texto === '') return 0;
+  if (typeof texto === 'number') return Math.max(0, texto);
+  const soloDigitos = String(texto).replace(/\D/g, '');
+  return soloDigitos ? parseInt(soloDigitos, 10) : 0;
+}
+
+/**
+ * Formatea una fecha y hora al estándar de Colombia con minutos y AM/PM (ej: 05/11/2026 11:30 AM)
+ */
+export function formatearFechaHoraColombia(fechaIsoOrDate?: string | Date | null): string {
+  if (!fechaIsoOrDate) return 'Sin fecha';
+  try {
+    const d = new Date(fechaIsoOrDate);
+    return new Intl.DateTimeFormat('es-CO', {
+      timeZone: 'America/Bogota',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    }).format(d);
+  } catch {
+    return String(fechaIsoOrDate);
+  }
+}
+
+/**
  * Detecta si un nombre es genérico del canal (ej: "Contacto +57...", o solo números telefónicos)
  */
 export function esNombreGenericoOTelefono(texto?: string | null): boolean {

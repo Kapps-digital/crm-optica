@@ -2033,3 +2033,223 @@ export const obtenerTiposLentesApi = obtenerTratamientosLentesApi;
 export const crearTipoLenteApi = crearTratamientoLenteApi;
 export const actualizarTipoLenteApi = actualizarTratamientoLenteApi;
 export const eliminarTipoLenteApi = eliminarTratamientoLenteApi;
+
+// ==========================================
+// 10. MÓDULO DE VENTAS Y FACTURACIÓN
+// ==========================================
+
+export interface Vendedor {
+  id: number;
+  optica_id: number;
+  nombre: string;
+  activo: boolean;
+  creado_en?: string;
+}
+
+export interface ConfiguracionFacturacion {
+  exito: boolean;
+  optica_id?: number;
+  prefijo: string;
+  siguiente_numero: number;
+  proxima_factura: string;
+  bloqueado: boolean;
+  total_ventas?: number;
+  error?: string;
+}
+
+export interface Venta {
+  id: number;
+  optica_id: number;
+  numero_factura: string;
+  fecha: string;
+  vendedor_id: number;
+  nombre_vendedor: string;
+  nombre_cliente: string;
+  celular_cliente?: string | null;
+  producto: string;
+  valor_producto: number;
+  abono_inicial: number;
+  abono_2?: number;
+  abono_3?: number;
+  total_abonos: number;
+  saldo_pendiente: number;
+  estado_pago: 'pagado' | 'parcial' | 'pendiente';
+  notas?: string | null;
+  creado_en?: string;
+  actualizado_en?: string;
+}
+
+export interface MetricasVentas {
+  total_facturas: number;
+  total_ventas: number;
+  total_recaudado: number;
+  total_saldo_pendiente: number;
+}
+
+export async function obtenerConfiguracionFacturacionApi(): Promise<ConfiguracionFacturacion> {
+  try {
+    const res = await fetch('/api/ventas/configuracion', {
+      headers: crearEncabezados(),
+    });
+    return await res.json();
+  } catch (err: any) {
+    return {
+      exito: false,
+      prefijo: 'FAC-',
+      siguiente_numero: 1,
+      proxima_factura: 'FAC-0001',
+      bloqueado: false,
+      error: err.message || 'Error al obtener configuración de facturación',
+    };
+  }
+}
+
+export async function guardarConfiguracionFacturacionApi(datos: {
+  prefijo?: string;
+  siguiente_numero?: number;
+}): Promise<{ exito: boolean; prefijo?: string; siguiente_numero?: number; proxima_factura?: string; error?: string }> {
+  try {
+    const res = await fetch('/api/ventas/configuracion', {
+      method: 'POST',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(datos),
+    });
+    return await res.json();
+  } catch (err: any) {
+    return { exito: false, error: err.message || 'Error al guardar configuración de facturación' };
+  }
+}
+
+export async function obtenerVendedoresApi(incluirInactivos: boolean = false): Promise<{ exito: boolean; vendedores?: Vendedor[]; error?: string }> {
+  try {
+    const res = await fetch(`/api/ventas/vendedores?incluir_inactivos=${incluirInactivos}`, {
+      headers: crearEncabezados(),
+    });
+    return await res.json();
+  } catch (err: any) {
+    return { exito: false, error: err.message || 'Error al obtener vendedores' };
+  }
+}
+
+export async function crearVendedorApi(nombre: string): Promise<{ exito: boolean; vendedor?: Vendedor; error?: string }> {
+  try {
+    const res = await fetch('/api/ventas/vendedores', {
+      method: 'POST',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ nombre }),
+    });
+    return await res.json();
+  } catch (err: any) {
+    return { exito: false, error: err.message || 'Error al registrar vendedor' };
+  }
+}
+
+export async function cambiarEstadoVendedorApi(id: number, activo: boolean): Promise<{ exito: boolean; error?: string }> {
+  try {
+    const res = await fetch(`/api/ventas/vendedores/${id}`, {
+      method: 'PATCH',
+      headers: crearEncabezados(),
+      body: JSON.stringify({ activo }),
+    });
+    return await res.json();
+  } catch (err: any) {
+    return { exito: false, error: err.message || 'Error al actualizar estado del vendedor' };
+  }
+}
+
+export async function desactivarVendedorApi(id: number): Promise<{ exito: boolean; error?: string }> {
+  return cambiarEstadoVendedorApi(id, false);
+}
+
+export async function obtenerVentasApi(filtros: {
+  busqueda?: string;
+  vendedor_id?: number;
+  estado_pago?: string;
+  fecha_inicio?: string;
+  fecha_fin?: string;
+  pagina?: number;
+  limite?: number;
+} = {}): Promise<{
+  exito: boolean;
+  ventas?: Venta[];
+  metricas?: MetricasVentas;
+  pagina?: number;
+  limite?: number;
+  error?: string;
+}> {
+  try {
+    const params = new URLSearchParams();
+    if (filtros.busqueda) params.append('busqueda', filtros.busqueda);
+    if (filtros.vendedor_id) params.append('vendedor_id', String(filtros.vendedor_id));
+    if (filtros.estado_pago) params.append('estado_pago', filtros.estado_pago);
+    if (filtros.fecha_inicio) params.append('fecha_inicio', filtros.fecha_inicio);
+    if (filtros.fecha_fin) params.append('fecha_fin', filtros.fecha_fin);
+    if (filtros.pagina) params.append('pagina', String(filtros.pagina));
+    if (filtros.limite) params.append('limite', String(filtros.limite));
+
+    const res = await fetch(`/api/ventas?${params.toString()}`, {
+      headers: crearEncabezados(),
+    });
+    return await res.json();
+  } catch (err: any) {
+    return { exito: false, error: err.message || 'Error al obtener listado de ventas' };
+  }
+}
+
+export async function crearVentaApi(datos: {
+  vendedor_id: number;
+  nombre_cliente: string;
+  celular_cliente?: string;
+  producto: string;
+  valor_producto: number;
+  abono_inicial: number;
+  abono_2?: number;
+  abono_3?: number;
+  fecha?: string;
+  notas?: string;
+}): Promise<{ exito: boolean; venta?: Venta; mensaje?: string; error?: string }> {
+  try {
+    const res = await fetch('/api/ventas', {
+      method: 'POST',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(datos),
+    });
+    return await res.json();
+  } catch (err: any) {
+    return { exito: false, error: err.message || 'Error al registrar venta' };
+  }
+}
+
+export async function actualizarAbonosVentaApi(
+  ventaId: number,
+  datos: {
+    valor_producto?: number;
+    abono_inicial?: number;
+    abono_2?: number;
+    abono_3?: number;
+    notas?: string;
+  }
+): Promise<{ exito: boolean; venta?: Venta; mensaje?: string; error?: string }> {
+  try {
+    const res = await fetch(`/api/ventas/${ventaId}`, {
+      method: 'PUT',
+      headers: crearEncabezados({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(datos),
+    });
+    return await res.json();
+  } catch (err: any) {
+    return { exito: false, error: err.message || 'Error al actualizar abonos de venta' };
+  }
+}
+
+export async function eliminarVentaApi(ventaId: number): Promise<{ exito: boolean; mensaje?: string; error?: string }> {
+  try {
+    const res = await fetch(`/api/ventas/${ventaId}`, {
+      method: 'DELETE',
+      headers: crearEncabezados(),
+    });
+    return await res.json();
+  } catch (err: any) {
+    return { exito: false, error: err.message || 'Error al eliminar venta' };
+  }
+}

@@ -313,7 +313,7 @@ export const ModalAgendarCita: React.FC<PropiedadesModalAgendarCita> = ({
               {!contacto && (
                 <div className="modal-campo-grupo col-span-2">
                   <label className="modal-label">
-                    Paciente de la Óptica <span style={{ color: 'var(--texto-atenuado, #94a3b8)' }}>*</span>:
+                    Paciente de la Óptica <span className="asterisco-obligatorio">*</span>:
                   </label>
                   <SelectorDesplegable
                     valor={pacienteIdManual ? String(pacienteIdManual) : ''}
@@ -353,7 +353,7 @@ export const ModalAgendarCita: React.FC<PropiedadesModalAgendarCita> = ({
               {/* 1. Selector de Fecha Premium Corporativo */}
               <div className="modal-campo-grupo">
                 <label className="modal-label">
-                  Fecha de la Cita <span style={{ color: 'var(--texto-atenuado, #94a3b8)' }}>*</span>:
+                  Fecha de la Cita <span className="asterisco-obligatorio">*</span>:
                 </label>
                 <SelectorFecha
                   valor={fechaCita}
@@ -370,7 +370,7 @@ export const ModalAgendarCita: React.FC<PropiedadesModalAgendarCita> = ({
               {/* 2. Selector de Hora Clínico Popover */}
               <div className="modal-campo-grupo">
                 <label className="modal-label">
-                  Hora de Consulta <span style={{ color: 'var(--texto-atenuado, #94a3b8)' }}>*</span>:
+                  Hora de Consulta <span className="asterisco-obligatorio">*</span>:
                 </label>
                 <SelectorHoraPopover
                   valor={horaCita}
@@ -385,7 +385,7 @@ export const ModalAgendarCita: React.FC<PropiedadesModalAgendarCita> = ({
               {/* 3. Motivo de la Cita */}
               <div className="modal-campo-grupo col-span-2">
                 <label className="modal-label">
-                  Motivo de la Cita <span style={{ color: 'var(--texto-atenuado, #94a3b8)' }}>*</span>:
+                  Motivo de la Cita <span className="asterisco-obligatorio">*</span>:
                 </label>
                 <SelectorDesplegable
                   valor={motivo}

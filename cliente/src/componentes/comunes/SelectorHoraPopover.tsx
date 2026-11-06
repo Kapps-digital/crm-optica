@@ -10,6 +10,7 @@ interface PropiedadesSelectorHoraPopover {
   alCambiar: (nuevaHora: string) => void;
   placeholder?: string;
   tamano?: 'normal' | 'compacto';
+  estiloBoton?: React.CSSProperties;
 }
 
 const ATAJOS_RAPIDOS = [
@@ -25,6 +26,7 @@ export const SelectorHoraPopover: React.FC<PropiedadesSelectorHoraPopover> = ({
   alCambiar,
   placeholder = 'Seleccionar hora...',
   tamano = 'normal',
+  estiloBoton,
 }) => {
   const [abierto, setAbierto] = useState(false);
   const [montado, setMontado] = useState(false);
@@ -225,16 +227,17 @@ export const SelectorHoraPopover: React.FC<PropiedadesSelectorHoraPopover> = ({
         ref={disparadorRef}
         type="button"
         className={`selector-hora-disparador ${tamano === 'compacto' ? 'selector-hora-disparador-compacto' : ''} ${abierto ? 'abierto' : ''}`}
-        style={
-          tamano === 'compacto'
+        style={{
+          ...(tamano === 'compacto'
             ? {
                 height: '29px',
                 padding: '0 0.55rem',
                 fontSize: '0.74rem',
                 borderRadius: '5px',
               }
-            : undefined
-        }
+            : {}),
+          ...estiloBoton,
+        }}
         onClick={() => {
           setAbierto(!abierto);
           setMenuHoraAbierto(false);

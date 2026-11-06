@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, Check, Search, X, Plus, Edit3 } from 'lucide-react';
+import { ChevronDown, Check, Search, X, Plus, Edit3, Trash2 } from 'lucide-react';
 import { EtiquetaTooltip } from './EtiquetaTooltip';
 
 export interface OpcionDesplegable {
@@ -34,8 +34,11 @@ export interface PropiedadesSelectorDesplegable {
   estiloBoton?: React.CSSProperties;
   alCrearNuevo?: (nuevoValor: string) => Promise<boolean | void> | void;
   textoCrearNuevo?: string;
+  placeholderCrearNuevo?: string;
   permitirCrearNuevo?: boolean;
   alEditarOpcion?: (opcion: OpcionDesplegable, evento: React.MouseEvent) => void;
+  alEliminarOpcion?: (opcion: OpcionDesplegable, evento: React.MouseEvent) => void;
+  textoEliminarOpcion?: string;
 }
 
 /**
@@ -62,8 +65,11 @@ export const SelectorDesplegable: React.FC<PropiedadesSelectorDesplegable> = ({
   estiloBoton = {},
   alCrearNuevo,
   textoCrearNuevo,
+  placeholderCrearNuevo,
   permitirCrearNuevo = false,
   alEditarOpcion,
+  alEliminarOpcion,
+  textoEliminarOpcion,
 }) => {
   const [estaAbierto, setEstaAbierto] = useState(false);
   const [montado, setMontado] = useState(false);
@@ -532,6 +538,51 @@ export const SelectorDesplegable: React.FC<PropiedadesSelectorDesplegable> = ({
                           </EtiquetaTooltip>
                         )}
 
+                        {alEliminarOpcion && (
+                          <EtiquetaTooltip texto={textoEliminarOpcion || 'Desactivar'} posicion="izquierda">
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              className="selector-btn-eliminar-opcion"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                setEstaAbierto(false);
+                                alEliminarOpcion(opcion, e);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  setEstaAbierto(false);
+                                  alEliminarOpcion(opcion, e as any);
+                                }
+                              }}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: '0.22rem',
+                                borderRadius: '4px',
+                                color: 'var(--texto-atenuado)',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                                marginRight: esSeleccionada ? '0.25rem' : 0,
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.color = '#ef4444';
+                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.color = 'var(--texto-atenuado)';
+                                e.currentTarget.style.background = 'transparent';
+                              }}
+                            >
+                              <Trash2 size={13} />
+                            </span>
+                          </EtiquetaTooltip>
+                        )}
+
                         {esSeleccionada && (
                           <Check size={15} className="selector-icono-check" />
                         )}
@@ -551,7 +602,7 @@ export const SelectorDesplegable: React.FC<PropiedadesSelectorDesplegable> = ({
                       ref={referenciaInputNuevo}
                       type="text"
                       className="selector-desplegable-input-crear"
-                      placeholder="Nombre del nuevo tipo..."
+                      placeholder={placeholderCrearNuevo || 'Nombre del nuevo tipo...'}
                       value={valorInputCrear}
                       onChange={(e) => setValorInputCrear(e.target.value)}
                       onKeyDown={(e) => {

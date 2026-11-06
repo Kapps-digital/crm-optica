@@ -42,6 +42,8 @@ interface PropiedadesSelectorPeriodoAgenda {
   filtro: FiltroPeriodoAgenda;
   alCambiarFiltro: (nuevoFiltro: FiltroPeriodoAgenda) => void;
   citas?: Cita[];
+  fechasConRegistros?: string[];
+  estiloBoton?: React.CSSProperties;
 }
 
 const NOMBRES_MESES = [
@@ -52,7 +54,7 @@ const NOMBRES_MESES = [
 const DIAS_SEMANA_CORTO = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'];
 
 /**
- * Función helper pura para validar si una cita coincide con el filtro de período seleccionado
+ * Función helper pura para validar si una fecha coincide con el filtro de período seleccionado
  */
 export const evaluarCoincidenciaPeriodo = (
   fechaIso: string | undefined,
@@ -66,15 +68,18 @@ export const evaluarCoincidenciaPeriodo = (
   const hoy = new Date(anoHoy, mesHoy - 1, diaHoy);
   const pad = (n: number) => String(n).padStart(2, '0');
 
+  // Normalizar a cadena de solo fecha (YYYY-MM-DD) sin importar si viene con hora o formato ISO
+  const fechaLimpia = fechaIso.includes('T') ? fechaIso.split('T')[0] : fechaIso.substring(0, 10);
+
   if (filtro.tipo === 'hoy') {
-    return fechaIso === hoyIso;
+    return fechaLimpia === hoyIso;
   }
 
   if (filtro.tipo === 'ayer') {
     const ayer = new Date(hoy);
     ayer.setDate(ayer.getDate() - 1);
     const ayerIso = `${ayer.getFullYear()}-${pad(ayer.getMonth() + 1)}-${pad(ayer.getDate())}`;
-    return fechaIso === ayerIso;
+    return fechaLimpia === ayerIso;
   }
 
   if (filtro.tipo === 'esta_semana') {
@@ -87,18 +92,18 @@ export const evaluarCoincidenciaPeriodo = (
 
     const lunesIso = `${lunes.getFullYear()}-${pad(lunes.getMonth() + 1)}-${pad(lunes.getDate())}`;
     const domingoIso = `${domingo.getFullYear()}-${pad(domingo.getMonth() + 1)}-${pad(domingo.getDate())}`;
-    return fechaIso >= lunesIso && fechaIso <= domingoIso;
+    return fechaLimpia >= lunesIso && fechaLimpia <= domingoIso;
   }
 
   if (filtro.tipo === 'este_mes') {
     const prefijo = `${hoy.getFullYear()}-${pad(hoy.getMonth() + 1)}`;
-    return fechaIso.startsWith(prefijo);
+    return fechaLimpia.startsWith(prefijo);
   }
 
   if (filtro.tipo === 'mes_anterior') {
     const mesAnt = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
     const prefijo = `${mesAnt.getFullYear()}-${pad(mesAnt.getMonth() + 1)}`;
-    return fechaIso.startsWith(prefijo);
+    return fechaLimpia.startsWith(prefijo);
   }
 
   if (filtro.tipo === 'este_trimestre') {
@@ -106,36 +111,125 @@ export const evaluarCoincidenciaPeriodo = (
     const inicioTrim = Math.floor(mesActual / 3) * 3;
     const ano = hoy.getFullYear();
     const meses = [inicioTrim + 1, inicioTrim + 2, inicioTrim + 3].map((m) => `${ano}-${pad(m)}`);
-    return meses.some((p) => fechaIso.startsWith(p));
+    return meses.some((p) => fechaLimpia.startsWith(p));
   }
 
   if (filtro.tipo === 'rango_fechas') {
     if (filtro.fechaInicio && filtro.fechaFin) {
       const fMin = filtro.fechaInicio <= filtro.fechaFin ? filtro.fechaInicio : filtro.fechaFin;
       const fMax = filtro.fechaInicio <= filtro.fechaFin ? filtro.fechaFin : filtro.fechaInicio;
-      return fechaIso >= fMin && fechaIso <= fMax;
+      return fechaLimpia >= fMin && fechaLimpia <= fMax;
     }
     if (filtro.fechaInicio) {
-      return fechaIso === filtro.fechaInicio;
+      return fechaLimpia === filtro.fechaInicio;
     }
   }
 
   if (filtro.tipo === 'dia_especifico' && filtro.fechaIso) {
-    return fechaIso === filtro.fechaIso;
+    return fechaLimpia === filtro.fechaIso;
   }
 
   if (filtro.tipo === 'mes_especifico' && filtro.ano !== undefined && filtro.mes !== undefined) {
     const prefijo = `${filtro.ano}-${pad(filtro.mes + 1)}`;
-    return fechaIso.startsWith(prefijo);
+    return fechaLimpia.startsWith(prefijo);
   }
 
   return true;
+};
+
+/**
+ * Convierte un FiltroPeriodoAgenda en un rango de fechas ISO [fechaInicio, fechaFin] (YYYY-MM-DD)
+ * Ideal para enviar a APIs backend o filtrar consultas SQL
+ */
+export const obtenerRangoFechasFiltro = (
+  filtro: FiltroPeriodoAgenda
+): { fechaInicio?: string; fechaFin?: string } => {
+  if (filtro.tipo === 'todos') return {};
+
+  const hoyIso = obtenerFechaHoyColombia();
+  const [anoHoy, mesHoy, diaHoy] = hoyIso.split('-').map(Number);
+  const hoy = new Date(anoHoy, mesHoy - 1, diaHoy);
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  if (filtro.tipo === 'hoy') {
+    return { fechaInicio: hoyIso, fechaFin: hoyIso };
+  }
+
+  if (filtro.tipo === 'ayer') {
+    const ayer = new Date(hoy);
+    ayer.setDate(ayer.getDate() - 1);
+    const ayerIso = `${ayer.getFullYear()}-${pad(ayer.getMonth() + 1)}-${pad(ayer.getDate())}`;
+    return { fechaInicio: ayerIso, fechaFin: ayerIso };
+  }
+
+  if (filtro.tipo === 'esta_semana') {
+    const diaSem = hoy.getDay();
+    const diffLunes = diaSem === 0 ? -6 : 1 - diaSem;
+    const lunes = new Date(hoy);
+    lunes.setDate(hoy.getDate() + diffLunes);
+    const domingo = new Date(lunes);
+    domingo.setDate(lunes.getDate() + 6);
+    return {
+      fechaInicio: `${lunes.getFullYear()}-${pad(lunes.getMonth() + 1)}-${pad(lunes.getDate())}`,
+      fechaFin: `${domingo.getFullYear()}-${pad(domingo.getMonth() + 1)}-${pad(domingo.getDate())}`,
+    };
+  }
+
+  if (filtro.tipo === 'este_mes') {
+    const inicio = `${hoy.getFullYear()}-${pad(hoy.getMonth() + 1)}-01`;
+    const finObj = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+    const fin = `${finObj.getFullYear()}-${pad(finObj.getMonth() + 1)}-${pad(finObj.getDate())}`;
+    return { fechaInicio: inicio, fechaFin: fin };
+  }
+
+  if (filtro.tipo === 'mes_anterior') {
+    const inicioObj = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+    const finObj = new Date(hoy.getFullYear(), hoy.getMonth(), 0);
+    return {
+      fechaInicio: `${inicioObj.getFullYear()}-${pad(inicioObj.getMonth() + 1)}-01`,
+      fechaFin: `${finObj.getFullYear()}-${pad(finObj.getMonth() + 1)}-${pad(finObj.getDate())}`,
+    };
+  }
+
+  if (filtro.tipo === 'este_trimestre') {
+    const inicioTrim = Math.floor(hoy.getMonth() / 3) * 3;
+    const inicio = `${hoy.getFullYear()}-${pad(inicioTrim + 1)}-01`;
+    const finObj = new Date(hoy.getFullYear(), inicioTrim + 3, 0);
+    const fin = `${finObj.getFullYear()}-${pad(finObj.getMonth() + 1)}-${pad(finObj.getDate())}`;
+    return { fechaInicio: inicio, fechaFin: fin };
+  }
+
+  if (filtro.tipo === 'rango_fechas') {
+    if (filtro.fechaInicio && filtro.fechaFin) {
+      const fMin = filtro.fechaInicio <= filtro.fechaFin ? filtro.fechaInicio : filtro.fechaFin;
+      const fMax = filtro.fechaInicio <= filtro.fechaFin ? filtro.fechaFin : filtro.fechaInicio;
+      return { fechaInicio: fMin, fechaFin: fMax };
+    }
+    if (filtro.fechaInicio) {
+      return { fechaInicio: filtro.fechaInicio, fechaFin: filtro.fechaInicio };
+    }
+  }
+
+  if (filtro.tipo === 'dia_especifico' && filtro.fechaIso) {
+    return { fechaInicio: filtro.fechaIso, fechaFin: filtro.fechaIso };
+  }
+
+  if (filtro.tipo === 'mes_especifico' && filtro.ano !== undefined && filtro.mes !== undefined) {
+    const inicio = `${filtro.ano}-${pad(filtro.mes + 1)}-01`;
+    const finObj = new Date(filtro.ano, filtro.mes + 1, 0);
+    const fin = `${finObj.getFullYear()}-${pad(finObj.getMonth() + 1)}-${pad(finObj.getDate())}`;
+    return { fechaInicio: inicio, fechaFin: fin };
+  }
+
+  return {};
 };
 
 export const SelectorPeriodoAgenda: React.FC<PropiedadesSelectorPeriodoAgenda> = ({
   filtro,
   alCambiarFiltro,
   citas = [],
+  fechasConRegistros,
+  estiloBoton,
 }) => {
   const [abierto, setAbierto] = useState(false);
   const [montado, setMontado] = useState(false);
@@ -165,16 +259,21 @@ export const SelectorPeriodoAgenda: React.FC<PropiedadesSelectorPeriodoAgenda> =
     setMontado(true);
   }, []);
 
-  // Fechas con citas registradas para puntos indicadores
+  // Fechas con citas o registros para puntos indicadores
   const mapaFechasConCitas = useMemo(() => {
     const setF = new Set<string>();
     citas.forEach((c) => {
       if (c.fecha_cita && c.estado !== 'cancelada') {
-        setF.add(c.fecha_cita.trim());
+        setF.add(c.fecha_cita.trim().substring(0, 10));
       }
     });
+    if (fechasConRegistros && fechasConRegistros.length > 0) {
+      fechasConRegistros.forEach((f) => {
+        if (f) setF.add(f.trim().substring(0, 10));
+      });
+    }
     return setF;
-  }, [citas]);
+  }, [citas, fechasConRegistros]);
 
   // Si el filtro es un día específico, rango o mes, sincronizar el visor al abrir
   useEffect(() => {
@@ -444,6 +543,7 @@ export const SelectorPeriodoAgenda: React.FC<PropiedadesSelectorPeriodoAgenda> =
         type="button"
         onClick={() => setAbierto(!abierto)}
         className={`filtro-cal-agenda-boton ${abierto ? 'activo' : ''}`}
+        style={estiloBoton}
         aria-haspopup="dialog"
         aria-expanded={abierto}
       >

@@ -43,6 +43,17 @@ import {
   ejecutarPurgaAutomaticaSiAplica,
 } from '@/backend/servicios/gestor_plantillas.mjs';
 import {
+  obtenerVentas,
+  crearVenta,
+  actualizarAbonosVenta,
+  eliminarVenta,
+  obtenerVendedores,
+  crearVendedor,
+  desactivarVendedor,
+  obtenerConfiguracionFacturacion,
+  guardarConfiguracionFacturacion,
+} from '@/backend/servicios/gestor_ventas.mjs';
+import {
   obtener_canales_optica,
   obtener_url_conexion_whatsapp,
   vincular_cuenta_whatsapp_activa,
@@ -1772,6 +1783,87 @@ async function procesarPeticion(
       const dias = body?.dias ? Number(body.dias) : 30;
       const resultadoPurga = await (purgarAdjuntosAntiguosStorage as any)(optica_id, dias);
       return NextResponse.json(resultadoPurga);
+    }
+
+    // 8.2. MÓDULO DE VENTAS Y FACTURACIÓN
+    if (metodo === 'GET' && rutaStr === 'ventas/vendedores') {
+      const incluirInactivos = searchParams.get('incluir_inactivos') === 'true';
+      const vendedores = await (obtenerVendedores as any)(optica_id, incluirInactivos);
+      return NextResponse.json({ exito: true, vendedores });
+    }
+
+    if (metodo === 'POST' && rutaStr === 'ventas/vendedores') {
+      const { nombre } = body;
+      const nuevo = await (crearVendedor as any)(optica_id, nombre);
+      return NextResponse.json({ exito: true, vendedor: nuevo });
+    }
+
+    if (metodo === 'DELETE' && segmentosRuta[0] === 'ventas' && segmentosRuta[1] === 'vendedores' && segmentosRuta.length === 3) {
+      const idVendedor = Number(segmentosRuta[2]);
+      const res = await (desactivarVendedor as any)(optica_id, idVendedor, false);
+      return NextResponse.json(res);
+    }
+
+    if ((metodo === 'PATCH' || metodo === 'PUT') && segmentosRuta[0] === 'ventas' && segmentosRuta[1] === 'vendedores' && segmentosRuta.length === 3) {
+      const idVendedor = Number(segmentosRuta[2]);
+      const { activo } = body;
+      const res = await (desactivarVendedor as any)(optica_id, idVendedor, Boolean(activo));
+      return NextResponse.json(res);
+    }
+
+    if (metodo === 'GET' && rutaStr === 'ventas/configuracion') {
+      const config = await (obtenerConfiguracionFacturacion as any)(optica_id);
+      return NextResponse.json(config);
+    }
+
+    if (metodo === 'POST' && rutaStr === 'ventas/configuracion') {
+      const resultado = await (guardarConfiguracionFacturacion as any)(optica_id, body);
+      return NextResponse.json(resultado);
+    }
+
+    if (metodo === 'GET' && rutaStr === 'ventas') {
+      const busqueda = searchParams.get('busqueda') || '';
+      const vendedor_id = searchParams.get('vendedor_id') ? Number(searchParams.get('vendedor_id')) : undefined;
+      const estado_pago = searchParams.get('estado_pago') || '';
+      const fecha_inicio = searchParams.get('fecha_inicio') || undefined;
+      const fecha_fin = searchParams.get('fecha_fin') || undefined;
+      const pagina = searchParams.get('pagina') ? Number(searchParams.get('pagina')) : 1;
+      const limite = searchParams.get('limite') ? Number(searchParams.get('limite')) : 100;
+
+      const resultado = await (obtenerVentas as any)(optica_id, {
+        busqueda,
+        vendedor_id,
+        estado_pago,
+        fecha_inicio,
+        fecha_fin,
+        pagina,
+        limite,
+      });
+      return NextResponse.json(resultado);
+    }
+
+    if (metodo === 'POST' && rutaStr === 'ventas') {
+      const resultado = await (crearVenta as any)(optica_id, body);
+      return NextResponse.json(resultado);
+    }
+
+    if (metodo === 'PUT' && segmentosRuta[0] === 'ventas' && segmentosRuta.length === 2) {
+      const idVenta = Number(segmentosRuta[1]);
+      const resultado = await (actualizarAbonosVenta as any)(optica_id, idVenta, body);
+      return NextResponse.json(resultado);
+    }
+
+    if (metodo === 'DELETE' && segmentosRuta[0] === 'ventas' && segmentosRuta.length === 2) {
+      const idVenta = Number(segmentosRuta[1]);
+      const rolUsuario = (usuario?.rol || '').toLowerCase().trim();
+      if (rolUsuario !== 'admin' && rolUsuario !== 'admin_optica') {
+        return NextResponse.json(
+          { exito: false, error: 'No tienes permisos para eliminar ventas. Solo administradores pueden realizar esta acción.' },
+          { status: 403 }
+        );
+      }
+      const resultado = await (eliminarVenta as any)(optica_id, idVenta);
+      return NextResponse.json(resultado);
     }
 
     // 9. CANALES Y CONFIGURACIÓN

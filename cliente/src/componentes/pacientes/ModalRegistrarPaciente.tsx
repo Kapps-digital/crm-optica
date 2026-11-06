@@ -252,7 +252,7 @@ export const ModalRegistrarPaciente: React.FC<PropiedadesModalRegistrarPaciente>
 
   if (!montado || !abierto) return null;
 
-  const esConversion = Boolean(contactoParaConvertir);
+  const esConversion = Boolean(contactoParaConvertir && contactoParaConvertir.id);
 
   const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -450,7 +450,7 @@ export const ModalRegistrarPaciente: React.FC<PropiedadesModalRegistrarPaciente>
           {/* 1. Campo Nombre Completo */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--texto-principal)' }}>
-              Nombre Completo <span style={{ color: '#ef4444' }}>*</span>
+              Nombre Completo <span className="asterisco-obligatorio">*</span>
             </label>
             <div style={{ position: 'relative' }}>
               <User size={14} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--texto-atenuado)' }} />
@@ -480,7 +480,7 @@ export const ModalRegistrarPaciente: React.FC<PropiedadesModalRegistrarPaciente>
           <div style={{ display: 'grid', gridTemplateColumns: '95px 1fr', gap: '0.75rem', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
               <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--texto-principal)' }}>
-                Tipo Doc. <span style={{ color: '#ef4444' }}>*</span>
+                Tipo Doc. <span className="asterisco-obligatorio">*</span>
               </label>
               <SelectorDesplegable
                 valor={tipoDocumento}
@@ -500,7 +500,7 @@ export const ModalRegistrarPaciente: React.FC<PropiedadesModalRegistrarPaciente>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
               <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--texto-principal)' }}>
-                Documento <span style={{ color: '#ef4444' }}>*</span>
+                Documento <span className="asterisco-obligatorio">*</span>
               </label>
               <div style={{ position: 'relative' }}>
                 <IdCard size={14} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--texto-atenuado)' }} />
@@ -532,7 +532,7 @@ export const ModalRegistrarPaciente: React.FC<PropiedadesModalRegistrarPaciente>
           <div style={{ display: 'grid', gridTemplateColumns: '1.45fr 0.75fr', gap: '0.75rem', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
               <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--texto-principal)' }}>
-                Celular / WhatsApp <span style={{ color: '#ef4444' }}>*</span>
+                Celular / WhatsApp <span className="asterisco-obligatorio">*</span>
               </label>
               <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center' }}>
                 {/* Selector Desplegable Premium con Buscador para Indicativo */}
@@ -624,7 +624,7 @@ export const ModalRegistrarPaciente: React.FC<PropiedadesModalRegistrarPaciente>
           <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '0.75rem', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
               <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--texto-principal)' }}>
-                Sexo <span style={{ color: '#ef4444' }}>*</span>
+                Sexo <span className="asterisco-obligatorio">*</span>
               </label>
               <SelectorDesplegable
                 valor={sexo}

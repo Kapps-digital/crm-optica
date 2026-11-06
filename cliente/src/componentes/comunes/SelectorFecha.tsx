@@ -11,6 +11,7 @@ interface PropiedadesSelectorFecha {
   placeholder?: string;
   min?: string;
   anchoMinimo?: string;
+  estiloBoton?: React.CSSProperties;
 }
 
 const NOMBRES_MESES = [
@@ -26,6 +27,7 @@ export const SelectorFecha: React.FC<PropiedadesSelectorFecha> = ({
   placeholder = 'Seleccionar fecha...',
   min,
   anchoMinimo = '100%',
+  estiloBoton,
 }) => {
   const [abierto, setAbierto] = useState(false);
   const [montado, setMontado] = useState(false);
@@ -183,6 +185,7 @@ export const SelectorFecha: React.FC<PropiedadesSelectorFecha> = ({
         type="button"
         onClick={() => setAbierto(!abierto)}
         className={`selector-fecha-boton ${abierto ? 'activo' : ''} ${!valor ? 'sin-valor' : ''}`}
+        style={estiloBoton}
         aria-haspopup="dialog"
         aria-expanded={abierto}
       >

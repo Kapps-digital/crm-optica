@@ -2404,7 +2404,7 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
               {/* Nombre Completo */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--texto-principal)', marginBottom: '0.35rem' }}>
-                  Nombre Completo *
+                  Nombre Completo <span className="asterisco-obligatorio">*</span>
                 </label>
                 <div style={{ position: 'relative' }}>
                   <User size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--texto-atenuado)', pointerEvents: 'none' }} />
@@ -2519,7 +2519,7 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--texto-principal)', marginBottom: '0.35rem' }}>
-                    Rol en el Sistema *
+                    Rol en el Sistema <span className="asterisco-obligatorio">*</span>
                   </label>
                   <SelectorDesplegable
                     valor={formRol}
@@ -2536,7 +2536,7 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
 
                 <div>
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--texto-principal)', marginBottom: '0.35rem' }}>
-                    Óptica Asignada {formRol !== 'admin' && '*'}
+                    Óptica Asignada {formRol !== 'admin' && <span className="asterisco-obligatorio">*</span>}
                   </label>
                   <SelectorDesplegable
                     valor={formOpticaId}
@@ -2551,7 +2551,7 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
               {/* Contraseña (Obligatoria si crea, Opcional si edita) */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--texto-principal)', marginBottom: '0.35rem' }}>
-                  {usuarioParaEditar ? 'Cambiar Contraseña (dejar en blanco para conservar actual)' : 'Contraseña Inicial *'}
+                  {usuarioParaEditar ? 'Cambiar Contraseña (dejar en blanco para conservar actual)' : <>Contraseña Inicial <span className="asterisco-obligatorio">*</span></>}
                 </label>
                 <div style={{ position: 'relative' }}>
                   <Lock size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--texto-atenuado)', pointerEvents: 'none' }} />
@@ -2738,7 +2738,7 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--texto-principal)', marginBottom: '0.35rem' }}>
-                  Nueva Contraseña *
+                  Nueva Contraseña <span className="asterisco-obligatorio">*</span>
                 </label>
                 <div style={{ position: 'relative' }}>
                   <Lock size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--texto-atenuado)', pointerEvents: 'none' }} />
@@ -2792,7 +2792,7 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--texto-principal)', marginBottom: '0.35rem' }}>
-                  Confirmar Nueva Contraseña *
+                  Confirmar Nueva Contraseña <span className="asterisco-obligatorio">*</span>
                 </label>
                 <div style={{ position: 'relative' }}>
                   <Lock size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--texto-atenuado)', pointerEvents: 'none' }} />
@@ -3068,7 +3068,7 @@ export const ModuloUsuarios: React.FC<PropiedadesModuloUsuarios> = ({
                 {/* Nombre de la Óptica */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--texto-principal)', marginBottom: '0.35rem' }}>
-                    Nombre de la Óptica *
+                    Nombre de la Óptica <span className="asterisco-obligatorio">*</span>
                   </label>
                   <div style={{ position: 'relative' }}>
                     <Building2 size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--texto-atenuado)' }} />

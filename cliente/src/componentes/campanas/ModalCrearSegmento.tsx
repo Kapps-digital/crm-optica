@@ -576,7 +576,7 @@ export const ModalCrearSegmento: React.FC<PropiedadesModalCrearSegmento> = ({
                 color: 'var(--texto-principal)',
               }}
             >
-              Nombre del Segmento *
+              Nombre del Segmento <span className="asterisco-obligatorio">*</span>
             </label>
             <input
               type="text"

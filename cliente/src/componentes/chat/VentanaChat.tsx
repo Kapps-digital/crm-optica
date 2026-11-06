@@ -1099,9 +1099,9 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
             </EtiquetaTooltip>
           )}
 
-          {/* Botón Ver Ficha Clínica (solo visible cuando la ficha está cerrada) */}
+          {/* Botón Ver Fórmula (solo visible cuando la ficha está cerrada) */}
           {!fichaAbierta && (
-            <EtiquetaTooltip texto="Mostrar ficha optométrica del paciente" posicion="abajo">
+            <EtiquetaTooltip texto="Mostrar fórmula óptica del paciente" posicion="abajo">
               <button
                 id="btn-toggle-ficha"
                 type="button"
@@ -1109,7 +1109,7 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
                 onClick={alAbrirFicha}
               >
                 <ClipboardList style={{ width: '13px', height: '13px' }} />
-                <span id="texto-btn-ficha">Ver Ficha Clínica</span>
+                <span id="texto-btn-ficha">Ver Fórmula</span>
               </button>
             </EtiquetaTooltip>
           )}
@@ -1161,7 +1161,7 @@ export const VentanaChat: React.FC<PropiedadesVentanaChat> = ({
                 }}
               >
                 <ClipboardList size={16} />
-                <span>Ver Ficha Clínica</span>
+                <span>Ver Fórmula</span>
               </button>
 
               {conversacion && alRegistrarPaciente && (

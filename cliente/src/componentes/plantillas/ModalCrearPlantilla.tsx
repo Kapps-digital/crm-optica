@@ -406,7 +406,7 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
                   marginBottom: '0.25rem',
                 }}
               >
-                Título / Etiqueta de la plantilla *
+                Título / Etiqueta de la plantilla <span className="asterisco-obligatorio">*</span>
               </label>
               <input
                 type="text"
@@ -463,7 +463,7 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
                   }}
                 >
                   <Globe size={13} color="#10b981" />
-                  <span>Idioma de la plantilla *</span>
+                  <span>Idioma de la plantilla <span className="asterisco-obligatorio">*</span></span>
                 </label>
                 <SelectorDesplegable
                   valor={idioma}
@@ -505,7 +505,7 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
                   <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--texto-secundario)' }}>
-                    Texto del Encabezado *
+                    Texto del Encabezado <span className="asterisco-obligatorio">*</span>
                   </label>
                   <span style={{ fontSize: '0.7rem', color: 'var(--texto-atenuado)' }}>
                     {encabezadoTexto.length} / 60
@@ -729,7 +729,7 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
                 }}
               >
                 <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--texto-secundario)' }}>
-                  Mensaje del Cuerpo *
+                  Mensaje del Cuerpo <span className="asterisco-obligatorio">*</span>
                 </label>
                 <div style={{ display: 'flex', gap: '0.3rem' }}>
                   <button

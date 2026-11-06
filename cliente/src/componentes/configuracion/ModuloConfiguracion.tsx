@@ -38,7 +38,9 @@ import {
   Users,
   Glasses,
   Edit3,
+  Receipt,
 } from 'lucide-react';
+import { SeccionFacturacionConfiguracion } from './SeccionFacturacionConfiguracion';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
 import { SelectorColorPopover } from '../comunes/SelectorColorPopover';
 import { SelectorHoraPopover } from '../comunes/SelectorHoraPopover';
@@ -172,8 +174,8 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
   alActualizarOptica,
   usuarioActual,
 }) => {
-  // Pestañas del módulo: 'canales' | 'perfil' | 'citas' | 'ia'
-  const [pestanaActiva, setPestanaActiva] = useState<'canales' | 'perfil' | 'citas' | 'ia'>('canales');
+  // Pestañas del módulo: 'canales' | 'perfil' | 'facturacion' | 'citas' | 'ia'
+  const [pestanaActiva, setPestanaActiva] = useState<'canales' | 'perfil' | 'facturacion' | 'citas' | 'ia'>('canales');
 
   // Rol del usuario: el selector de modelo de IA solo es visible para 'admin'
   const usuarioSesion = useMemo(() => {
@@ -244,9 +246,16 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
     }
   }, [iaHabilitada, pestanaActiva]);
 
+  // Redirigir si la pestaña seleccionada es Facturación pero el usuario no es Superadmin / Admin
+  useEffect(() => {
+    if (!esAdmin && pestanaActiva === 'facturacion') {
+      setPestanaActiva('canales');
+    }
+  }, [esAdmin, pestanaActiva]);
+
   // Configuración de pestañas del módulo estandarizada con BarraPestanas
-  const pestanasConfiguracion = useMemo<ElementoPestana<'canales' | 'perfil' | 'citas' | 'ia'>[]>(() => {
-    const pestañas: ElementoPestana<'canales' | 'perfil' | 'citas' | 'ia'>[] = [
+  const pestanasConfiguracion = useMemo<ElementoPestana<'canales' | 'perfil' | 'facturacion' | 'citas' | 'ia'>[]>(() => {
+    const pestañas: ElementoPestana<'canales' | 'perfil' | 'facturacion' | 'citas' | 'ia'>[] = [
       {
         id: 'canales',
         etiqueta: 'Canales de Atención',
@@ -258,12 +267,22 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
         etiqueta: 'Perfil de la Óptica',
         icono: Building2,
       },
-      {
-        id: 'citas',
-        etiqueta: 'Parámetros Clínicos & Citas',
-        icono: Calendar,
-      },
     ];
+
+    // La pestaña de Facturación solo es visible y accesible para el rol de Admin
+    if (esAdmin) {
+      pestañas.push({
+        id: 'facturacion',
+        etiqueta: 'Facturación',
+        icono: Receipt,
+      });
+    }
+
+    pestañas.push({
+      id: 'citas',
+      etiqueta: 'Parámetros Clínicos & Citas',
+      icono: Calendar,
+    });
 
     if (iaHabilitada) {
       pestañas.push({
@@ -275,7 +294,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
     }
 
     return pestañas;
-  }, [cuentaWhatsApp?.conectado, iaActiva, iaHabilitada]);
+  }, [cuentaWhatsApp?.conectado, esAdmin, iaActiva, iaHabilitada]);
 
   // Modal de confirmación para cambiar de número
   const [modalCambiarNumeroAbierto, setModalCambiarNumeroAbierto] = useState(false);
@@ -1498,7 +1517,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
           boxSizing: 'border-box',
         }}
       >
-        <BarraPestanas<'canales' | 'perfil' | 'citas' | 'ia'>
+        <BarraPestanas<'canales' | 'perfil' | 'facturacion' | 'citas' | 'ia'>
           pestanas={pestanasConfiguracion}
           pestanaActiva={pestanaActiva}
           alCambiarPestana={setPestanaActiva}
@@ -2172,6 +2191,11 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
               </div>
             </div>
           </form>
+        )}
+
+        {/* PESTAÑA: FACTURACIÓN & CONSECUTIVOS (Solo Administradores) */}
+        {pestanaActiva === 'facturacion' && esAdmin && (
+          <SeccionFacturacionConfiguracion opticaId={opticaActual?.id} />
         )}
 
         {/* PESTAÑA 3: PARÁMETROS CLÍNICOS & CITAS */}
@@ -3647,7 +3671,7 @@ export const ModuloConfiguracion: React.FC<PropiedadesModuloConfiguracion> = ({
 
               <div className="modal-campo-grupo">
                 <label className="modal-label" style={{ fontSize: '0.78rem' }}>
-                  Nombre de la Tipología *
+                  Nombre de la Tipología <span className="asterisco-obligatorio">*</span>
                 </label>
                 <input
                   type="text"

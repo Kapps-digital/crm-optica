@@ -13,6 +13,7 @@ import { ListaConversaciones } from '@/componentes/chat/ListaConversaciones';
 import { VentanaChat } from '@/componentes/chat/VentanaChat';
 import { FichaOptometrica } from '@/componentes/chat/FichaOptometrica';
 import { DirectorioPacientes } from '@/componentes/pacientes/DirectorioPacientes';
+import { VistaVentas } from '@/componentes/ventas/VistaVentas';
 import { ModalRegistrarPaciente } from '@/componentes/pacientes/ModalRegistrarPaciente';
 import { ModalNuevaFormula } from '@/componentes/pacientes/ModalNuevaFormula';
 import { ModalRegistroClinicoCompleto } from '@/componentes/pacientes/ModalNuevaHistoriaClinica';
@@ -292,7 +293,7 @@ export default function PaginaPrincipal() {
       if (res.exito) {
         if (res.usuario) {
           setUsuarioActual(res.usuario);
-          if (res.usuario.rol === 'optometra' && vistaActiva !== 'citas') {
+          if (res.usuario.rol === 'optometra' && vistaActiva !== 'citas' && vistaActiva !== 'ventas') {
             setVistaActiva('pacientes');
           }
         }
@@ -466,7 +467,7 @@ export default function PaginaPrincipal() {
   useEffect(() => {
     if (usuarioActual) {
       if (usuarioActual.rol === 'optometra') {
-        if (vistaActiva !== 'pacientes' && vistaActiva !== 'citas') {
+        if (vistaActiva !== 'pacientes' && vistaActiva !== 'citas' && vistaActiva !== 'ventas') {
           setVistaActiva('pacientes');
         }
       } else if (usuarioActual.rol === 'ventas') {
@@ -1456,6 +1457,7 @@ export default function PaginaPrincipal() {
                   Pacientes <span className="ampersand-titular">&</span> Contactos
                 </>
               )}
+              {vistaActiva === 'ventas' && 'Ventas'}
               {vistaActiva === 'citas' && 'Calendario de Citas'}
               {vistaActiva === 'campanas' && (
                 <>
@@ -1474,6 +1476,7 @@ export default function PaginaPrincipal() {
             <p>
               {vistaActiva === 'mensajeria' && 'Gestión centralizada de mensajes y atención al cliente en tiempo real'}
               {vistaActiva === 'pacientes' && 'Directorio de pacientes con historial clínico y contactos de mensajería'}
+              {vistaActiva === 'ventas' && 'Control de facturación, abonos en tiempo real y saldos pendientes'}
               {vistaActiva === 'citas' && 'Agenda clínica, programación de turnos y control de consultas'}
               {vistaActiva === 'campanas' && 'Filtros automáticos por historial clínico, fecha de control y tipo de lente'}
               {vistaActiva === 'plantillas' && 'Gestión de plantillas preaprobadas para mensajería empresarial'}
@@ -1697,6 +1700,17 @@ export default function PaginaPrincipal() {
           />
         )}
 
+        {vistaActiva === 'ventas' && (
+          <VistaVentas
+            key={`ventas-optica-${opticaActual?.id || 1}`}
+            opticaId={opticaActual?.id}
+            pacientes={pacientes}
+            alPacienteCreado={(nuevo) => setPacientes((prev) => [nuevo, ...prev])}
+            alNavegarConfiguracionFacturacion={() => setVistaActiva('configuracion')}
+            usuarioActual={usuarioActual}
+          />
+        )}
+
         {vistaActiva === 'citas' && (
           <CalendarioCitas
             key={`citas-optica-${opticaActual?.id || 1}`}
@@ -1762,7 +1776,7 @@ export default function PaginaPrincipal() {
           />
         )}
 
-        {vistaActiva !== 'mensajeria' && vistaActiva !== 'pacientes' && vistaActiva !== 'citas' && vistaActiva !== 'campanas' && vistaActiva !== 'plantillas' && vistaActiva !== 'configuracion' && vistaActiva !== 'consumo' && vistaActiva !== 'usuarios' && (
+        {vistaActiva !== 'mensajeria' && vistaActiva !== 'pacientes' && vistaActiva !== 'ventas' && vistaActiva !== 'citas' && vistaActiva !== 'campanas' && vistaActiva !== 'plantillas' && vistaActiva !== 'configuracion' && vistaActiva !== 'consumo' && vistaActiva !== 'usuarios' && (
           <div style={{ flex: 1, padding: '3rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--texto-atenuado)' }}>
             <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--texto-principal)', textTransform: 'capitalize' }}>
               Módulo de {vistaActiva}

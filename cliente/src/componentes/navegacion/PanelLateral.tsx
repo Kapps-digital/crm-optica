@@ -7,6 +7,7 @@ import {
   CalendarDays,
   Target,
   FileText,
+  Receipt,
   ChevronLeft,
   Eye,
   Settings,
@@ -47,6 +48,7 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
   const elementos = (usuario?.rol === 'optometra')
     ? [
         { id: 'pacientes', etiqueta: 'Pacientes & Contactos', icono: Users, conteo: null, esUrgente: false },
+        { id: 'ventas', etiqueta: 'Ventas', icono: Receipt, conteo: null, esUrgente: false },
         { id: 'citas', etiqueta: 'Calendario de Citas', icono: CalendarDays, conteo: null, esUrgente: false },
       ]
     : (usuario?.rol === 'ventas')
@@ -59,6 +61,7 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
           esUrgente: Boolean(requiereAsesorChats),
         },
         { id: 'pacientes', etiqueta: 'Pacientes & Contactos', icono: Users, conteo: null, esUrgente: false },
+        { id: 'ventas', etiqueta: 'Ventas', icono: Receipt, conteo: null, esUrgente: false },
         { id: 'citas', etiqueta: 'Calendario de Citas', icono: CalendarDays, conteo: null, esUrgente: false },
         { id: 'campanas', etiqueta: 'Auto-Segmentación', icono: Target, conteo: null, esUrgente: false },
         { id: 'plantillas', etiqueta: 'Plantillas', icono: FileText, conteo: null, esUrgente: false },
@@ -72,6 +75,7 @@ export const PanelLateral: React.FC<PropiedadesPanelLateral> = ({
           esUrgente: Boolean(requiereAsesorChats),
         },
         { id: 'pacientes', etiqueta: 'Pacientes & Contactos', icono: Users, conteo: null, esUrgente: false },
+        { id: 'ventas', etiqueta: 'Ventas', icono: Receipt, conteo: null, esUrgente: false },
         { id: 'citas', etiqueta: 'Calendario de Citas', icono: CalendarDays, conteo: null, esUrgente: false },
         { id: 'campanas', etiqueta: 'Auto-Segmentación', icono: Target, conteo: null, esUrgente: false },
         { id: 'plantillas', etiqueta: 'Plantillas', icono: FileText, conteo: null, esUrgente: false },

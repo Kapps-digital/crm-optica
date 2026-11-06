@@ -21,6 +21,7 @@
   --color-alerta-amarillo-suave: #fef3c7;
   --color-peligro-rojo: #ef4444;
   --color-peligro-rojo-suave: #fee2e2;
+  --color-asterisco-obligatorio: #ef4444;
 
   /* TEMA CLARO (PREDETERMINADO) */
   --fondo-base: #f8fafc;
@@ -68,6 +69,14 @@
   --sombra-md: 0 3px 6px -1px rgba(0, 0, 0, 0.5);
   --sombra-lg: 0 10px 20px -3px rgba(0, 0, 0, 0.6);
   --sombra-brillo: 0 0 22px rgba(0, 168, 204, 0.35);
+  --color-asterisco-obligatorio: #f87171;
+}
+
+.asterisco-obligatorio {
+  color: var(--color-asterisco-obligatorio, #ef4444);
+  font-weight: inherit;
+  margin: 0;
+  padding: 0;
 }
 
 /* Escala Base Ajustada (+10% para coincidir con la vista a escala 110%) */
@@ -1841,7 +1850,7 @@ input[type="number"] {
   word-break: normal;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.35), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.18);
-  z-index: 999999;
+  z-index: 10000000;
   pointer-events: none;
   line-height: 1.35;
   box-sizing: border-box;
@@ -4390,7 +4399,7 @@ input[type="number"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 999999;
+  z-index: 10000000;
   padding: 1.25rem;
   animation: animacionBackdropCierre 0.18s ease-out forwards;
 }

@@ -25,7 +25,7 @@ interface PropiedadesFichaOptometrica {
   enVentana24h?: boolean;
   nombreOptica?: string;
   alAlternarFicha: () => void;
-  alAbrirNuevaFormula: () => void;
+  alAbrirNuevaFormula?: () => void;
   alAbrirAgendarCita?: () => void;
   alCompartirPrescripcion?: (texto: string) => void;
   alReactivarConPlantilla?: (nombrePlantilla?: string, idiomaPlantilla?: string) => void;
@@ -104,7 +104,7 @@ export const FichaOptometrica: React.FC<PropiedadesFichaOptometrica> = ({
 
   const manejarCompartir = () => {
     if (!formulaActiva) {
-      alert('Este paciente aún no tiene una fórmula óptica registrada. Haz clic en "+ Fórmula" para añadirla.');
+      alert('Este paciente aún no tiene una fórmula óptica registrada.');
       return;
     }
 
@@ -125,22 +125,10 @@ export const FichaOptometrica: React.FC<PropiedadesFichaOptometrica> = ({
       <div className="ficha-seccion-cabecera">
         <span className="ficha-seccion-titulo">
           <FileText style={{ color: 'var(--color-primario-claro)', width: '14px', height: '14px' }} />
-          <span>Ficha Optométrica</span>
+          <span>Fórmula Óptica</span>
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-          <EtiquetaTooltip texto="Añadir nueva fórmula óptica" posicion="abajo">
-            <button
-              type="button"
-              className="btn-primario-optica"
-              style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }}
-              onClick={alAbrirNuevaFormula}
-              disabled={!contacto}
-            >
-              + Fórmula
-            </button>
-          </EtiquetaTooltip>
-
-          <EtiquetaTooltip texto="Ocultar ficha optométrica para ganar espacio" posicion="abajo">
+          <EtiquetaTooltip texto="Ocultar fórmula óptica para ganar espacio" posicion="abajo">
             <button
               type="button"
               className="btn-cerrar-ficha"
@@ -354,16 +342,6 @@ export const FichaOptometrica: React.FC<PropiedadesFichaOptometrica> = ({
           <p style={{ fontSize: '0.7rem', color: 'var(--texto-atenuado)', margin: 0, lineHeight: 1.3 }}>
             {contacto ? 'Este paciente aún no tiene una fórmula óptica guardada.' : 'Selecciona una conversación para cargar su ficha clínica.'}
           </p>
-          {contacto && (
-            <button
-              type="button"
-              className="btn-primario-optica"
-              style={{ fontSize: '0.7rem', padding: '0.25rem 0.65rem', marginTop: '0.25rem' }}
-              onClick={alAbrirNuevaFormula}
-            >
-              + Registrar Fórmula
-            </button>
-          )}
         </div>
       )}
 
@@ -382,7 +360,7 @@ export const FichaOptometrica: React.FC<PropiedadesFichaOptometrica> = ({
             disabled={!contacto}
           >
             <CalendarPlus style={{ width: '14px', height: '14px' }} />
-            <span>Agendar Cita de Control</span>
+            <span>Agendar Cita</span>
           </button>
         </EtiquetaTooltip>
 
