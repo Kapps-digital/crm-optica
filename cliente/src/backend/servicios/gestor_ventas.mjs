@@ -13,52 +13,112 @@ export function formatearNumeroFactura(prefijo = 'FAC-', numero = 1) {
 }
 
 /**
- * Obtiene la configuración de facturación para la óptica
- * @param {number} opticaId 
+ * Extrae el número entero de un número de factura (ej: 'FAC-0003' -> 3, 'FAC-0012' -> 12)
+ * @param {string} numeroFactura 
+ * @param {string} prefijo 
+ * @returns {number}
  */
-export async function obtenerConfiguracionFacturacion(opticaId) {
+export function extraerNumeroConsecutivo(numeroFactura, prefijo = '') {
+  if (!numeroFactura) return 0;
+  const str = String(numeroFactura).trim();
+  const prefijoLimpio = String(prefijo || '').trim();
+  if (prefijoLimpio && str.startsWith(prefijoLimpio)) {
+    const resto = str.slice(prefijoLimpio.length);
+    const num = parseInt(resto, 10);
+    if (!isNaN(num)) return num;
+  }
+  const match = str.match(/\d+$/) || str.match(/\d+/);
+  return match ? parseInt(match[0], 10) : 0;
+}
+
+/**
+ * Sincroniza y recalcula el consecutivo de facturación basándose estrictamente en las ventas reales de la óptica
+ * @param {number} opticaId 
+ * @param {any} [cliente=pool]
+ */
+export async function sincronizarConsecutivoFacturacion(opticaId, cliente = pool) {
   const idOpticaSeguro = Number(opticaId) || 1;
 
-  // 1. Verificar si existen ventas registradas
-  const resConteo = await pool.query(
-    'SELECT COUNT(*)::int AS total FROM "CRM_Opticas".ventas WHERE optica_id = $1',
-    [idOpticaSeguro]
-  );
-  const totalVentas = Number(resConteo.rows[0]?.total || 0);
-  const tieneVentas = totalVentas > 0;
-
-  // 2. Obtener o inicializar configuración
-  let res = await pool.query(
-    'SELECT prefijo, siguiente_numero, bloqueado, actualizado_en FROM "CRM_Opticas".configuracion_facturacion WHERE optica_id = $1',
+  // 1. Obtener o inicializar configuración
+  let resConf = await cliente.query(
+    'SELECT prefijo, siguiente_numero, bloqueado FROM "CRM_Opticas".configuracion_facturacion WHERE optica_id = $1',
     [idOpticaSeguro]
   );
 
-  if (res.rows.length === 0) {
-    await pool.query(
-      `INSERT INTO "CRM_Opticas".configuracion_facturacion (optica_id, prefijo, siguiente_numero, bloqueado)
-       VALUES ($1, 'FAC-', 1, FALSE)
+  if (resConf.rows.length === 0) {
+    await cliente.query(
+      `INSERT INTO "CRM_Opticas".configuracion_facturacion (optica_id, prefijo, siguiente_numero, bloqueado, actualizado_en)
+       VALUES ($1, 'FAC-', 1, FALSE, NOW())
        ON CONFLICT (optica_id) DO NOTHING`,
       [idOpticaSeguro]
     );
-    res = await pool.query(
-      'SELECT prefijo, siguiente_numero, bloqueado, actualizado_en FROM "CRM_Opticas".configuracion_facturacion WHERE optica_id = $1',
+    resConf = await cliente.query(
+      'SELECT prefijo, siguiente_numero, bloqueado FROM "CRM_Opticas".configuracion_facturacion WHERE optica_id = $1',
       [idOpticaSeguro]
     );
   }
 
-  const fila = res.rows[0] || { prefijo: 'FAC-', siguiente_numero: 1, bloqueado: false };
-  const prefijo = fila.prefijo || 'FAC-';
-  const siguienteNumero = Number(fila.siguiente_numero) || 1;
-  const bloqueado = tieneVentas || Boolean(fila.bloqueado);
+  const confActual = resConf.rows[0] || { prefijo: 'FAC-', siguiente_numero: 1, bloqueado: false };
+  const prefijo = confActual.prefijo || 'FAC-';
 
+  // 2. Obtener todas las facturas existentes de la óptica
+  const resVentas = await cliente.query(
+    'SELECT numero_factura FROM "CRM_Opticas".ventas WHERE optica_id = $1',
+    [idOpticaSeguro]
+  );
+
+  let siguienteCalculado = 1;
+  const tieneVentas = resVentas.rows.length > 0;
+
+  if (tieneVentas) {
+    const numeros = resVentas.rows
+      .map((r) => extraerNumeroConsecutivo(r.numero_factura, prefijo))
+      .filter((n) => n > 0);
+
+    siguienteCalculado = numeros.length > 0 ? Math.max(...numeros) + 1 : resVentas.rows.length + 1;
+  } else {
+    // Si no tiene ventas emitidas (o fueron eliminadas todas):
+    // Si fue configurado manualmente antes de cualquier venta (bloqueado === false) y es mayor a 1, se respeta.
+    // De lo contrario, se reinicia ordenadamente a 1 y se desbloquea la configuración.
+    const numActual = Number(confActual.siguiente_numero) || 1;
+    if (!confActual.bloqueado && numActual > 1) {
+      siguienteCalculado = numActual;
+    } else {
+      siguienteCalculado = 1;
+    }
+  }
+
+  // 3. Persistir atómicamente la sincronización en configuracion_facturacion
+  await cliente.query(
+    `INSERT INTO "CRM_Opticas".configuracion_facturacion (optica_id, prefijo, siguiente_numero, bloqueado, actualizado_en)
+     VALUES ($1, $2, $3, $4, NOW())
+     ON CONFLICT (optica_id) DO UPDATE SET
+       siguiente_numero = EXCLUDED.siguiente_numero,
+       bloqueado = EXCLUDED.bloqueado,
+       actualizado_en = NOW()`,
+    [idOpticaSeguro, prefijo, siguienteCalculado, tieneVentas]
+  );
+
+  return {
+    prefijo,
+    siguiente_numero: siguienteCalculado,
+    bloqueado: tieneVentas,
+    total_ventas: resVentas.rows.length,
+    proxima_factura: formatearNumeroFactura(prefijo, siguienteCalculado),
+  };
+}
+
+/**
+ * Obtiene la configuración de facturación para la óptica sincronizada en tiempo real con las ventas existentes
+ * @param {number} opticaId 
+ */
+export async function obtenerConfiguracionFacturacion(opticaId) {
+  const idOpticaSeguro = Number(opticaId) || 1;
+  const sync = await sincronizarConsecutivoFacturacion(idOpticaSeguro, pool);
   return {
     exito: true,
     optica_id: idOpticaSeguro,
-    prefijo,
-    siguiente_numero: siguienteNumero,
-    proxima_factura: formatearNumeroFactura(prefijo, siguienteNumero),
-    bloqueado,
-    total_ventas: totalVentas,
+    ...sync,
   };
 }
 
@@ -311,27 +371,45 @@ export async function crearVenta(opticaId, datos = {}) {
 
     // 1. Obtener y bloquear la configuración de facturación para asignar el siguiente consecutivo atómico
     let resConfig = await cliente.query(
-      'SELECT prefijo, siguiente_numero FROM "CRM_Opticas".configuracion_facturacion WHERE optica_id = $1 FOR UPDATE',
+      'SELECT prefijo, siguiente_numero, bloqueado FROM "CRM_Opticas".configuracion_facturacion WHERE optica_id = $1 FOR UPDATE',
       [idOpticaSeguro]
     );
 
     if (resConfig.rows.length === 0) {
       await cliente.query(
-        `INSERT INTO "CRM_Opticas".configuracion_facturacion (optica_id, prefijo, siguiente_numero, bloqueado)
-         VALUES ($1, 'FAC-', 1, TRUE)`,
+        `INSERT INTO "CRM_Opticas".configuracion_facturacion (optica_id, prefijo, siguiente_numero, bloqueado, actualizado_en)
+         VALUES ($1, 'FAC-', 1, FALSE, NOW())
+         ON CONFLICT (optica_id) DO NOTHING`,
         [idOpticaSeguro]
       );
       resConfig = await cliente.query(
-        'SELECT prefijo, siguiente_numero FROM "CRM_Opticas".configuracion_facturacion WHERE optica_id = $1 FOR UPDATE',
+        'SELECT prefijo, siguiente_numero, bloqueado FROM "CRM_Opticas".configuracion_facturacion WHERE optica_id = $1 FOR UPDATE',
         [idOpticaSeguro]
       );
     }
 
-    const { prefijo, siguiente_numero } = resConfig.rows[0];
-    const numeroConsecutivo = Number(siguiente_numero) || 1;
+    const prefijo = resConfig.rows[0]?.prefijo || 'FAC-';
+
+    // 2. Determinar el siguiente número consecutivo exacto basándose en las ventas existentes
+    const resVentas = await cliente.query(
+      'SELECT numero_factura FROM "CRM_Opticas".ventas WHERE optica_id = $1',
+      [idOpticaSeguro]
+    );
+
+    let numeroConsecutivo = 1;
+    if (resVentas.rows.length > 0) {
+      const numeros = resVentas.rows
+        .map((r) => extraerNumeroConsecutivo(r.numero_factura, prefijo))
+        .filter((n) => n > 0);
+      numeroConsecutivo = numeros.length > 0 ? Math.max(...numeros) + 1 : resVentas.rows.length + 1;
+    } else {
+      const numConf = Number(resConfig.rows[0]?.siguiente_numero) || 1;
+      numeroConsecutivo = (!resConfig.rows[0]?.bloqueado && numConf > 1) ? numConf : 1;
+    }
+
     const numeroFacturaFinal = formatearNumeroFactura(prefijo, numeroConsecutivo);
 
-    // 2. Validar datos requeridos
+    // 3. Validar datos requeridos
     const vendedorId = Number(datos.vendedor_id);
     if (!vendedorId || isNaN(vendedorId)) {
       throw new Error('Debes seleccionar un vendedor válido.');
@@ -391,12 +469,12 @@ export async function crearVenta(opticaId, datos = {}) {
       ]
     );
 
-    // 4. Incrementar consecutivo y congelar configuración inicial
+    // 4. Actualizar consecutivo al siguiente número (+1) y congelar configuración inicial
     await cliente.query(
       `UPDATE "CRM_Opticas".configuracion_facturacion 
-       SET siguiente_numero = siguiente_numero + 1, bloqueado = TRUE, actualizado_en = NOW()
+       SET siguiente_numero = $2, bloqueado = TRUE, actualizado_en = NOW()
        WHERE optica_id = $1`,
-      [idOpticaSeguro]
+      [idOpticaSeguro, numeroConsecutivo + 1]
     );
 
     await cliente.query('COMMIT');
@@ -491,19 +569,45 @@ export async function actualizarAbonosVenta(opticaId, ventaId, datos = {}) {
 }
 
 /**
- * Elimina una venta
+ * Elimina una venta y sincroniza de forma atómica el consecutivo de facturación
  * @param {number} opticaId 
  * @param {number} ventaId 
  */
 export async function eliminarVenta(opticaId, ventaId) {
   const idOpticaSeguro = Number(opticaId) || 1;
   const idVentaSeguro = Number(ventaId);
+  const cliente = await pool.connect();
 
-  await pool.query(
-    'DELETE FROM "CRM_Opticas".ventas WHERE id = $1 AND optica_id = $2',
-    [idVentaSeguro, idOpticaSeguro]
-  );
+  try {
+    await cliente.query('BEGIN');
 
-  return { exito: true, mensaje: 'Venta eliminada.' };
+    // 1. Eliminar la venta y verificar existencia
+    const resDel = await cliente.query(
+      'DELETE FROM "CRM_Opticas".ventas WHERE id = $1 AND optica_id = $2 RETURNING numero_factura',
+      [idVentaSeguro, idOpticaSeguro]
+    );
+
+    if (resDel.rows.length === 0) {
+      throw new Error('Venta no encontrada o no pertenece a esta óptica.');
+    }
+
+    const facturaEliminada = resDel.rows[0]?.numero_factura || '';
+
+    // 2. Sincronizar y recalcular el consecutivo inmediatamente para que no se pierda la secuencia
+    const sync = await sincronizarConsecutivoFacturacion(idOpticaSeguro, cliente);
+
+    await cliente.query('COMMIT');
+
+    return {
+      exito: true,
+      mensaje: `Factura ${facturaEliminada} eliminada exitosamente. Próximo consecutivo ajustado a ${sync.proxima_factura}.`,
+      siguiente_consecutivo: sync.proxima_factura,
+    };
+  } catch (error) {
+    await cliente.query('ROLLBACK');
+    throw error;
+  } finally {
+    cliente.release();
+  }
 }
 

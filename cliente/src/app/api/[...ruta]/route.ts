@@ -484,7 +484,7 @@ async function procesarPeticion(
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; padding: 24px; margin: 0; color: #1e293b;">
           <div style="max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; padding: 36px 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
             <div style="text-align: center; margin-bottom: 24px;">
-              <span style="font-size: 26px; font-weight: 800; color: #0284c7; letter-spacing: -0.5px;">CRM Ópticas</span>
+              <span style="font-size: 26px; font-weight: 800; color: #0284c7; letter-spacing: -0.5px;">Fokaly</span>
               <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b; font-weight: 500;">Autogestión de Seguridad</p>
             </div>
             <h2 style="font-size: 20px; font-weight: 700; color: #0f172a; margin: 0 0 12px 0;">Restablecimiento de contraseña</h2>
@@ -500,7 +500,7 @@ async function procesarPeticion(
               Si no realizaste esta solicitud, puedes ignorar este correo con total tranquilidad. Tu contraseña actual permanecerá sin cambios.
             </p>
             <div style="border-top: 1px solid #e2e8f0; padding-top: 18px; margin-top: 24px; text-align: center; font-size: 11px; color: #94a3b8;">
-              © ${new Date().getFullYear()} CRM Ópticas. Sistema Seguro de Gestión Clínica.
+              © ${new Date().getFullYear()} Fokaly. Sistema Seguro de Gestión Clínica.
             </div>
           </div>
         </body>
@@ -515,9 +515,9 @@ async function procesarPeticion(
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: process.env.RESEND_FROM_EMAIL || 'CRM Ópticas <onboarding@resend.dev>',
+            from: process.env.RESEND_FROM_EMAIL || 'Fokaly <onboarding@resend.dev>',
             to: [correoRegistrado],
-            subject: `Código de seguridad: ${codigoOtp} - CRM Ópticas`,
+            subject: `Código de seguridad: ${codigoOtp} - Fokaly`,
             html: htmlCorreo,
           }),
         });

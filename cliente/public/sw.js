@@ -1,4 +1,4 @@
-// Service Worker para Notificaciones Push Web - CRM Óptica v2.1.0
+// Service Worker para Notificaciones Push Web - Fokaly
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
@@ -14,13 +14,13 @@ self.addEventListener('push', (event) => {
       data = event.data.json();
     } catch (e) {
       data = {
-        titulo: 'CRM Óptica',
+        titulo: 'Fokaly',
         cuerpo: event.data.text(),
       };
     }
   }
 
-  const titulo = data.titulo || '🔔 Alerta de Atención - CRM Óptica';
+  const titulo = data.titulo || '🔔 Alerta de Atención - Fokaly';
   const opciones = {
     body: data.cuerpo || 'Un paciente requiere atención de un asesor humano.',
     icon: data.icono || '/icono-notificacion-192.png',

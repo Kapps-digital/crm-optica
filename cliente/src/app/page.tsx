@@ -231,9 +231,9 @@ export default function PaginaPrincipal() {
     return 0;
   }, [totalConversacionesNoLeidas, totalRequiereAsesor]);
 
-  // Actualización dinámica del título de la pestaña estilo WhatsApp Web: (N) CRM Óptica
+  // Actualización dinámica del título de la pestaña estilo WhatsApp Web: (N) Fokaly
   useEffect(() => {
-    document.title = conteoBadgeConversaciones > 0 ? `(${conteoBadgeConversaciones}) CRM Óptica` : 'CRM Óptica';
+    document.title = conteoBadgeConversaciones > 0 ? `(${conteoBadgeConversaciones}) Fokaly` : 'Fokaly';
   }, [conteoBadgeConversaciones]);
 
   // Monitoreo automático de inactividad de sesión (cierre tras tiempo configurado sin uso)

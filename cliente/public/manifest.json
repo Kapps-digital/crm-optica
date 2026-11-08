@@ -1,24 +1,29 @@
 {
-  "name": "CRM Ópticas",
-  "short_name": "CRM Ópticas",
-  "description": "Portal Unificado de Gestión Clínica & Mensajería Omnicanal",
+  "name": "Fokaly",
+  "short_name": "Fokaly",
+  "description": "Fokaly - Portal Unificado de Gestión Clínica & Mensajería Omnicanal",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0b132b",
+  "background_color": "#ffffff",
   "theme_color": "#0284c7",
   "icons": [
     {
       "src": "/icono-notificacion-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icono-app-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icono-app-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
-

@@ -180,18 +180,23 @@ export default function PaginaLogin() {
       <div className="login-decoracion-circulo circulo-2" />
 
       <div className="login-tarjeta-contenedor">
-        {/* Cabecera de la Tarjeta con Isotipo Neutro SaaS (3 clics activan accesos rápidos) */}
+        {/* Cabecera de la Tarjeta con Logotipo Oficial Fokaly (3 clics activan accesos rápidos) */}
         <div className="login-tarjeta-cabecera">
           <div
-            className="login-logo-circulo-saas"
+            className="login-logo-circulo-fokaly"
             onClick={manejarClicLogo}
             style={{ cursor: 'pointer', userSelect: 'none', touchAction: 'manipulation' }}
-            title="CRM Ópticas (3 toques para accesos rápidos)"
+            title="Fokaly (3 toques para accesos rápidos)"
           >
-            <Eye className="login-logo-icono-saas" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/icono-app-512.png"
+              alt="Logotipo Fokaly"
+              className="login-logo-img-fokaly"
+            />
           </div>
 
-          <h1 className="login-titulo">CRM Ópticas</h1>
+          <h1 className="login-titulo">Fokaly</h1>
           <p className="login-subtitulo">
             Portal Unificado de Gestión Clínica & Mensajería Omnicanal
           </p>
@@ -259,7 +264,7 @@ export default function PaginaLogin() {
 
               {esSuscripcionVencida && (
                 <a
-                  href="https://wa.me/573117415122?text=Hola%2C%20me%20comunico%20para%20reportar%20el%20pago%20de%20la%20mensualidad%20o%20solicitar%20las%20cuentas%20para%20reactivar%20el%20CRM."
+                  href="https://wa.me/573117415122?text=Hola%2C%20me%20comunico%20para%20reportar%20el%20pago%20de%20la%20mensualidad%20o%20solicitar%20las%20cuentas%20para%20reactivar%20mi%20cuenta%20en%20Fokaly."
                   target="_blank"
                   rel="noopener noreferrer"
                   title="Contactar a soporte vía WhatsApp (+57 311 7415122)"

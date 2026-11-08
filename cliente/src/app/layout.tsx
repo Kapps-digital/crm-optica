@@ -15,17 +15,23 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "CRM Óptica",
-  description: "Plataforma Integral de Mensajería Omnicanal y Gestión Optométrica",
+  title: "Fokaly",
+  description: "Fokaly - Plataforma Integral de Mensajería Omnicanal y Gestión Optométrica",
   manifest: "/manifest.json",
   icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-icon.png",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/icono-notificacion-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icono-app-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-icon.png", sizes: "180x180", type: "image/png" },
+    ],
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "CRM Ópticas",
+    title: "Fokaly",
   },
 };
 
