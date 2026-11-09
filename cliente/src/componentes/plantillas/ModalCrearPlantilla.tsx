@@ -280,6 +280,7 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
 
   return (
     <div
+      className="modal-backdrop-premium"
       onClick={(e) => {
         if (e.target === e.currentTarget && !guardando) manejarCerrar();
       }}
@@ -297,6 +298,7 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
       }}
     >
       <div
+        className="modal-tarjeta-premium"
         style={{
           backgroundColor: 'var(--fondo-tarjeta)',
           border: '1px solid var(--borde-tarjeta)',
@@ -362,11 +364,15 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
         </div>
 
         {/* Contenido dividido: Formulario a la izquierda (con scroll) | Previsualización WhatsApp a la derecha (sin scroll) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <div
+          className="modal-crear-plantilla-layout"
+          style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', flex: 1, minHeight: 0, overflow: 'hidden' }}
+        >
           {/* Lado izquierdo: Formulario de edición */}
           <form
             ref={refFormulario}
             onSubmit={manejarGuardar}
+            className="modal-crear-plantilla-formulario"
             style={{
               padding: '1.1rem 1.25rem',
               display: 'flex',
@@ -426,7 +432,10 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
             </div>
 
             {/* Categoría e Idioma (nombres limpios sin códigos) */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+            <div
+              className="modal-crear-plantilla-grid-dos-cols"
+              style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}
+            >
               <div>
                 <label
                   style={{
@@ -463,7 +472,7 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
                   }}
                 >
                   <Globe size={13} color="#10b981" />
-                  <span>Idioma de la plantilla <span className="asterisco-obligatorio">*</span></span>
+                  <span style={{ whiteSpace: 'nowrap' }}>Idioma de la plantilla <span className="asterisco-obligatorio">*</span></span>
                 </label>
                 <SelectorDesplegable
                   valor={idioma}
@@ -875,6 +884,7 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
               {botones.map((btn, idx) => (
                 <div
                   key={idx}
+                  className="modal-crear-plantilla-boton-tarjeta"
                   style={{
                     padding: '0.55rem',
                     backgroundColor: 'var(--fondo-tarjeta)',
@@ -885,9 +895,12 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
                     gap: '0.4rem',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <div
+                    className="modal-crear-plantilla-boton-fila"
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                  >
                     {/* Selector de Tipo oficial en español (sin iconos) */}
-                    <div style={{ width: '180px' }}>
+                    <div className="modal-crear-plantilla-boton-tipo-wrap" style={{ width: '180px' }}>
                       <SelectorDesplegable
                         valor={btn.tipo}
                         alCambiar={(val) => actualizarCampoBoton(idx, 'tipo', val)}
@@ -903,6 +916,7 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
                       onChange={(e) => actualizarCampoBoton(idx, 'texto', e.target.value)}
                       maxLength={25}
                       placeholder="Texto del botón (máx 25)"
+                      className="modal-crear-plantilla-boton-input-texto"
                       style={{
                         flex: 1,
                         padding: '0.35rem 0.6rem',
@@ -919,6 +933,7 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
                       type="button"
                       onClick={() => eliminarBoton(idx)}
                       title="Eliminar botón"
+                      className="modal-crear-plantilla-boton-eliminar"
                       style={{
                         padding: '0.35rem',
                         backgroundColor: 'transparent',
@@ -940,6 +955,7 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
                         value={btn.url || ''}
                         onChange={(e) => actualizarCampoBoton(idx, 'url', e.target.value)}
                         placeholder="Dirección web (ej: https://tuvisionoptica.com/catalogo)"
+                        className="modal-crear-plantilla-boton-input-extra"
                         style={{
                           flex: 1,
                           padding: '0.3rem 0.55rem',
@@ -961,6 +977,7 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
                         value={btn.telefono || ''}
                         onChange={(e) => actualizarCampoBoton(idx, 'telefono', e.target.value)}
                         placeholder="Número telefónico con indicativo (ej: +57 313 253 1694)"
+                        className="modal-crear-plantilla-boton-input-extra"
                         style={{
                           flex: 1,
                           padding: '0.3rem 0.55rem',
@@ -982,6 +999,7 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
                         value={btn.codigo || ''}
                         onChange={(e) => actualizarCampoBoton(idx, 'codigo', e.target.value)}
                         placeholder="Código de cupón o descuento (ej: SALUDVISUAL2026)"
+                        className="modal-crear-plantilla-boton-input-extra"
                         style={{
                           flex: 1,
                           padding: '0.3rem 0.55rem',
@@ -1092,6 +1110,7 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
 
           {/* Lado derecho: Previsualización en el simulador de WhatsApp (Ajustada sin scrollbar) */}
           <div
+            className="modal-crear-plantilla-previa"
             style={{
               backgroundColor: 'var(--fondo-base)',
               borderLeft: '1px solid var(--borde-tarjeta)',

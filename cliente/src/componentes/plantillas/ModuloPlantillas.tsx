@@ -25,6 +25,7 @@ import {
   Check,
   Trash2,
   UserX,
+  X,
 } from 'lucide-react';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
 import { SelectorDesplegable } from '../comunes/SelectorDesplegable';
@@ -90,6 +91,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
   // Modales
   const [modalCrearAbierto, setModalCrearAbierto] = useState(false);
   const [modalLanzarAbierto, setModalLanzarAbierto] = useState(false);
+  const [modalPreviaMovilAbierto, setModalPreviaMovilAbierto] = useState(false);
   const [plantillaSeleccionadaLanzar, setPlantillaSeleccionadaLanzar] = useState<PlantillaWhatsApp | null>(null);
   const [campanaVerFallidos, setCampanaVerFallidos] = useState<CampanaEnvioHistorial | null>(null);
   const [segmentoPreseleccionadoId, setSegmentoPreseleccionadoId] = useState<number | null>(
@@ -102,12 +104,14 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
       {
         id: 'biblioteca',
         etiqueta: 'Plantillas',
+        etiquetaCorta: 'Plantillas',
         icono: MessageSquare,
         conteo: plantillas.length,
       },
       {
         id: 'historial',
         etiqueta: 'Historial de Envíos',
+        etiquetaCorta: 'Historial',
         icono: History,
         conteo: historialLotes.length,
       },
@@ -308,6 +312,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
 
   return (
     <div
+      className="plantillas-pagina-contenedor"
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -322,6 +327,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
     >
       {/* 1. Barra Superior Unificada: Pestañas a la izquierda + Botones a la derecha */}
       <div
+        className="plantillas-barra-superior"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -332,19 +338,21 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
         }}
       >
         {/* Pestañas de Navegación con componente estandarizado BarraPestanas */}
-        <BarraPestanas<'biblioteca' | 'historial'>
-          pestanas={pestanasModulo}
-          pestanaActiva={pestanaActiva}
-          alCambiarPestana={(id) => {
-            setPestanaActiva(id);
-            if (id === 'historial') {
-              cargarHistorial();
-            }
-          }}
-        />
+        <div className="plantillas-fila-tabs">
+          <BarraPestanas<'biblioteca' | 'historial'>
+            pestanas={pestanasModulo}
+            pestanaActiva={pestanaActiva}
+            alCambiarPestana={(id) => {
+              setPestanaActiva(id);
+              if (id === 'historial') {
+                cargarHistorial();
+              }
+            }}
+          />
+        </div>
 
         {/* Acciones al lado derecho: Indicador de cuota + Sincronizar (icono con tooltip) + Nueva Plantilla */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+        <div className="plantillas-acciones-derecha" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           {/* Chip de cuota con EtiquetaTooltip Premium */}
           {cuota && (
             <EtiquetaTooltip
@@ -352,6 +360,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
               posicion="abajo"
             >
               <div
+                className="plantillas-cuota-chip"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -375,8 +384,11 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                     display: 'inline-block',
                   }}
                 />
-                <span>
+                <span className="cuota-texto-escritorio">
                   {cuota.disponibles_hoy} / {cuota.limite_diario} disp. hoy
+                </span>
+                <span className="cuota-texto-movil">
+                  {cuota.disponibles_hoy} disp.
                 </span>
               </div>
             </EtiquetaTooltip>
@@ -385,6 +397,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
           {/* Botón Sincronizar: SOLO ICONO con EtiquetaTooltip Premium */}
           <EtiquetaTooltip texto={sincronizandoMeta ? 'Sincronizando...' : 'Sincronizar plantillas'}>
             <button
+              className="plantillas-btn-sincronizar"
               onClick={manejarSincronizarConMeta}
               disabled={sincronizandoMeta || cargandoDatos}
               aria-label="Sincronizar plantillas"
@@ -417,6 +430,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
 
           {/* Botón Nueva Plantilla */}
           <button
+            className="plantillas-btn-nueva-escritorio"
             onClick={() => setModalCrearAbierto(true)}
             style={{
               display: 'flex',
@@ -483,6 +497,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
           {/* Barra de Filtros y Búsqueda */}
           <div
+            className="plantillas-filtros-barra"
             style={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -495,28 +510,102 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
               padding: '0.35rem 0.75rem',
             }}
           >
-            {/* Buscador de plantillas */}
-            <FiltroBusqueda
-              valor={busqueda}
-              alCambiar={setBusqueda}
-              placeholder="Buscar plantilla..."
-              flex="0 1 280px"
-              anchoMinimo="150px"
-              anchoMaximo="280px"
-              alto="28px"
-            />
+            {/* Fila del buscador (en móvil integra cuota y botón actualizar en la misma fila) */}
+            <div className="plantillas-fila-busqueda-completa">
+              <div className="plantillas-buscador-wrap">
+                <FiltroBusqueda
+                  valor={busqueda}
+                  alCambiar={setBusqueda}
+                  placeholder="Buscar plantilla..."
+                  flex="1"
+                  anchoMinimo="120px"
+                  anchoMaximo="280px"
+                  alto="28px"
+                />
+              </div>
+
+              {/* Acciones para móvil en la misma fila del buscador */}
+              <div className="plantillas-acciones-movil-busqueda">
+                {cuota && (
+                  <EtiquetaTooltip
+                    texto={`Capacidad oficial: ${cuota.disponibles_hoy} de ${cuota.limite_diario} mensajes disponibles hoy`}
+                    posicion="abajo"
+                  >
+                    <div
+                      className="plantillas-cuota-chip-movil"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        fontSize: '0.74rem',
+                        fontWeight: 700,
+                        color: 'var(--texto-secundario)',
+                        background: 'var(--fondo-base)',
+                        border: '1px solid var(--borde-suave)',
+                        padding: '0.35rem 0.55rem',
+                        borderRadius: '8px',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: '7px',
+                          height: '7px',
+                          borderRadius: '50%',
+                          backgroundColor: cuota.calidad_meta === 'GREEN' ? '#10b981' : '#f59e0b',
+                          display: 'inline-block',
+                        }}
+                      />
+                      <span>{cuota.disponibles_hoy} disp.</span>
+                    </div>
+                  </EtiquetaTooltip>
+                )}
+
+                <EtiquetaTooltip texto={sincronizandoMeta ? 'Sincronizando...' : 'Sincronizar plantillas'}>
+                  <button
+                    type="button"
+                    onClick={manejarSincronizarConMeta}
+                    disabled={sincronizandoMeta || cargandoDatos}
+                    aria-label="Sincronizar plantillas"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '32px',
+                      height: '32px',
+                      background: sincronizandoMeta ? 'rgba(var(--color-primario-rgb, 2, 132, 199), 0.12)' : 'var(--fondo-base)',
+                      border: '1px solid var(--borde-suave)',
+                      borderRadius: '8px',
+                      color: 'var(--color-primario)',
+                      cursor: sincronizandoMeta ? 'wait' : 'pointer',
+                      opacity: cargandoDatos ? 0.6 : 1,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <RefreshCw
+                      size={14}
+                      className={sincronizandoMeta ? 'animate-spin' : ''}
+                      style={{
+                        animation: sincronizandoMeta ? 'spin 0.85s linear infinite' : 'none',
+                        transformOrigin: 'center center',
+                      }}
+                    />
+                  </button>
+                </EtiquetaTooltip>
+              </div>
+            </div>
 
             {/* Filtros */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                <span style={{ fontSize: '0.76rem', color: 'var(--texto-secundario)', fontWeight: 600 }}>
+            <div className="plantillas-selectores-fila" style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
+              <div className="plantillas-selector-item" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <span className="plantillas-selector-etiqueta" style={{ fontSize: '0.76rem', color: 'var(--texto-secundario)', fontWeight: 600 }}>
                   Categoría:
                 </span>
                 <SelectorDesplegable
                   opciones={[
-                    { valor: 'TODAS', etiqueta: 'Todas' },
-                    { valor: 'MARKETING', etiqueta: 'Marketing' },
-                    { valor: 'UTILITY', etiqueta: 'Utilidad' },
+                    { valor: 'TODAS', etiqueta: 'Todas', etiquetaCorta: 'Cat: Todas' },
+                    { valor: 'MARKETING', etiqueta: 'Marketing', etiquetaCorta: 'Cat: Marketing' },
+                    { valor: 'UTILITY', etiqueta: 'Utilidad', etiquetaCorta: 'Cat: Utilidad' },
                   ]}
                   valor={filtroCategoria}
                   alCambiar={(val) => setFiltroCategoria(val)}
@@ -524,16 +613,16 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                 />
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                <span style={{ fontSize: '0.76rem', color: 'var(--texto-secundario)', fontWeight: 600 }}>
+              <div className="plantillas-selector-item" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <span className="plantillas-selector-etiqueta" style={{ fontSize: '0.76rem', color: 'var(--texto-secundario)', fontWeight: 600 }}>
                   Estado:
                 </span>
                 <SelectorDesplegable
                   opciones={[
-                    { valor: 'TODOS', etiqueta: 'Todos' },
-                    { valor: 'APPROVED', etiqueta: 'Aprobadas' },
-                    { valor: 'PENDING', etiqueta: 'En Revisión' },
-                    { valor: 'REJECTED', etiqueta: 'Rechazadas' },
+                    { valor: 'TODOS', etiqueta: 'Todos', etiquetaCorta: 'Est: Todos' },
+                    { valor: 'APPROVED', etiqueta: 'Aprobadas', etiquetaCorta: 'Est: Aprobadas' },
+                    { valor: 'PENDING', etiqueta: 'En Revisión', etiquetaCorta: 'Est: Revisión' },
+                    { valor: 'REJECTED', etiqueta: 'Rechazadas', etiquetaCorta: 'Est: Rechazadas' },
                   ]}
                   valor={filtroEstado}
                   alCambiar={(val) => setFiltroEstado(val)}
@@ -608,6 +697,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
             /* PANEL DIVIDIDO: CATÁLOGO IZQUIERDA + PREVIEW FIJO DERECHA */
             /* ======================================================== */
             <div
+              className="plantillas-layout-panel"
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'minmax(0, 1fr) 220px',
@@ -616,8 +706,8 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
               }}
             >
               {/* Columna Izquierda: Catálogo con al menos 3 plantillas por fila */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+              <div className="plantillas-catalogo-columna" style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                <div className="plantillas-texto-guia-previa" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.72rem', color: 'var(--texto-secundario)' }}>
                     Selecciona para previsualizar a la derecha
                   </span>
@@ -625,6 +715,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
 
                 {/* Cuadrícula optimizada: exactamente 3 plantillas por fila */}
                 <div
+                  className="plantillas-grid-catalogo"
                   style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
@@ -640,6 +731,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                     return (
                       <div
                         key={plantilla.id}
+                        className="plantilla-tarjeta-item"
                         onClick={() => setIdPlantillaSeleccionada(plantilla.id)}
                         style={{
                           background: 'var(--fondo-tarjeta)',
@@ -794,6 +886,35 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                             </span>
                           )}
                         </div>
+
+                        {/* Botones de acción táctiles en móvil */}
+                        <div className="plantilla-tarjeta-botones-movil">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIdPlantillaSeleccionada(plantilla.id);
+                              setModalPreviaMovilAbierto(true);
+                            }}
+                            className="btn-previa-movil"
+                          >
+                            <MessageSquare size={13} />
+                            <span>Ver Previa</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              abrirModalLanzarConPlantilla(plantilla);
+                            }}
+                            disabled={!estaAprobada}
+                            className={`btn-lanzar-movil ${estaAprobada ? 'activo' : 'deshabilitado'}`}
+                          >
+                            <Send size={13} />
+                            <span>Lanzar Lote</span>
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -802,6 +923,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
 
               {/* Columna Derecha: Previsualización Fija (Sticky) */}
               <div
+                className="plantillas-previsualizacion-columna"
                 style={{
                   position: 'sticky',
                   top: '0.4rem',
@@ -974,7 +1096,7 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
               </div>
             ) : (
               <>
-                <div style={{ overflowX: 'auto' }}>
+                <div className="plantillas-historial-tabla-escritorio" style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left', tableLayout: 'fixed' }}>
                   <thead>
                     <tr
@@ -1211,6 +1333,93 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                 </table>
               </div>
 
+              {/* Tarjetas de Historial para Móvil */}
+              <div className="plantillas-historial-tarjetas-movil">
+                {historialLotesPaginados.map((item) => {
+                  const { fecha: fechaCol, hora: horaCol } = formatearFechaComponentes(item.creado_en);
+                  const estaCompletado = (item.estado || '').toLowerCase() === 'completado';
+                  const estaFallido = (item.estado || '').toLowerCase() === 'fallido';
+                  return (
+                    <div key={item.id} className="plantillas-historial-card">
+                      <div className="historial-card-cabecera">
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--texto-principal)' }}>
+                            {item.nombre_campana}
+                          </div>
+                          <div style={{ fontSize: '0.70rem', color: 'var(--texto-secundario)', marginTop: '2px' }}>
+                            {fechaCol} · {horaCol}
+                          </div>
+                        </div>
+                        <span
+                          className={`badge-estado-lote ${estaCompletado ? 'completado' : estaFallido ? 'fallido' : 'parcial'}`}
+                        >
+                          {estaCompletado ? 'Completado' : estaFallido ? 'Fallido' : item.estado || 'Procesando'}
+                        </span>
+                      </div>
+
+                      <div className="historial-card-filas">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.74rem', color: 'var(--texto-secundario)' }}>
+                          {item.origen_tipo === 'segmento' ? (
+                            <>
+                              <Users size={12} color="#3b82f6" />
+                              <span>{item.segmento_nombre || 'Segmento Inteligente'}</span>
+                            </>
+                          ) : (
+                            <>
+                              <FileSpreadsheet size={12} color="#f59e0b" />
+                              <span>Lista Externa</span>
+                            </>
+                          )}
+                        </div>
+
+                        <div style={{ fontSize: '0.74rem', color: 'var(--color-primario)', fontWeight: 600 }}>
+                          {item.plantilla_etiqueta || 'Plantilla WhatsApp'}
+                        </div>
+                      </div>
+
+                      <div className="historial-card-metricas">
+                        <div className="metrica-item">
+                          <span className="metrica-valor exito">{item.total_enviados}</span>
+                          <span className="metrica-etiqueta">Enviados</span>
+                        </div>
+                        {item.total_fallidos > 0 ? (
+                          <div className="metrica-item">
+                            <span className="metrica-valor peligro">{item.total_fallidos}</span>
+                            <span className="metrica-etiqueta">Fallidos</span>
+                          </div>
+                        ) : null}
+                        <div className="metrica-item">
+                          <span className="metrica-valor">{item.total_destinatarios}</span>
+                          <span className="metrica-etiqueta">Total</span>
+                        </div>
+                      </div>
+
+                      <div className="historial-card-acciones">
+                        {(item.total_fallidos > 0 || estaFallido || (item.estado || '').toLowerCase() === 'parcial') && (
+                          <button
+                            type="button"
+                            onClick={() => setCampanaVerFallidos(item)}
+                            className="btn-fallidos-movil"
+                          >
+                            <UserX size={13} />
+                            <span>Ver Fallidos ({item.total_fallidos || 0})</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => manejarEliminarLote(item.id)}
+                          className="btn-eliminar-lote-movil"
+                          title="Eliminar lote"
+                        >
+                          <Trash2 size={13} />
+                          <span>Eliminar</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
               {/* Barra de Paginación Estandarizada para Historial de Envíos */}
               <BarraPaginacionTabla
                 totalRegistros={totalHistorialRegistros}
@@ -1281,6 +1490,130 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
         opticaId={opticaId}
         alCerrar={() => setCampanaVerFallidos(null)}
       />
+
+      {/* Modal Emergente de Previsualización Móvil de WhatsApp */}
+      {modalPreviaMovilAbierto && plantillaSeleccionada && (
+        <div
+          className="modal-backdrop-premium"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setModalPreviaMovilAbierto(false);
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+          }}
+        >
+          <div
+            className="modal-tarjeta-premium"
+            style={{
+              backgroundColor: 'var(--fondo-tarjeta)',
+              border: '1px solid var(--borde-tarjeta)',
+              borderRadius: 'var(--radio-lg, 16px)',
+              width: '100%',
+              maxWidth: '380px',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: 'var(--sombra-lg)',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                padding: '0.75rem 1rem',
+                borderBottom: '1px solid var(--borde-tarjeta)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'var(--fondo-elevado)',
+              }}
+            >
+              <div>
+                <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--color-primario)', textTransform: 'uppercase' }}>
+                  Vista Previa WhatsApp
+                </span>
+                <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: 'var(--texto-principal)' }}>
+                  {plantillaSeleccionada.etiqueta}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalPreviaMovilAbierto(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--texto-atenuado)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', justifyContent: 'center' }}>
+              <BurbujaWhatsApp
+                encabezadoTipo={plantillaSeleccionada.encabezado_tipo}
+                encabezadoContenido={plantillaSeleccionada.encabezado_contenido}
+                cuerpo={plantillaSeleccionada.cuerpo}
+                pie={plantillaSeleccionada.pie}
+                botones={plantillaSeleccionada.botones}
+                hora="11:07 a.m."
+                vistaPreviaVariables={false}
+                nombreOptica={nombreOptica}
+              />
+            </div>
+
+            {(plantillaSeleccionada.estado === 'APPROVED' || plantillaSeleccionada.estado === 'APROBADA') && (
+              <div style={{ padding: '0.75rem 1rem', borderTop: '1px solid var(--borde-tarjeta)', background: 'var(--fondo-base)' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalPreviaMovilAbierto(false);
+                    abrirModalLanzarConPlantilla(plantillaSeleccionada);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '0.6rem',
+                    backgroundColor: 'var(--color-primario)',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: 'var(--radio-md, 8px)',
+                    fontWeight: 700,
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.4rem',
+                  }}
+                >
+                  <Send size={14} />
+                  <span>Lanzar Lote con esta Plantilla</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Botón Flotante (FAB) para Móvil: Nueva Plantilla */}
+      <button
+        type="button"
+        className="plantillas-fab-nueva"
+        onClick={() => setModalCrearAbierto(true)}
+        aria-label="Nueva plantilla"
+      >
+        <Plus size={20} />
+        <span>Nueva Plantilla</span>
+      </button>
     </div>
   );
 };

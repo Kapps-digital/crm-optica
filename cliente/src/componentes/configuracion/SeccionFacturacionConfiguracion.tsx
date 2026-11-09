@@ -9,21 +9,17 @@ import {
   Plus,
   Users,
   Check,
-  UserX,
-  UserCheck,
 } from 'lucide-react';
 import {
   obtenerConfiguracionFacturacionApi,
   guardarConfiguracionFacturacionApi,
   obtenerVendedoresApi,
   crearVendedorApi,
-  desactivarVendedorApi,
   cambiarEstadoVendedorApi,
   type ConfiguracionFacturacion,
   type Vendedor,
 } from '@/servicios/api_crm';
 import { EtiquetaTooltip } from '../comunes/EtiquetaTooltip';
-import { ModalConfirmacionAccion } from '../comunes/ModalConfirmacionAccion';
 
 interface PropiedadesSeccionFacturacion {
   opticaId?: number;
@@ -53,7 +49,7 @@ export const SeccionFacturacionConfiguracion: React.FC<PropiedadesSeccionFactura
   const [cargandoVendedores, setCargandoVendedores] = useState(true);
   const [nuevoVendedorNombre, setNuevoVendedorNombre] = useState('');
   const [creandoVendedor, setCreandoVendedor] = useState(false);
-  const [vendedorParaAccion, setVendedorParaAccion] = useState<Vendedor | null>(null);
+  const [vendedorCambiandoId, setVendedorCambiandoId] = useState<number | null>(null);
 
   // Vendedores ordenados alfabéticamente de la A a la Z
   const vendedoresOrdenados = useMemo(() => {
@@ -153,6 +149,10 @@ export const SeccionFacturacionConfiguracion: React.FC<PropiedadesSeccionFactura
   };
 
   const ejecutarCambioEstadoVendedor = async (vendedor: Vendedor) => {
+    if (vendedorCambiandoId === vendedor.id) return;
+    setVendedorCambiandoId(vendedor.id);
+    setMensajeExito(null);
+    setMensajeError(null);
     try {
       const nuevoEstado = !vendedor.activo;
       const res = await cambiarEstadoVendedorApi(vendedor.id, nuevoEstado);
@@ -160,14 +160,17 @@ export const SeccionFacturacionConfiguracion: React.FC<PropiedadesSeccionFactura
         await cargarVendedores();
         setMensajeExito(
           nuevoEstado
-            ? `Vendedor "${vendedor.nombre}" reactivado correctamente.`
+            ? `Vendedor "${vendedor.nombre}" activado correctamente.`
             : `Vendedor "${vendedor.nombre}" desactivado correctamente.`
         );
+        setTimeout(() => setMensajeExito(null), 3000);
       } else {
         setMensajeError(res.error || 'No fue posible actualizar el vendedor');
       }
     } catch {
       setMensajeError('Error de conexión al actualizar vendedor');
+    } finally {
+      setVendedorCambiandoId(null);
     }
   };
 
@@ -505,102 +508,79 @@ export const SeccionFacturacionConfiguracion: React.FC<PropiedadesSeccionFactura
               <thead>
                 <tr style={{ background: 'var(--fondo-elevado)', borderBottom: '1px solid var(--borde-tarjeta)', color: 'var(--texto-atenuado)', fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase' }}>
                   <th style={{ padding: '0.5rem 0.75rem' }}>Nombre</th>
-                  <th style={{ padding: '0.5rem 0.75rem', width: '110px' }}>Estado</th>
-                  <th style={{ padding: '0.5rem 0.75rem', textAlign: 'right', width: '90px' }}>Acción</th>
+                  <th style={{ padding: '0.5rem 0.75rem', textAlign: 'right', width: '130px' }}>Estado</th>
                 </tr>
               </thead>
               <tbody>
-                {vendedoresOrdenados.map((v) => (
-                  <tr key={v.id} style={{ borderBottom: '1px solid var(--borde-tarjeta)', opacity: v.activo ? 1 : 0.6 }}>
-                    <td style={{ padding: '0.5rem 0.75rem', fontWeight: 600, color: 'var(--texto-principal)' }}>
-                      {v.nombre}
-                    </td>
-                    <td style={{ padding: '0.5rem 0.75rem' }}>
-                      <span
-                        style={{
-                          fontSize: '0.68rem',
-                          fontWeight: 700,
-                          padding: '0.12rem 0.45rem',
-                          borderRadius: '10px',
-                          background: v.activo ? 'rgba(16, 185, 129, 0.12)' : 'rgba(0, 0, 0, 0.06)',
-                          color: v.activo ? '#10b981' : 'var(--texto-atenuado)',
-                        }}
-                      >
-                        {v.activo ? 'Activo' : 'Inactivo'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>
-                      <EtiquetaTooltip texto={v.activo ? 'Desactivar vendedor' : 'Reactivar vendedor'} posicion="arriba">
-                        <button
-                          type="button"
-                          onClick={() => setVendedorParaAccion(v)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: v.activo ? '#ef4444' : '#10b981',
-                            padding: '0.2rem 0.4rem',
-                            borderRadius: '4px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.25rem',
-                            fontSize: '0.72rem',
-                            fontWeight: 600,
-                          }}
-                        >
-                          {v.activo ? <UserX size={13} /> : <UserCheck size={13} />}
-                          <span>{v.activo ? 'Desactivar' : 'Activar'}</span>
-                        </button>
-                      </EtiquetaTooltip>
-                    </td>
-                  </tr>
-                ))}
+                {vendedoresOrdenados.map((v) => {
+                  const estaCambiando = vendedorCambiandoId === v.id;
+                  return (
+                    <tr key={v.id} style={{ borderBottom: '1px solid var(--borde-tarjeta)', opacity: v.activo ? 1 : 0.65 }}>
+                      <td style={{ padding: '0.5rem 0.75rem', fontWeight: 600, color: 'var(--texto-principal)' }}>
+                        {v.nombre}
+                      </td>
+                      <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>
+                        <EtiquetaTooltip texto={v.activo ? 'Clic para desactivar' : 'Clic para activar'} posicion="arriba">
+                          <button
+                            type="button"
+                            onClick={() => ejecutarCambioEstadoVendedor(v)}
+                            disabled={estaCambiando}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              fontSize: '0.70rem',
+                              fontWeight: 700,
+                              padding: '0.22rem 0.65rem',
+                              borderRadius: '9999px',
+                              border: v.activo ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--borde-tarjeta)',
+                              background: v.activo ? 'rgba(16, 185, 129, 0.12)' : 'var(--fondo-elevado)',
+                              color: v.activo ? '#10b981' : 'var(--texto-atenuado)',
+                              cursor: estaCambiando ? 'wait' : 'pointer',
+                              transition: 'all 0.15s ease',
+                              outline: 'none',
+                              opacity: estaCambiando ? 0.6 : 1,
+                            }}
+                            onMouseEnter={(e) => {
+                              if (estaCambiando) return;
+                              if (v.activo) {
+                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)';
+                                e.currentTarget.style.color = '#ef4444';
+                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+                              } else {
+                                e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)';
+                                e.currentTarget.style.color = '#10b981';
+                                e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (estaCambiando) return;
+                              e.currentTarget.style.background = v.activo ? 'rgba(16, 185, 129, 0.12)' : 'var(--fondo-elevado)';
+                              e.currentTarget.style.color = v.activo ? '#10b981' : 'var(--texto-atenuado)';
+                              e.currentTarget.style.borderColor = v.activo ? 'rgba(16, 185, 129, 0.35)' : 'var(--borde-tarjeta)';
+                            }}
+                          >
+                            <span
+                              style={{
+                                width: '6px',
+                                height: '6px',
+                                borderRadius: '50%',
+                                background: v.activo ? '#10b981' : 'var(--texto-atenuado)',
+                                display: 'inline-block',
+                              }}
+                            />
+                            <span>{estaCambiando ? 'Actualizando...' : v.activo ? 'Activo' : 'Inactivo'}</span>
+                          </button>
+                        </EtiquetaTooltip>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
         </div>
       </div>
-
-      {/* Modal Corporativo Premium para Confirmar Activación / Desactivación */}
-      <ModalConfirmacionAccion
-        abierto={Boolean(vendedorParaAccion)}
-        alCerrar={() => setVendedorParaAccion(null)}
-        alConfirmar={async () => {
-          if (vendedorParaAccion) {
-            await ejecutarCambioEstadoVendedor(vendedorParaAccion);
-          }
-        }}
-        titulo={
-          vendedorParaAccion?.activo
-            ? '¿Deseas desactivar este vendedor?'
-            : '¿Deseas activar este vendedor?'
-        }
-        descripcion={
-          vendedorParaAccion?.activo ? (
-            <>
-              El vendedor <strong>{vendedorParaAccion.nombre}</strong> ya no aparecerá disponible para registrar nuevas ventas. Su histórico de ventas y comisiones se conservará intacto.
-            </>
-          ) : (
-            <>
-              El vendedor <strong>{vendedorParaAccion?.nombre}</strong> volverá a estar disponible en el selector de nuevas ventas y facturas.
-            </>
-          )
-        }
-        textoConfirmar={
-          vendedorParaAccion?.activo ? 'Sí, desactivar vendedor' : 'Sí, activar vendedor'
-        }
-        textoCancelar="Cancelar"
-        colorHero={vendedorParaAccion?.activo ? 'peligro' : 'primario'}
-        datosChip={
-          vendedorParaAccion
-            ? {
-                titulo: vendedorParaAccion.nombre,
-                subtitulo: 'Vendedor de Óptica',
-                etiquetaTag: vendedorParaAccion.activo ? 'Desactivar' : 'Activar',
-              }
-            : undefined
-        }
-      />
     </div>
   );
 };

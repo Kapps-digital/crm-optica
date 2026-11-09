@@ -9759,6 +9759,15 @@ button.kpi-chip:hover {
     padding: 0.65rem 0.75rem !important;
   }
 
+  /* Alternancia de textos largos/cortos en pestañas */
+  .pestana-texto-completo {
+    display: none !important;
+  }
+
+  .pestana-texto-corto {
+    display: inline !important;
+  }
+
   .campanas-filtros-fila-tabs {
     width: 100% !important;
     overflow-x: auto !important;
@@ -9769,6 +9778,24 @@ button.kpi-chip:hover {
 
   .campanas-filtros-fila-tabs::-webkit-scrollbar {
     display: none !important;
+  }
+
+  .campanas-filtros-fila-tabs .barra-pestanas-contenedor {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    width: 100% !important;
+    gap: 3px !important;
+    padding: 3px !important;
+  }
+
+  .campanas-filtros-fila-tabs .barra-pestanas-contenedor button {
+    flex: 1 1 0px !important;
+    min-width: 0 !important;
+    justify-content: center !important;
+    padding: 0.35rem 0.25rem !important;
+    font-size: 0.72rem !important;
+    gap: 0.3rem !important;
+    white-space: nowrap !important;
   }
 
   .campanas-filtros-fila-busqueda {
@@ -9882,6 +9909,398 @@ button.kpi-chip:hover {
     padding: 0.4rem 0.6rem !important;
     border-radius: var(--radio-md) !important;
     border: 1px solid var(--borde-tarjeta) !important;
+  }
+
+  /* ----------------------------------------------------
+     RESPONSIVE MÓVIL: MÓDULO PLANTILLAS
+     ---------------------------------------------------- */
+  .plantillas-pagina-contenedor {
+    padding: 0.65rem 0.75rem 5.5rem 0.75rem !important;
+    gap: 0.65rem !important;
+  }
+
+  .plantillas-barra-superior {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.5rem !important;
+  }
+
+  .plantillas-fila-tabs {
+    width: 100% !important;
+  }
+
+  .plantillas-fila-tabs .barra-pestanas-contenedor {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    width: 100% !important;
+    gap: 3px !important;
+    padding: 3px !important;
+  }
+
+  .plantillas-fila-tabs .barra-pestanas-contenedor button {
+    flex: 1 1 0px !important;
+    min-width: 0 !important;
+    justify-content: center !important;
+    padding: 0.35rem 0.35rem !important;
+    font-size: 0.74rem !important;
+    white-space: nowrap !important;
+  }
+
+  .plantillas-acciones-derecha {
+    display: none !important;
+  }
+
+  .plantillas-btn-nueva-escritorio {
+    display: none !important;
+  }
+
+  /* Botón FAB Flotante para Plantillas */
+  .plantillas-fab-nueva {
+    position: fixed !important;
+    bottom: 5.2rem !important;
+    right: 1.15rem !important;
+    z-index: 99 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+    background-color: var(--color-primario) !important;
+    color: #ffffff !important;
+    padding: 0.7rem 1.1rem !important;
+    border-radius: 9999px !important;
+    border: none !important;
+    font-weight: 700 !important;
+    font-size: 0.84rem !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22) !important;
+    cursor: pointer !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+  }
+
+  .plantillas-fab-nueva:active {
+    transform: scale(0.96) !important;
+  }
+
+  /* Filtros en biblioteca */
+  .plantillas-filtros-barra {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.5rem !important;
+    padding: 0.5rem 0.65rem !important;
+  }
+
+  .plantillas-fila-busqueda-completa {
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    gap: 0.45rem !important;
+  }
+
+  .plantillas-buscador-wrap {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+
+  .plantillas-buscador-wrap .filtro-busqueda-contenedor {
+    width: 100% !important;
+  }
+
+  .plantillas-acciones-movil-busqueda {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  .plantillas-selectores-fila {
+    display: flex !important;
+    width: 100% !important;
+    gap: 0.5rem !important;
+  }
+
+  .plantillas-selector-item {
+    flex: 1 1 0px !important;
+    min-width: 0 !important;
+  }
+
+  .plantillas-selector-etiqueta {
+    display: none !important;
+  }
+
+  .plantillas-texto-guia-previa {
+    display: none !important;
+  }
+
+  /* Catálogo a columna única */
+  .plantillas-layout-panel {
+    grid-template-columns: 1fr !important;
+  }
+
+  .plantillas-grid-catalogo {
+    grid-template-columns: 1fr !important;
+    gap: 0.65rem !important;
+  }
+
+  .plantillas-previsualizacion-columna {
+    display: none !important;
+  }
+
+  .plantilla-tarjeta-item {
+    padding: 0.75rem !important;
+  }
+
+  .plantilla-tarjeta-botones-movil {
+    display: flex !important;
+    gap: 0.45rem !important;
+    margin-top: 0.55rem !important;
+    padding-top: 0.45rem !important;
+    border-top: 1px dashed var(--borde-suave) !important;
+  }
+
+  .btn-previa-movil {
+    flex: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.35rem !important;
+    padding: 0.45rem 0.5rem !important;
+    background: var(--fondo-elevado) !important;
+    border: 1px solid var(--borde-tarjeta) !important;
+    border-radius: var(--radio-sm, 6px) !important;
+    color: var(--texto-principal) !important;
+    font-size: 0.74rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+  }
+
+  .btn-lanzar-movil {
+    flex: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.35rem !important;
+    padding: 0.45rem 0.5rem !important;
+    border-radius: var(--radio-sm, 6px) !important;
+    font-size: 0.74rem !important;
+    font-weight: 700 !important;
+    border: none !important;
+    cursor: pointer !important;
+  }
+
+  .btn-lanzar-movil.activo {
+    background: var(--color-primario) !important;
+    color: #ffffff !important;
+  }
+
+  .btn-lanzar-movil.deshabilitado {
+    background: var(--fondo-elevado) !important;
+    color: var(--texto-atenuado) !important;
+    cursor: not-allowed !important;
+  }
+
+  /* Historial de envíos en móvil */
+  .plantillas-historial-tabla-escritorio {
+    display: none !important;
+  }
+
+  .plantillas-historial-tarjetas-movil {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.65rem !important;
+    padding: 0.5rem !important;
+  }
+
+  .plantillas-historial-card {
+    background: var(--fondo-tarjeta) !important;
+    border: 1px solid var(--borde-suave) !important;
+    border-radius: var(--radio-md, 10px) !important;
+    padding: 0.75rem !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+    box-shadow: var(--sombra-sm) !important;
+  }
+
+  .historial-card-cabecera {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    gap: 0.5rem !important;
+  }
+
+  .badge-estado-lote {
+    font-size: 0.66rem !important;
+    font-weight: 700 !important;
+    padding: 0.15rem 0.5rem !important;
+    border-radius: 9999px !important;
+  }
+
+  .badge-estado-lote.completado {
+    background: rgba(16, 185, 129, 0.12) !important;
+    color: #10b981 !important;
+    border: 1px solid rgba(16, 185, 129, 0.25) !important;
+  }
+
+  .badge-estado-lote.fallido {
+    background: rgba(239, 68, 68, 0.12) !important;
+    color: #ef4444 !important;
+    border: 1px solid rgba(239, 68, 68, 0.25) !important;
+  }
+
+  .badge-estado-lote.parcial {
+    background: rgba(245, 158, 11, 0.12) !important;
+    color: #d97706 !important;
+    border: 1px solid rgba(245, 158, 11, 0.25) !important;
+  }
+
+  .historial-card-filas {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.5rem !important;
+    padding: 0.25rem 0 !important;
+    border-top: 1px dashed var(--borde-suave) !important;
+    border-bottom: 1px dashed var(--borde-suave) !important;
+  }
+
+  .historial-card-metricas {
+    display: flex !important;
+    justify-content: space-around !important;
+    background: var(--fondo-base) !important;
+    padding: 0.4rem 0.5rem !important;
+    border-radius: var(--radio-sm, 6px) !important;
+  }
+
+  .metrica-item {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+
+  .metrica-valor {
+    font-size: 0.85rem !important;
+    font-weight: 800 !important;
+    color: var(--texto-principal) !important;
+  }
+
+  .metrica-valor.exito {
+    color: #10b981 !important;
+  }
+
+  .metrica-valor.peligro {
+    color: #ef4444 !important;
+  }
+
+  .metrica-etiqueta {
+    font-size: 0.62rem !important;
+    font-weight: 600 !important;
+    color: var(--texto-secundario) !important;
+    text-transform: uppercase !important;
+  }
+
+  .historial-card-acciones {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 0.5rem !important;
+    margin-top: 0.2rem !important;
+  }
+
+  .btn-fallidos-movil {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+    padding: 0.35rem 0.65rem !important;
+    background: rgba(239, 68, 68, 0.1) !important;
+    border: 1px solid rgba(239, 68, 68, 0.25) !important;
+    border-radius: 6px !important;
+    color: #ef4444 !important;
+    font-size: 0.73rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+  }
+
+  .btn-eliminar-lote-movil {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+    padding: 0.35rem 0.65rem !important;
+    background: transparent !important;
+    border: 1px solid var(--borde-suave) !important;
+    border-radius: 6px !important;
+    color: var(--texto-secundario) !important;
+    font-size: 0.73rem !important;
+    cursor: pointer !important;
+  }
+
+  /* Modales en móvil */
+  .modal-tarjeta-premium {
+    overflow-x: hidden !important;
+  }
+
+  .modal-crear-plantilla-layout {
+    grid-template-columns: 1fr !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  .modal-crear-plantilla-previa {
+    display: none !important;
+  }
+
+  .modal-crear-plantilla-formulario {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 0.85rem 0.95rem !important;
+  }
+
+  /* Categoría e Idioma en una sola columna en celular para no apretar etiquetas */
+  .modal-crear-plantilla-grid-dos-cols {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Botones interactivos adaptados a pantalla táctil sin desbordamiento horizontal */
+  .modal-crear-plantilla-boton-tarjeta {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  .modal-crear-plantilla-boton-fila {
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    gap: 0.45rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .modal-crear-plantilla-boton-tipo-wrap {
+    width: 100% !important;
+    grid-column: 1 / 2 !important;
+    min-width: 0 !important;
+  }
+
+  .modal-crear-plantilla-boton-eliminar {
+    grid-column: 2 / 3 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0.45rem !important;
+  }
+
+  .modal-crear-plantilla-boton-input-texto {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .modal-crear-plantilla-boton-input-extra {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 }
 
@@ -10003,6 +10422,55 @@ button.kpi-chip:hover {
 
 .texto-largo-cabecera-escritorio {
   display: inline;
+}
+
+.pestana-texto-completo {
+  display: inline;
+}
+
+.pestana-texto-corto {
+  display: none;
+}
+
+/* Reglas Base para Módulo de Plantillas (Desktop) */
+.plantillas-fab-nueva {
+  display: none;
+}
+
+.plantillas-btn-nueva-escritorio {
+  display: inline-flex;
+}
+
+.cuota-texto-movil {
+  display: none;
+}
+
+.cuota-texto-escritorio {
+  display: inline;
+}
+
+.plantilla-tarjeta-botones-movil {
+  display: none;
+}
+
+.plantillas-historial-tarjetas-movil {
+  display: none;
+}
+
+.plantillas-historial-tabla-escritorio {
+  display: block;
+}
+
+.plantillas-acciones-movil-busqueda {
+  display: none;
+}
+
+.plantillas-fila-busqueda-completa {
+  display: contents;
+}
+
+.plantillas-texto-guia-previa {
+  display: flex;
 }
 
 /* Ocultar sección de alertas en celular exclusivamente en pantallas de escritorio */

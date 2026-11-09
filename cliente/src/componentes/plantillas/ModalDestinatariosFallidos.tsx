@@ -315,6 +315,7 @@ export const ModalDestinatariosFallidos: React.FC<PropiedadesModalDestinatariosF
 
   return (
     <div
+      className="modal-backdrop-premium"
       style={{
         position: 'fixed',
         inset: 0,
@@ -331,6 +332,7 @@ export const ModalDestinatariosFallidos: React.FC<PropiedadesModalDestinatariosF
       }}
     >
       <div
+        className="modal-tarjeta-premium"
         style={{
           width: '100%',
           maxWidth: '920px',

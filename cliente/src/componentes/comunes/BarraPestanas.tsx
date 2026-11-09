@@ -5,6 +5,7 @@ import React from 'react';
 export interface ElementoPestana<T extends string = string> {
   id: T;
   etiqueta: string;
+  etiquetaCorta?: string;
   icono?: React.ComponentType<{ size?: number; className?: string; style?: React.CSSProperties }>;
   conteo?: number;
   colorPersonalizado?: string;
@@ -106,7 +107,14 @@ export function BarraPestanas<T extends string = string>({
               />
             )}
 
-            <span>{p.etiqueta}</span>
+            {p.etiquetaCorta ? (
+              <>
+                <span className="pestana-texto-completo">{p.etiqueta}</span>
+                <span className="pestana-texto-corto">{p.etiquetaCorta}</span>
+              </>
+            ) : (
+              <span>{p.etiqueta}</span>
+            )}
 
             {p.conteo !== undefined && (
               <span

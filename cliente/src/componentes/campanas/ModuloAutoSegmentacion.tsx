@@ -157,18 +157,21 @@ export const ModuloAutoSegmentacion: React.FC<PropiedadesModuloAutoSegmentacion>
       {
         id: 'todos',
         etiqueta: 'Todos',
+        etiquetaCorta: 'Todos',
         icono: Layers,
         conteo: segmentos.length,
       },
       {
         id: 'sistema',
         etiqueta: 'Predeterminados',
+        etiquetaCorta: 'Sistema',
         icono: Sparkles,
         conteo: totalSistema,
       },
       {
         id: 'personalizados',
         etiqueta: 'Personalizados',
+        etiquetaCorta: 'Propios',
         icono: Sliders,
         conteo: totalPersonalizados,
       },
