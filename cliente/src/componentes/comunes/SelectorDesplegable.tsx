@@ -22,7 +22,10 @@ export interface PropiedadesSelectorDesplegable {
   opciones: (string | number | OpcionDesplegable)[];
   icono?: React.ComponentType<{ size?: number; className?: string }>;
   placeholder?: string;
+  ancho?: string | number;
   anchoMinimo?: string;
+  anchoMenuMinimo?: number;
+  coincidirAnchoBoton?: boolean;
   posicionAlineacion?: 'izquierda' | 'derecha';
   direccion?: 'abajo' | 'arriba';
   tamano?: 'normal' | 'compacto';
@@ -53,7 +56,10 @@ export const SelectorDesplegable: React.FC<PropiedadesSelectorDesplegable> = ({
   opciones = [],
   icono: IconoGeneral,
   placeholder = 'Seleccionar...',
+  ancho,
   anchoMinimo = '100%',
+  anchoMenuMinimo,
+  coincidirAnchoBoton = false,
   posicionAlineacion = 'izquierda',
   direccion = 'abajo',
   tamano = 'normal',
@@ -199,16 +205,20 @@ export const SelectorDesplegable: React.FC<PropiedadesSelectorDesplegable> = ({
     }
 
     const anchoBoton = rect.width;
-    const anchoMenuCalculado =
+    const anchoMinimoMenuPorDefecto =
       tamano === 'compacto'
-        ? Math.max(anchoBoton, conBuscador ? 240 : 165)
-        : Math.max(anchoBoton, conBuscador ? 260 : 220);
+        ? (conBuscador ? 240 : 165)
+        : (conBuscador ? 260 : 220);
+
+    const anchoMenuCalculado = coincidirAnchoBoton
+      ? anchoBoton
+      : Math.max(anchoBoton, anchoMenuMinimo ?? anchoMinimoMenuPorDefecto);
 
     const nuevosEstilos: React.CSSProperties = {
       position: 'fixed',
-      width: 'max-content',
+      width: coincidirAnchoBoton ? `${anchoBoton}px` : 'max-content',
       minWidth: `${anchoMenuCalculado}px`,
-      maxWidth: 'min(92vw, 440px)',
+      maxWidth: coincidirAnchoBoton ? `${anchoBoton}px` : 'min(92vw, 440px)',
       zIndex: 1000000,
     };
 
@@ -333,9 +343,9 @@ export const SelectorDesplegable: React.FC<PropiedadesSelectorDesplegable> = ({
       className={`selector-desplegable-contenedor ${estaAbierto ? 'abierto' : ''} ${tamano === 'compacto' ? 'compacto' : ''} ${className} ${deshabilitado ? 'deshabilitado' : ''}`}
       ref={referenciaContenedor}
       style={{
-        minWidth: anchoMinimo,
-        width: anchoMinimo === '100%' ? '100%' : undefined,
-        display: anchoMinimo === '100%' ? 'block' : 'inline-block',
+        width: ancho || (anchoMinimo === '100%' ? '100%' : undefined),
+        minWidth: anchoMinimo || (typeof ancho === 'number' ? `${ancho}px` : ancho),
+        display: (anchoMinimo === '100%' || ancho === '100%') ? 'block' : 'inline-block',
         ...style,
       }}
     >

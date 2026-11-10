@@ -517,8 +517,8 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                   valor={busqueda}
                   alCambiar={setBusqueda}
                   placeholder="Buscar plantilla..."
-                  flex="1"
-                  anchoMinimo="120px"
+                  flex="0 1 280px"
+                  anchoMinimo="150px"
                   anchoMaximo="280px"
                   alto="28px"
                 />
@@ -603,13 +603,15 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                 </span>
                 <SelectorDesplegable
                   opciones={[
-                    { valor: 'TODAS', etiqueta: 'Todas', etiquetaCorta: 'Cat: Todas' },
-                    { valor: 'MARKETING', etiqueta: 'Marketing', etiquetaCorta: 'Cat: Marketing' },
-                    { valor: 'UTILITY', etiqueta: 'Utilidad', etiquetaCorta: 'Cat: Utilidad' },
+                    { valor: 'TODAS', etiqueta: 'Todas' },
+                    { valor: 'MARKETING', etiqueta: 'Marketing' },
+                    { valor: 'UTILITY', etiqueta: 'Utilidad' },
                   ]}
                   valor={filtroCategoria}
                   alCambiar={(val) => setFiltroCategoria(val)}
-                  anchoMinimo="115px"
+                  ancho="145px"
+                  anchoMinimo="145px"
+                  coincidirAnchoBoton
                 />
               </div>
 
@@ -619,14 +621,16 @@ export const ModuloPlantillas: React.FC<PropiedadesModuloPlantillas> = ({
                 </span>
                 <SelectorDesplegable
                   opciones={[
-                    { valor: 'TODOS', etiqueta: 'Todos', etiquetaCorta: 'Est: Todos' },
-                    { valor: 'APPROVED', etiqueta: 'Aprobadas', etiquetaCorta: 'Est: Aprobadas' },
-                    { valor: 'PENDING', etiqueta: 'En Revisión', etiquetaCorta: 'Est: Revisión' },
-                    { valor: 'REJECTED', etiqueta: 'Rechazadas', etiquetaCorta: 'Est: Rechazadas' },
+                    { valor: 'TODOS', etiqueta: 'Todos' },
+                    { valor: 'APPROVED', etiqueta: 'Aprobadas' },
+                    { valor: 'PENDING', etiqueta: 'En Revisión' },
+                    { valor: 'REJECTED', etiqueta: 'Rechazadas' },
                   ]}
                   valor={filtroEstado}
                   alCambiar={(val) => setFiltroEstado(val)}
-                  anchoMinimo="135px"
+                  ancho="145px"
+                  anchoMinimo="145px"
+                  coincidirAnchoBoton
                 />
               </div>
             </div>
