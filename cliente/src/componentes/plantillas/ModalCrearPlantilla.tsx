@@ -281,9 +281,6 @@ export const ModalCrearPlantilla: React.FC<PropiedadesModalCrearPlantilla> = ({
   return (
     <div
       className="modal-backdrop-premium"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !guardando) manejarCerrar();
-      }}
       style={{
         position: 'fixed',
         inset: 0,

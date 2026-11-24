@@ -90,12 +90,12 @@ export const ModalReprogramarCita: React.FC<PropiedadesModalReprogramarCita> = (
     return () => window.removeEventListener('keydown', alPresionarTecla);
   }, [abierto]);
 
-  if (!abierto || !cita || !montado || cita.estado === 'completada') return null;
-
   const optSesion = obtenerOpticaSesion();
   const motivosDisponibles = useMemo(() => {
     return obtenerMotivosDisponiblesOptica(optSesion?.motivos_citas_json);
   }, [optSesion?.motivos_citas_json]);
+
+  if (!abierto || !cita || !montado || cita.estado === 'completada') return null;
 
   const formularioCompleto =
     fechaCita.trim() !== '' &&

@@ -628,7 +628,9 @@ export const ModalRegistrarVenta: React.FC<PropiedadesModalRegistrarVenta> = ({
             <div ref={refClienteContenedor} style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', position: 'relative' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '17px' }}>
                 <label style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--texto-principal)', height: '17px', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
-                  <span className="texto-largo-modal-escritorio">Nombre del </span>Paciente <span className="asterisco-obligatorio">*</span>
+                  <span>
+                    <span className="texto-largo-modal-escritorio">Nombre del </span>Paciente <span className="asterisco-obligatorio">*</span>
+                  </span>
                 </label>
                 {!pacienteSeleccionado && (
                   <button
